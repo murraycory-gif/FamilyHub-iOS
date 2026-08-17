@@ -50,8 +50,8 @@ struct MoneyText: View {
 
     var body: some View {
         Text(Money.cents(cents))
+            .foregroundStyle(AppTheme.navy)
             .font(.headline.monospacedDigit())
-            .foregroundStyle(AppTheme.forest)
     }
 }
 
@@ -106,7 +106,7 @@ struct FilterChip: View {
                 Capsule(style: .continuous)
                     .fill(selected ? AppTheme.forest : AppTheme.forestSoft)
             )
-            .foregroundStyle(selected ? AppTheme.bg : AppTheme.forest)
+            .foregroundStyle(selected ? Color.white : AppTheme.navy)
         }
         .buttonStyle(.plain)
     }

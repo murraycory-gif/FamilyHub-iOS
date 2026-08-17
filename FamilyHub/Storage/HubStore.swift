@@ -68,6 +68,18 @@ final class HubStore: ObservableObject {
             .sorted { $0.dueOn < $1.dueOn }
     }
 
+    func openReminders(for memberID: UUID) -> [ReminderItem] {
+        reminders.filter { !$0.isCompleted && $0.memberID == memberID }
+    }
+
+    func openTodos(for memberID: UUID) -> [TodoItem] {
+        todos.filter { !$0.isCompleted && $0.memberID == memberID }
+    }
+
+    func todayEvents(for memberID: UUID) -> [CalendarEvent] {
+        events(on: Date(), filter: .member(memberID))
+    }
+
     func upcomingItems(limit: Int = 12) -> [UpcomingItem] {
         let now = Date()
         var items: [UpcomingItem] = []

@@ -1,18 +1,23 @@
 import SwiftUI
 
-/// Warm paper + forest ink. Foundation palette — design pass comes next.
+/// Light paper surfaces with dark navy ink.
 enum AppTheme {
-    static let forest = Color(red: 0.184, green: 0.290, blue: 0.235)
-    static let forestSoft = Color(red: 0.890, green: 0.918, blue: 0.890)
-    static let clay = Color(red: 0.549, green: 0.353, blue: 0.235)
+    static let navy = Color(hex: "163A5F")
+    static let navySoft = Color(hex: "E6EEF6")
+    static let navyMuted = Color(hex: "5C738A")
 
-    static let bg = Color(red: 0.957, green: 0.937, blue: 0.902)
-    static let card = Color(red: 1.0, green: 0.988, blue: 0.969)
-    static let cardBorder = Color.black.opacity(0.06)
+    /// Legacy names used across the foundation — now navy.
+    static let forest = navy
+    static let forestSoft = navySoft
+    static let clay = Color(hex: "3D6A96")
 
-    static let text = Color(red: 0.102, green: 0.090, blue: 0.078)
-    static let textSecondary = Color(red: 0.420, green: 0.392, blue: 0.361)
-    static let textTertiary = Color(red: 0.580, green: 0.545, blue: 0.510)
+    static let bg = Color(hex: "F2F5F8")
+    static let card = Color.white
+    static let cardBorder = Color(hex: "163A5F").opacity(0.08)
+
+    static let text = Color(hex: "0F2236")
+    static let textSecondary = Color(hex: "5A6B7D")
+    static let textTertiary = Color(hex: "8A97A6")
 
     static let radiusL: CGFloat = 22
     static let radiusM: CGFloat = 14
@@ -29,7 +34,7 @@ extension Color {
         case 6:
             (r, g, b) = ((int >> 16) & 0xFF, (int >> 8) & 0xFF, int & 0xFF)
         default:
-            (r, g, b) = (47, 74, 60)
+            (r, g, b) = (22, 58, 95)
         }
         self.init(
             red: Double(r) / 255,
@@ -43,12 +48,12 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.semibold))
-            .foregroundStyle(AppTheme.bg)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.radiusM, style: .continuous)
-                    .fill(AppTheme.forest)
+                    .fill(AppTheme.navy)
                     .opacity(configuration.isPressed ? 0.88 : 1)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
@@ -60,12 +65,12 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(AppTheme.forest)
+            .foregroundStyle(AppTheme.navy)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
                 Capsule(style: .continuous)
-                    .fill(AppTheme.forestSoft)
+                    .fill(AppTheme.navySoft)
             )
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
