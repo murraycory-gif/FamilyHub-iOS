@@ -29,7 +29,10 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
 struct MainHubView: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var section: HubSection = .today
+    /// Optional — iOS `List(selection:)` requires `Binding<Selection?>`.
+    @State private var section: HubSection? = .today
+
+    private var currentSection: HubSection { section ?? .today }
 
     var body: some View {
         Group {
@@ -40,7 +43,7 @@ struct MainHubView: View {
                     detail
                 }
             } else {
-                TabView(selection: $section) {
+                TabView(selection: tabSelection) {
                     ForEach(HubSection.allCases) { item in
                         NavigationStack {
                             view(for: item)
@@ -54,25 +57,35 @@ struct MainHubView: View {
         .background(AppTheme.bg.ignoresSafeArea())
     }
 
+    private var tabSelection: Binding<HubSection> {
+        Binding(
+            get: { currentSection },
+            set: { section = $0 }
+        )
+    }
+
     private var sidebar: some View {
-        List(selection: $section) {
-            Section {
-                ForEach(HubSection.allCases) { item in
-                    Label(item.title, systemImage: item.symbol)
-                        .tag(item)
-                }
-            } header: {
-                Text(store.householdName.uppercased())
-            }
+        List(HubSection.allCases, id: \.self, selection: $section) { item in
+            Label(item.title, systemImage: item.symbol)
+                .tag(Optional(item))
         }
         .navigationTitle("FamilyHub")
         .listStyle(.sidebar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Text(store.householdName.uppercased())
+                .font(.caption.weight(.semibold))
+                .tracking(0.8)
+                .foregroundStyle(AppTheme.textTertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+        }
     }
 
     @ViewBuilder
     private var detail: some View {
         NavigationStack {
-            view(for: section)
+            view(for: currentSection)
         }
     }
 
