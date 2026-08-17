@@ -36,11 +36,13 @@ struct MemberAvatar: View {
     var body: some View {
         ZStack {
             Circle().fill(Color(hex: member.colorHex))
-            Image(systemName: member.symbol)
-                .font(.system(size: size * 0.42, weight: .semibold))
-                .foregroundStyle(.white)
+            Text(member.displayEmoji)
+                .font(.system(size: size * 0.48))
         }
         .frame(width: size, height: size)
+        .overlay {
+            Circle().stroke(Color.white.opacity(0.35), lineWidth: 1)
+        }
         .accessibilityLabel(member.name)
     }
 }
@@ -109,5 +111,25 @@ struct FilterChip: View {
             .foregroundStyle(selected ? Color.white : AppTheme.navy)
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct MemberReorderDelegate: DropDelegate {
+    let targetID: UUID
+    @Binding var draggingID: UUID?
+    let onMove: (UUID, UUID) -> Void
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingID = nil
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggingID, draggingID != targetID else { return }
+        onMove(draggingID, targetID)
     }
 }

@@ -80,6 +80,46 @@ struct FamilyMember: Identifiable, Codable, Hashable {
             allowanceBalanceCents: 0
         )
     }
+
+    var displayEmoji: String {
+        PersonStyle.emoji(fromStored: symbol)
+    }
+}
+
+enum PersonStyle {
+    static let colors: [String] = [
+        "0F172A", "1E293B", "163A5F", "1D4E89", "2563EB", "3B82F6", "0EA5E9", "06B6D4",
+        "0F766E", "14B8A6", "059669", "16A34A", "65A30D", "84CC16", "CA8A04", "F59E0B",
+        "EA580C", "F97316", "DC2626", "EF4444", "E11D48", "F43F5E", "DB2777", "EC4899",
+        "C026D3", "A855F7", "7C3AED", "8B5CF6", "4F46E5", "6366F1", "78716C", "A8A29E"
+    ]
+
+    static let emojis: [String] = [
+        "😎", "🤠", "🥳", "🤓", "🦊", "🐼", "🦁", "🐯",
+        "🐻", "🐨", "🐸", "🦄", "🐲", "🐙", "🦋", "🐶",
+        "🐱", "🐵", "🐧", "🦉", "🚀", "🌟", "⚡️", "🌈",
+        "🎯", "🏆", "⚽️", "🏀", "🏈", "🎾", "🏐", "🎮",
+        "🎸", "🎨", "📚", "🎤", "🎧", "🎹", "🍕", "🌮",
+        "🧁", "🍩", "🛹", "🚴", "🏊", "🧩", "🪁", "🧸"
+    ]
+
+    static func emoji(fromStored stored: String) -> String {
+        if looksLikeEmoji(stored) { return stored }
+        switch stored {
+        case "person.fill": return "😎"
+        case "figure.run": return "🏃"
+        case "soccerball": return "⚽️"
+        case "book.fill": return "📚"
+        case "gamecontroller.fill": return "🎮"
+        case "leaf.fill": return "🌿"
+        default: return "🙂"
+        }
+    }
+
+    static func looksLikeEmoji(_ value: String) -> Bool {
+        guard let scalar = value.unicodeScalars.first else { return false }
+        return scalar.value > 0x2000
+    }
 }
 
 struct CalendarEvent: Identifiable, Codable, Hashable {

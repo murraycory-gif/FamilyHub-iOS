@@ -31,17 +31,19 @@ struct MainHubView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     /// Optional — iOS `List(selection:)` requires `Binding<Selection?>`.
     @State private var section: HubSection? = .today
+    @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
     private var currentSection: HubSection { section ?? .today }
 
     var body: some View {
         Group {
             if sizeClass == .regular {
-                NavigationSplitView {
+                NavigationSplitView(columnVisibility: $columnVisibility) {
                     sidebar
                 } detail: {
                     detail
                 }
+                .navigationSplitViewStyle(.prominentDetail)
             } else {
                 TabView(selection: tabSelection) {
                     ForEach(HubSection.allCases) { item in
@@ -55,6 +57,12 @@ struct MainHubView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .onChange(of: section) { _, _ in
+            guard sizeClass == .regular else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                columnVisibility = .detailOnly
+            }
+        }
     }
 
     private var tabSelection: Binding<HubSection> {
@@ -86,6 +94,18 @@ struct MainHubView: View {
     private var detail: some View {
         NavigationStack {
             view(for: currentSection)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
+                            }
+                        } label: {
+                            Image(systemName: "line.3.horizontal")
+                        }
+                        .accessibilityLabel("Open menu")
+                    }
+                }
         }
     }
 

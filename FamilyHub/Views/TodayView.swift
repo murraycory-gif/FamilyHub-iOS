@@ -3,6 +3,7 @@ import SwiftUI
 struct TodayView: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var draggingID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -15,9 +16,15 @@ struct TodayView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 20)
 
-            SectionLabel(title: "Family")
-                .padding(.horizontal, 24)
-                .padding(.bottom, 10)
+            HStack {
+                SectionLabel(title: "Family")
+                Spacer()
+                Text("Hold a card to rearrange")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textTertiary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 10)
 
             memberStrip
         }
@@ -67,6 +74,20 @@ struct TodayView: View {
                     ForEach(store.members) { member in
                         MemberHomeCard(member: member)
                             .frame(width: cardWidth(in: geo.size.width), height: geo.size.height)
+                            .opacity(draggingID == member.id ? 0.45 : 1)
+                            .scaleEffect(draggingID == member.id ? 0.97 : 1)
+                            .onDrag {
+                                draggingID = member.id
+                                return NSItemProvider(object: member.id.uuidString as NSString)
+                            }
+                            .onDrop(
+                                of: [.text],
+                                delegate: MemberReorderDelegate(
+                                    targetID: member.id,
+                                    draggingID: $draggingID,
+                                    onMove: { store.moveMember(id: $0, before: $1) }
+                                )
+                            )
                     }
                 }
                 .padding(.horizontal, 24)
@@ -115,6 +136,10 @@ private struct MemberHomeCard: View {
                             .foregroundStyle(AppTheme.textSecondary)
                     }
                     Spacer(minLength: 0)
+                    Image(systemName: "line.3.horizontal")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.textTertiary)
+                        .accessibilityHidden(true)
                 }
 
                 HStack(spacing: 8) {

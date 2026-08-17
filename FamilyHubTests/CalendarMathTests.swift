@@ -20,4 +20,11 @@ final class CalendarMathTests: XCTestCase {
         let date = Date(timeIntervalSince1970: 1_787_000_000)
         XCTAssertEqual(CalendarMath.monthDays(containing: date).count, 42)
     }
+
+    func testPersonStyleMapsLegacySymbolsToEmoji() {
+        XCTAssertEqual(PersonStyle.emoji(fromStored: "figure.run"), "🏃")
+        XCTAssertEqual(PersonStyle.emoji(fromStored: "⚽️"), "⚽️")
+        XCTAssertTrue(PersonStyle.colors.count >= 24)
+        XCTAssertTrue(PersonStyle.emojis.count >= 24)
+    }
 }

@@ -106,7 +106,12 @@ final class HubStore: ObservableObject {
     }
 
     func addMember(_ member: FamilyMember) {
-        members.append(member)
+        if member.role == .parent {
+            let insertAt = members.lastIndex(where: { $0.role == .parent }).map { $0 + 1 } ?? 0
+            members.insert(member, at: insertAt)
+        } else {
+            members.append(member)
+        }
         persist()
     }
 
@@ -118,6 +123,25 @@ final class HubStore: ObservableObject {
 
     func deleteMember(_ id: UUID) {
         members.removeAll { $0.id == id }
+        persist()
+    }
+
+    /// Live reorder used by Today cards and Family. Parents stay first until someone drags them.
+    func moveMember(id: UUID, before targetID: UUID) {
+        guard let from = members.firstIndex(where: { $0.id == id }),
+              let to = members.firstIndex(where: { $0.id == targetID }),
+              from != to
+        else { return }
+        var next = members
+        let item = next.remove(at: from)
+        let dest = next.firstIndex(where: { $0.id == targetID }) ?? min(to, next.count)
+        next.insert(item, at: dest)
+        members = next
+        persist()
+    }
+
+    func moveMembers(from offsets: IndexSet, to offset: Int) {
+        members.move(fromOffsets: offsets, toOffset: offset)
         persist()
     }
 
@@ -362,9 +386,9 @@ struct UpcomingItem: Identifiable {
 
 enum SampleFamily {
     static func snapshot(now: Date = Date(), calendar: Calendar = .current) -> HubSnapshot {
-        let cory = FamilyMember.make(name: "Cory", role: .parent, colorHex: "2F4A3C", symbol: "person.fill")
-        let alex = FamilyMember.make(name: "Alex", role: .child, colorHex: "3D5A80", symbol: "figure.run")
-        let sam = FamilyMember.make(name: "Sam", role: .child, colorHex: "8C5A3C", symbol: "soccerball")
+        let cory = FamilyMember.make(name: "Cory", role: .parent, colorHex: "163A5F", symbol: "😎")
+        let alex = FamilyMember.make(name: "Alex", role: .child, colorHex: "2563EB", symbol: "🏃")
+        let sam = FamilyMember.make(name: "Sam", role: .child, colorHex: "EA580C", symbol: "⚽️")
 
         func day(_ offset: Int, hour: Int, minute: Int = 0) -> Date {
             let start = calendar.startOfDay(for: now)
