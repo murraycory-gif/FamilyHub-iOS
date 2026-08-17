@@ -1,5 +1,5 @@
 # Update if your Apple ID / team differ
-app_identifier("com.familyhub.app")
+app_identifier("com.corymurray.FamilyHub")
 # apple_id("you@example.com")
 # team_id("XXXXXXXXXX")
 
