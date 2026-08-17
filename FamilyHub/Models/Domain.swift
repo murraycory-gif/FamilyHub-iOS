@@ -1,0 +1,307 @@
+import Foundation
+
+// MARK: - Enums
+
+enum MemberRole: String, Codable, CaseIterable, Identifiable {
+    case parent
+    case child
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .parent: return "Parent"
+        case .child: return "Kid"
+        }
+    }
+}
+
+enum ChoreCadence: String, Codable, CaseIterable, Identifiable {
+    case once
+    case daily
+    case weekly
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .once: return "One time"
+        case .daily: return "Daily"
+        case .weekly: return "Weekly"
+        }
+    }
+}
+
+enum AssignmentStatus: String, Codable, CaseIterable, Identifiable {
+    case pending
+    case done
+    case approved
+    case paid
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .pending: return "To do"
+        case .done: return "Waiting approval"
+        case .approved: return "Earned"
+        case .paid: return "Paid"
+        }
+    }
+}
+
+// MARK: - Money
+
+enum Money {
+    static func cents(_ value: Int) -> String {
+        let sign = value < 0 ? "-" : ""
+        let absValue = abs(value)
+        return String(format: "%@ $%d.%02d", sign, absValue / 100, absValue % 100)
+    }
+}
+
+// MARK: - Models
+
+struct FamilyMember: Identifiable, Codable, Hashable {
+    var id: UUID
+    var name: String
+    var role: MemberRole
+    var colorHex: String
+    var symbol: String
+    var allowanceBalanceCents: Int
+
+    static func make(name: String, role: MemberRole, colorHex: String, symbol: String) -> FamilyMember {
+        FamilyMember(
+            id: UUID(),
+            name: name,
+            role: role,
+            colorHex: colorHex,
+            symbol: symbol,
+            allowanceBalanceCents: 0
+        )
+    }
+}
+
+struct CalendarEvent: Identifiable, Codable, Hashable {
+    var id: UUID
+    var title: String
+    var startAt: Date
+    var endAt: Date?
+    var allDay: Bool
+    var location: String
+    var notes: String
+    /// `nil` means the whole household.
+    var memberID: UUID?
+
+    static func make(
+        title: String,
+        startAt: Date,
+        endAt: Date? = nil,
+        allDay: Bool = false,
+        location: String = "",
+        notes: String = "",
+        memberID: UUID? = nil
+    ) -> CalendarEvent {
+        CalendarEvent(
+            id: UUID(),
+            title: title,
+            startAt: startAt,
+            endAt: endAt,
+            allDay: allDay,
+            location: location,
+            notes: notes,
+            memberID: memberID
+        )
+    }
+}
+
+struct ReminderItem: Identifiable, Codable, Hashable {
+    var id: UUID
+    var title: String
+    var dueAt: Date?
+    var isCompleted: Bool
+    var memberID: UUID?
+
+    static func make(title: String, dueAt: Date? = nil, memberID: UUID? = nil) -> ReminderItem {
+        ReminderItem(id: UUID(), title: title, dueAt: dueAt, isCompleted: false, memberID: memberID)
+    }
+}
+
+struct TodoItem: Identifiable, Codable, Hashable {
+    var id: UUID
+    var title: String
+    var notes: String
+    var isCompleted: Bool
+    var dueAt: Date?
+    var memberID: UUID?
+
+    static func make(title: String, notes: String = "", dueAt: Date? = nil, memberID: UUID? = nil) -> TodoItem {
+        TodoItem(
+            id: UUID(),
+            title: title,
+            notes: notes,
+            isCompleted: false,
+            dueAt: dueAt,
+            memberID: memberID
+        )
+    }
+}
+
+struct Chore: Identifiable, Codable, Hashable {
+    var id: UUID
+    var title: String
+    var details: String
+    var rewardCents: Int
+    var cadence: ChoreCadence
+
+    static func make(title: String, details: String = "", rewardCents: Int, cadence: ChoreCadence) -> Chore {
+        Chore(id: UUID(), title: title, details: details, rewardCents: rewardCents, cadence: cadence)
+    }
+}
+
+struct ChoreAssignment: Identifiable, Codable, Hashable {
+    var id: UUID
+    var choreID: UUID
+    var memberID: UUID
+    var dueOn: Date
+    var status: AssignmentStatus
+    var completedAt: Date?
+    var approvedAt: Date?
+
+    static func make(choreID: UUID, memberID: UUID, dueOn: Date) -> ChoreAssignment {
+        ChoreAssignment(
+            id: UUID(),
+            choreID: choreID,
+            memberID: memberID,
+            dueOn: Calendar.current.startOfDay(for: dueOn),
+            status: .pending,
+            completedAt: nil,
+            approvedAt: nil
+        )
+    }
+}
+
+struct LedgerEntry: Identifiable, Codable, Hashable {
+    var id: UUID
+    var memberID: UUID
+    var amountCents: Int
+    var reason: String
+    var createdAt: Date
+    var assignmentID: UUID?
+
+    static func make(
+        memberID: UUID,
+        amountCents: Int,
+        reason: String,
+        assignmentID: UUID? = nil,
+        at date: Date = Date()
+    ) -> LedgerEntry {
+        LedgerEntry(
+            id: UUID(),
+            memberID: memberID,
+            amountCents: amountCents,
+            reason: reason,
+            createdAt: date,
+            assignmentID: assignmentID
+        )
+    }
+}
+
+struct HubSnapshot: Codable {
+    var householdName: String
+    var members: [FamilyMember]
+    var events: [CalendarEvent]
+    var reminders: [ReminderItem]
+    var todos: [TodoItem]
+    var chores: [Chore]
+    var assignments: [ChoreAssignment]
+    var ledger: [LedgerEntry]
+}
+
+// MARK: - Chore engine (pure — unit tested)
+
+enum ChoreEngine {
+    static func complete(_ assignment: ChoreAssignment, at date: Date = Date()) -> ChoreAssignment {
+        guard assignment.status == .pending else { return assignment }
+        var next = assignment
+        next.status = .done
+        next.completedAt = date
+        return next
+    }
+
+    static func reopen(_ assignment: ChoreAssignment) -> ChoreAssignment {
+        guard assignment.status == .done else { return assignment }
+        var next = assignment
+        next.status = .pending
+        next.completedAt = nil
+        return next
+    }
+
+    static func approve(
+        _ assignment: ChoreAssignment,
+        chore: Chore,
+        at date: Date = Date()
+    ) -> (ChoreAssignment, LedgerEntry)? {
+        guard assignment.status == .done else { return nil }
+        var next = assignment
+        next.status = .approved
+        next.approvedAt = date
+        let entry = LedgerEntry.make(
+            memberID: assignment.memberID,
+            amountCents: chore.rewardCents,
+            reason: chore.title,
+            assignmentID: assignment.id,
+            at: date
+        )
+        return (next, entry)
+    }
+
+    static func markPaid(_ assignment: ChoreAssignment) -> ChoreAssignment {
+        guard assignment.status == .approved else { return assignment }
+        var next = assignment
+        next.status = .paid
+        return next
+    }
+
+    static func applyLedger(balance: Int, entry: LedgerEntry) -> Int {
+        balance + entry.amountCents
+    }
+}
+
+// MARK: - Calendar helpers
+
+enum DayFilter: Equatable {
+    case family
+    case member(UUID)
+}
+
+enum CalendarMath {
+    static func events(
+        _ events: [CalendarEvent],
+        on day: Date,
+        filter: DayFilter,
+        calendar: Calendar = .current
+    ) -> [CalendarEvent] {
+        events
+            .filter { calendar.isDate($0.startAt, inSameDayAs: day) }
+            .filter { event in
+                switch filter {
+                case .family:
+                    return true
+                case .member(let id):
+                    return event.memberID == nil || event.memberID == id
+                }
+            }
+            .sorted { $0.startAt < $1.startAt }
+    }
+
+    static func monthDays(containing date: Date, calendar: Calendar = .current) -> [Date] {
+        guard let interval = calendar.dateInterval(of: .month, for: date) else { return [] }
+        let first = interval.start
+        let weekday = calendar.component(.weekday, from: first)
+        let leading = weekday - calendar.firstWeekday
+        let pad = leading >= 0 ? leading : leading + 7
+        let start = calendar.date(byAdding: .day, value: -pad, to: first) ?? first
+        return (0..<42).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+    }
+}

@@ -1,0 +1,398 @@
+import Foundation
+
+@MainActor
+final class HubStore: ObservableObject {
+    @Published private(set) var householdName: String
+    @Published private(set) var members: [FamilyMember]
+    @Published private(set) var events: [CalendarEvent]
+    @Published private(set) var reminders: [ReminderItem]
+    @Published private(set) var todos: [TodoItem]
+    @Published private(set) var chores: [Chore]
+    @Published private(set) var assignments: [ChoreAssignment]
+    @Published private(set) var ledger: [LedgerEntry]
+    @Published var errorMessage: String?
+
+    private let fileManager: FileManager
+    private let snapshotURL: URL
+
+    init(rootURL: URL? = nil) {
+        fileManager = .default
+        let root = rootURL ?? Self.defaultRoot()
+        if !fileManager.fileExists(atPath: root.path) {
+            try? fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+        }
+        snapshotURL = root.appendingPathComponent("hub.json")
+        householdName = "Murray"
+        members = []
+        events = []
+        reminders = []
+        todos = []
+        chores = []
+        assignments = []
+        ledger = []
+        loadOrSeed()
+    }
+
+    private static func defaultRoot() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("FamilyHub", isDirectory: true)
+    }
+
+    // MARK: Lookups
+
+    func member(id: UUID) -> FamilyMember? {
+        members.first { $0.id == id }
+    }
+
+    func chore(id: UUID) -> Chore? {
+        chores.first { $0.id == id }
+    }
+
+    func parents() -> [FamilyMember] {
+        members.filter { $0.role == .parent }
+    }
+
+    func kids() -> [FamilyMember] {
+        members.filter { $0.role == .child }
+    }
+
+    func events(on day: Date, filter: DayFilter) -> [CalendarEvent] {
+        CalendarMath.events(events, on: day, filter: filter)
+    }
+
+    func openAssignments(for memberID: UUID? = nil) -> [ChoreAssignment] {
+        assignments
+            .filter { $0.status == .pending || $0.status == .done }
+            .filter { memberID == nil || $0.memberID == memberID }
+            .sorted { $0.dueOn < $1.dueOn }
+    }
+
+    func upcomingItems(limit: Int = 12) -> [UpcomingItem] {
+        let now = Date()
+        var items: [UpcomingItem] = []
+        for event in events where event.startAt >= now.addingTimeInterval(-60 * 30) {
+            items.append(.event(event))
+        }
+        for reminder in reminders where !reminder.isCompleted {
+            items.append(.reminder(reminder))
+        }
+        for todo in todos where !todo.isCompleted {
+            items.append(.todo(todo))
+        }
+        for assignment in assignments where assignment.status == .pending || assignment.status == .done {
+            items.append(.chore(assignment))
+        }
+        return Array(items.sorted { $0.sortDate < $1.sortDate }.prefix(limit))
+    }
+
+    // MARK: Members
+
+    func setHouseholdName(_ name: String) {
+        householdName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        persist()
+    }
+
+    func addMember(_ member: FamilyMember) {
+        members.append(member)
+        persist()
+    }
+
+    func updateMember(_ member: FamilyMember) {
+        guard let idx = members.firstIndex(where: { $0.id == member.id }) else { return }
+        members[idx] = member
+        persist()
+    }
+
+    func deleteMember(_ id: UUID) {
+        members.removeAll { $0.id == id }
+        persist()
+    }
+
+    // MARK: Events
+
+    func addEvent(_ event: CalendarEvent) {
+        events.append(event)
+        events.sort { $0.startAt < $1.startAt }
+        persist()
+    }
+
+    func updateEvent(_ event: CalendarEvent) {
+        guard let idx = events.firstIndex(where: { $0.id == event.id }) else { return }
+        events[idx] = event
+        events.sort { $0.startAt < $1.startAt }
+        persist()
+    }
+
+    func deleteEvent(_ id: UUID) {
+        events.removeAll { $0.id == id }
+        persist()
+    }
+
+    // MARK: Reminders
+
+    func addReminder(_ item: ReminderItem) {
+        reminders.insert(item, at: 0)
+        persist()
+    }
+
+    func toggleReminder(_ id: UUID) {
+        guard let idx = reminders.firstIndex(where: { $0.id == id }) else { return }
+        reminders[idx].isCompleted.toggle()
+        persist()
+    }
+
+    func deleteReminder(_ id: UUID) {
+        reminders.removeAll { $0.id == id }
+        persist()
+    }
+
+    // MARK: To-dos
+
+    func addTodo(_ item: TodoItem) {
+        todos.insert(item, at: 0)
+        persist()
+    }
+
+    func toggleTodo(_ id: UUID) {
+        guard let idx = todos.firstIndex(where: { $0.id == id }) else { return }
+        todos[idx].isCompleted.toggle()
+        persist()
+    }
+
+    func deleteTodo(_ id: UUID) {
+        todos.removeAll { $0.id == id }
+        persist()
+    }
+
+    // MARK: Chores
+
+    func addChore(_ chore: Chore) {
+        chores.insert(chore, at: 0)
+        persist()
+    }
+
+    func updateChore(_ chore: Chore) {
+        guard let idx = chores.firstIndex(where: { $0.id == chore.id }) else { return }
+        chores[idx] = chore
+        persist()
+    }
+
+    func deleteChore(_ id: UUID) {
+        chores.removeAll { $0.id == id }
+        assignments.removeAll { $0.choreID == id }
+        persist()
+    }
+
+    func assign(choreID: UUID, to memberID: UUID, dueOn: Date) {
+        assignments.append(.make(choreID: choreID, memberID: memberID, dueOn: dueOn))
+        persist()
+    }
+
+    func completeAssignment(_ id: UUID) {
+        guard let idx = assignments.firstIndex(where: { $0.id == id }) else { return }
+        assignments[idx] = ChoreEngine.complete(assignments[idx])
+        persist()
+    }
+
+    func reopenAssignment(_ id: UUID) {
+        guard let idx = assignments.firstIndex(where: { $0.id == id }) else { return }
+        assignments[idx] = ChoreEngine.reopen(assignments[idx])
+        persist()
+    }
+
+    @discardableResult
+    func approveAssignment(_ id: UUID) -> Bool {
+        guard let idx = assignments.firstIndex(where: { $0.id == id }),
+              let chore = chore(id: assignments[idx].choreID),
+              let result = ChoreEngine.approve(assignments[idx], chore: chore)
+        else { return false }
+        assignments[idx] = result.0
+        ledger.insert(result.1, at: 0)
+        if let memberIdx = members.firstIndex(where: { $0.id == result.1.memberID }) {
+            members[memberIdx].allowanceBalanceCents = ChoreEngine.applyLedger(
+                balance: members[memberIdx].allowanceBalanceCents,
+                entry: result.1
+            )
+        }
+        persist()
+        return true
+    }
+
+    func markAssignmentPaid(_ id: UUID) {
+        guard let idx = assignments.firstIndex(where: { $0.id == id }) else { return }
+        assignments[idx] = ChoreEngine.markPaid(assignments[idx])
+        persist()
+    }
+
+    func addManualAllowance(memberID: UUID, amountCents: Int, reason: String) {
+        let entry = LedgerEntry.make(memberID: memberID, amountCents: amountCents, reason: reason)
+        ledger.insert(entry, at: 0)
+        if let idx = members.firstIndex(where: { $0.id == memberID }) {
+            members[idx].allowanceBalanceCents = ChoreEngine.applyLedger(
+                balance: members[idx].allowanceBalanceCents,
+                entry: entry
+            )
+        }
+        persist()
+    }
+
+    // MARK: Persistence
+
+    private func loadOrSeed() {
+        guard fileManager.fileExists(atPath: snapshotURL.path) else {
+            apply(SampleFamily.snapshot())
+            persist()
+            return
+        }
+        do {
+            let data = try Data(contentsOf: snapshotURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let decoded = try decoder.decode(HubSnapshot.self, from: data)
+            apply(decoded)
+        } catch {
+            errorMessage = "Could not load FamilyHub data: \(error.localizedDescription)"
+            apply(SampleFamily.snapshot())
+        }
+    }
+
+    private func apply(_ snapshot: HubSnapshot) {
+        householdName = snapshot.householdName
+        members = snapshot.members
+        events = snapshot.events.sorted { $0.startAt < $1.startAt }
+        reminders = snapshot.reminders
+        todos = snapshot.todos
+        chores = snapshot.chores
+        assignments = snapshot.assignments
+        ledger = snapshot.ledger.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private func persist() {
+        let snapshot = HubSnapshot(
+            householdName: householdName,
+            members: members,
+            events: events,
+            reminders: reminders,
+            todos: todos,
+            chores: chores,
+            assignments: assignments,
+            ledger: ledger
+        )
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(snapshot)
+            try data.write(to: snapshotURL, options: [.atomic])
+        } catch {
+            errorMessage = "Could not save: \(error.localizedDescription)"
+        }
+    }
+}
+
+enum UpcomingKind {
+    case event, reminder, todo, chore
+}
+
+struct UpcomingItem: Identifiable {
+    let id: UUID
+    let kind: UpcomingKind
+    let title: String
+    let subtitle: String
+    let sortDate: Date
+    let memberID: UUID?
+
+    static func event(_ event: CalendarEvent) -> UpcomingItem {
+        UpcomingItem(
+            id: event.id,
+            kind: .event,
+            title: event.title,
+            subtitle: event.location.isEmpty ? "Calendar" : event.location,
+            sortDate: event.startAt,
+            memberID: event.memberID
+        )
+    }
+
+    static func reminder(_ item: ReminderItem) -> UpcomingItem {
+        UpcomingItem(
+            id: item.id,
+            kind: .reminder,
+            title: item.title,
+            subtitle: "Reminder",
+            sortDate: item.dueAt ?? Date.distantFuture,
+            memberID: item.memberID
+        )
+    }
+
+    static func todo(_ item: TodoItem) -> UpcomingItem {
+        UpcomingItem(
+            id: item.id,
+            kind: .todo,
+            title: item.title,
+            subtitle: "To-do",
+            sortDate: item.dueAt ?? Date.distantFuture,
+            memberID: item.memberID
+        )
+    }
+
+    static func chore(_ assignment: ChoreAssignment) -> UpcomingItem {
+        UpcomingItem(
+            id: assignment.id,
+            kind: .chore,
+            title: "Chore due",
+            subtitle: assignment.status.label,
+            sortDate: assignment.dueOn,
+            memberID: assignment.memberID
+        )
+    }
+}
+
+enum SampleFamily {
+    static func snapshot(now: Date = Date(), calendar: Calendar = .current) -> HubSnapshot {
+        let cory = FamilyMember.make(name: "Cory", role: .parent, colorHex: "2F4A3C", symbol: "person.fill")
+        let alex = FamilyMember.make(name: "Alex", role: .child, colorHex: "3D5A80", symbol: "figure.run")
+        let sam = FamilyMember.make(name: "Sam", role: .child, colorHex: "8C5A3C", symbol: "soccerball")
+
+        func day(_ offset: Int, hour: Int, minute: Int = 0) -> Date {
+            let start = calendar.startOfDay(for: now)
+            let shifted = calendar.date(byAdding: .day, value: offset, to: start) ?? start
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: shifted) ?? shifted
+        }
+
+        let dishes = Chore.make(title: "Dishes", details: "Load and wipe the counters.", rewardCents: 200, cadence: .daily)
+        let trash = Chore.make(title: "Take out trash", details: "Kitchen + bathrooms.", rewardCents: 150, cadence: .weekly)
+        let room = Chore.make(title: "Clean bedroom", details: "Floor, bed, desk.", rewardCents: 300, cadence: .weekly)
+        let lawn = Chore.make(title: "Mow the lawn", details: "Front and back.", rewardCents: 800, cadence: .weekly)
+
+        let a1 = ChoreAssignment.make(choreID: dishes.id, memberID: alex.id, dueOn: now)
+        let a2 = ChoreAssignment.make(choreID: trash.id, memberID: sam.id, dueOn: now)
+        let a3 = ChoreAssignment.make(choreID: room.id, memberID: alex.id, dueOn: calendar.date(byAdding: .day, value: 2, to: now) ?? now)
+        let a4 = ChoreAssignment.make(choreID: lawn.id, memberID: sam.id, dueOn: calendar.date(byAdding: .day, value: 3, to: now) ?? now)
+
+        return HubSnapshot(
+            householdName: "Murray",
+            members: [cory, alex, sam],
+            events: [
+                .make(title: "Soccer practice", startAt: day(0, hour: 16, minute: 30), endAt: day(0, hour: 18), location: "Lincoln Park field", memberID: sam.id),
+                .make(title: "Family dinner", startAt: day(0, hour: 18, minute: 30), location: "Home"),
+                .make(title: "Dentist", startAt: day(1, hour: 10), location: "Oak Street Dental", memberID: alex.id),
+                .make(title: "Piano", startAt: day(2, hour: 15, minute: 30), location: "Studio B", memberID: alex.id),
+                .make(title: "Game night", startAt: day(5, hour: 19), location: "Home"),
+            ],
+            reminders: [
+                .make(title: "Permission slip for field trip", dueAt: day(1, hour: 8), memberID: alex.id),
+                .make(title: "Trash night", dueAt: day(0, hour: 19), memberID: sam.id),
+                .make(title: "Pay soccer fees", dueAt: day(4, hour: 12), memberID: cory.id),
+            ],
+            todos: [
+                .make(title: "Grocery run", notes: "Milk, berries, sandwich bread", dueAt: day(0, hour: 17), memberID: cory.id),
+                .make(title: "Schedule oil change", dueAt: day(3, hour: 9), memberID: cory.id),
+                .make(title: "Pack gym bag", dueAt: day(0, hour: 15), memberID: sam.id),
+            ],
+            chores: [dishes, trash, room, lawn],
+            assignments: [a1, a2, a3, a4],
+            ledger: []
+        )
+    }
+}
