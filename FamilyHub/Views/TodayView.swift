@@ -8,37 +8,32 @@ struct TodayView: View {
     @State private var dragTranslation: CGFloat = 0
     @State private var dragOriginIndex: Int?
     @State private var showPlaceSheet = false
+    @State private var isCustomizing = false
+    @State private var showAddWidget = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-                .padding(.bottom, 14)
-
-            weatherStrip
-                .padding(.horizontal, 24)
-                .padding(.bottom, 14)
-
-            householdStats
-                .padding(.horizontal, 24)
-                .padding(.bottom, 18)
-
-            HStack {
-                SectionLabel(title: "Family")
-                Spacer()
-                Text("Hold a card, then slide")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.textTertiary)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                widgets
+                familySection
             }
             .padding(.horizontal, 24)
-            .padding(.bottom, 10)
-
-            memberStrip
+            .padding(.top, 6)
+            .padding(.bottom, 28)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("Hub")
+        .navigationTitle("HUB")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(isCustomizing ? "Done" : "Customize") {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isCustomizing.toggle()
+                    }
+                }
+            }
+        }
         .task(id: store.weatherPlace?.id) {
             if let place = store.weatherPlace {
                 await weather.load(place: place)
@@ -49,6 +44,11 @@ struct TodayView: View {
                 store.setWeatherPlace(place)
             }
         }
+        .sheet(isPresented: $showAddWidget) {
+            AddWidgetSheet { kind in
+                store.addHubWidget(kind)
+            }
+        }
     }
 
     private var header: some View {
@@ -57,17 +57,86 @@ struct TodayView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.textSecondary)
             Text("\(store.householdName) household")
-                .font(.system(size: 28, weight: .semibold, design: .serif))
+                .font(.system(size: 22, weight: .semibold, design: .serif))
                 .foregroundStyle(AppTheme.text)
+        }
+    }
+
+    private var widgets: some View {
+        VStack(spacing: 12) {
+            ForEach(Array(store.hubWidgets.enumerated()), id: \.element.id) { index, widget in
+                widgetChrome(widget, index: index) {
+                    widgetBody(widget)
+                }
+            }
+
+            if isCustomizing {
+                Button {
+                    showAddWidget = true
+                } label: {
+                    Label("Add to HUB", systemImage: "plus")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(store.unusedHubWidgets().isEmpty)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func widgetBody(_ widget: HubWidget) -> some View {
+        switch widget.kind {
+        case .cameras:
+            CamerasPlaceholderCard()
+        case .weather:
+            weatherStrip
+        case .snapshot:
+            householdStats
+        }
+    }
+
+    private func widgetChrome<Content: View>(_ widget: HubWidget, index: Int, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if isCustomizing {
+                HStack(spacing: 8) {
+                    Image(systemName: widget.kind.symbol)
+                    Text(widget.kind.title)
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Button {
+                        store.moveHubWidget(id: widget.id, by: -1)
+                    } label: {
+                        Image(systemName: "chevron.up")
+                    }
+                    .disabled(index == 0)
+                    Button {
+                        store.moveHubWidget(id: widget.id, by: 1)
+                    } label: {
+                        Image(systemName: "chevron.down")
+                    }
+                    .disabled(index == store.hubWidgets.count - 1)
+                    Button(role: .destructive) {
+                        store.removeHubWidget(widget.id)
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.navy)
+                .padding(.horizontal, 4)
+            }
+            content()
         }
     }
 
     private var weatherStrip: some View {
         HubCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("This week")
+                        Text("Weather")
                             .font(.headline)
                         Button {
                             showPlaceSheet = true
@@ -85,9 +154,7 @@ struct TodayView: View {
                         .buttonStyle(.plain)
                     }
                     Spacer()
-                    if weather.isLoading {
-                        ProgressView()
-                    }
+                    if weather.isLoading { ProgressView() }
                 }
 
                 if let errorMessage = weather.errorMessage, weather.days.isEmpty {
@@ -98,26 +165,24 @@ struct TodayView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(weather.days) { day in
-                                VStack(spacing: 6) {
+                                VStack(spacing: 4) {
                                     Text(day.weekday.uppercased())
                                         .font(.caption2.weight(.semibold))
                                         .foregroundStyle(AppTheme.textSecondary)
                                     Image(systemName: day.symbolName)
-                                        .font(.title3)
+                                        .font(.body)
                                         .foregroundStyle(AppTheme.navy)
                                         .symbolRenderingMode(.hierarchical)
-                                        .frame(height: 22)
                                     Text("\(day.high)°")
                                         .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(AppTheme.text)
                                     Text("\(day.low)°")
                                         .font(.caption2)
                                         .foregroundStyle(AppTheme.textTertiary)
                                 }
-                                .frame(width: 58)
-                                .padding(.vertical, 8)
+                                .frame(width: 52)
+                                .padding(.vertical, 6)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                                         .fill(AppTheme.navySoft.opacity(0.65))
                                 )
                             }
@@ -129,7 +194,7 @@ struct TodayView: View {
     }
 
     private var householdStats: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             householdStat("Open chores", "\(store.openAssignments().count)", "checkmark.circle")
             householdStat("Reminders", "\(store.reminders.filter { !$0.isCompleted }.count)", "bell")
             householdStat("To-dos", "\(store.todos.filter { !$0.isCompleted }.count)", "square.and.pencil")
@@ -138,12 +203,11 @@ struct TodayView: View {
 
     private func householdStat(_ title: String, _ value: String, _ symbol: String) -> some View {
         HubCard {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 Image(systemName: symbol)
                     .foregroundStyle(AppTheme.navy)
                 Text(value)
-                    .font(.system(size: 28, weight: .semibold, design: .serif))
-                    .foregroundStyle(AppTheme.text)
+                    .font(.system(size: 24, weight: .semibold, design: .serif))
                 Text(title)
                     .font(.caption)
                     .foregroundStyle(AppTheme.textSecondary)
@@ -151,32 +215,37 @@ struct TodayView: View {
         }
     }
 
+    private var familySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                SectionLabel(title: "Family")
+                Spacer()
+                Text("Hold a card, then slide")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textTertiary)
+            }
+            memberStrip
+        }
+    }
+
     private var memberStrip: some View {
         GeometryReader { geo in
             let width = cardWidth(in: geo.size.width)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 16) {
+                HStack(alignment: .top, spacing: 12) {
                     ForEach(store.members) { member in
                         MemberHomeCard(member: member)
-                            .frame(width: width, height: geo.size.height)
+                            .frame(width: width, height: 210)
                             .offset(x: draggingID == member.id ? dragTranslation : 0)
-                            .scaleEffect(draggingID == member.id ? 1.03 : 1)
-                            .shadow(
-                                color: draggingID == member.id ? AppTheme.navy.opacity(0.18) : .clear,
-                                radius: 18,
-                                y: 8
-                            )
+                            .scaleEffect(draggingID == member.id ? 1.02 : 1)
                             .zIndex(draggingID == member.id ? 10 : 0)
-                            .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.86), value: draggingID)
                             .highPriorityGesture(reorderGesture(for: member, cardWidth: width))
                     }
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 20)
             }
             .scrollDisabled(draggingID != nil)
-            .scrollClipDisabled()
         }
+        .frame(height: 210)
     }
 
     private func reorderGesture(for member: FamilyMember, cardWidth: CGFloat) -> some Gesture {
@@ -192,7 +261,7 @@ struct TodayView: View {
             }
             .onEnded { _ in
                 if let origin = dragOriginIndex {
-                    let step = cardWidth + 16
+                    let step = cardWidth + 12
                     let shift = Int((dragTranslation / step).rounded())
                     let target = min(max(origin + shift, 0), max(store.members.count - 1, 0))
                     if target != origin {
@@ -208,13 +277,111 @@ struct TodayView: View {
 
     private func cardWidth(in available: CGFloat) -> CGFloat {
         if sizeClass == .regular {
-            return min(420, max(320, (available - 48 - 16) / 2.15))
+            return min(300, max(240, (available - 12) / 2.4))
         }
-        return max(280, available - 64)
+        return max(230, available - 48)
     }
 }
 
-// MARK: - Per-person home card
+// MARK: - Cameras placeholder
+
+private struct CamerasPlaceholderCard: View {
+    private let cams = [
+        ("Front door", "door.left.hand.closed"),
+        ("Garage", "car.fill"),
+        ("Backyard", "leaf.fill"),
+        ("Driveway", "light.beacon.max.fill"),
+    ]
+
+    var body: some View {
+        HubCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Cameras")
+                        .font(.headline)
+                    Spacer()
+                    Text("Coming soon")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.navy)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(AppTheme.navySoft, in: Capsule())
+                }
+                HStack(spacing: 8) {
+                    ForEach(cams, id: \.0) { name, symbol in
+                        VStack(spacing: 8) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.black.opacity(0.78))
+                                Image(systemName: symbol)
+                                    .font(.title3)
+                                    .foregroundStyle(.white.opacity(0.7))
+                                Image(systemName: "video.slash.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                                    .padding(6)
+                            }
+                            .frame(height: 72)
+                            Text(name)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Add widget
+
+private struct AddWidgetSheet: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.dismiss) private var dismiss
+    var onAdd: (HubWidgetKind) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if store.unusedHubWidgets().isEmpty {
+                    Text("Every HUB tile is already on the screen. Remove one to add it back.")
+                        .foregroundStyle(AppTheme.textSecondary)
+                } else {
+                    ForEach(store.unusedHubWidgets()) { kind in
+                        Button {
+                            onAdd(kind)
+                            dismiss()
+                        } label: {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(kind.title).font(.headline)
+                                    Text(kind.detail)
+                                        .font(.caption)
+                                        .foregroundStyle(AppTheme.textSecondary)
+                                }
+                            } icon: {
+                                Image(systemName: kind.symbol)
+                                    .foregroundStyle(AppTheme.navy)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Add to HUB")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+// MARK: - Compact person card
 
 private struct MemberHomeCard: View {
     @EnvironmentObject private var store: HubStore
@@ -223,118 +390,86 @@ private struct MemberHomeCard: View {
     private var chores: [ChoreAssignment] { store.openAssignments(for: member.id) }
     private var reminders: [ReminderItem] { store.openReminders(for: member.id) }
     private var todos: [TodoItem] { store.openTodos(for: member.id) }
-    private var events: [CalendarEvent] { store.todayEvents(for: member.id) }
+    private var events: [CalendarEvent] { Array(store.todayEvents(for: member.id).prefix(2)) }
     private var accent: Color { Color(hex: member.colorHex) }
 
     var body: some View {
         HStack(spacing: 0) {
-            accent
-                .frame(width: 6)
-
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
-                    MemberAvatar(member: member, size: 48)
-                    VStack(alignment: .leading, spacing: 2) {
+            accent.frame(width: 5)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    MemberAvatar(member: member, size: 34)
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(member.name)
-                            .font(.system(size: 22, weight: .semibold, design: .serif))
-                            .foregroundStyle(AppTheme.text)
+                            .font(.system(size: 16, weight: .semibold, design: .serif))
                         Text(member.role.label)
-                            .font(.caption.weight(.semibold))
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "line.3.horizontal")
-                        .font(.body.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(AppTheme.textTertiary)
-                        .accessibilityHidden(true)
                 }
-
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     personStat(chores.count, "Chores")
-                    personStat(reminders.count, "Reminders")
+                    personStat(reminders.count, "Remind")
                     personStat(todos.count, "To-dos")
                 }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionLabel(title: "Today")
-                    if events.isEmpty {
-                        Text("Nothing on the calendar")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.textTertiary)
-                            .padding(.top, 4)
-                        Spacer(minLength: 0)
-                    } else {
-                        ScrollView(showsIndicators: false) {
-                            VStack(spacing: 8) {
-                                ForEach(events) { event in
-                                    eventRow(event)
-                                }
-                            }
+                if events.isEmpty {
+                    Text("Free today")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textTertiary)
+                } else {
+                    ForEach(events) { event in
+                        HStack(spacing: 6) {
+                            Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
+                                .font(.caption2.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(AppTheme.navy)
+                                .frame(width: 48, alignment: .leading)
+                            Text(event.title)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
                         }
                     }
                 }
+                Spacer(minLength: 0)
             }
-            .padding(18)
+            .padding(10)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
-        .shadow(color: AppTheme.navy.opacity(0.08), radius: 16, y: 6)
     }
 
     private func personStat(_ value: Int, _ title: String) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 1) {
             Text("\(value)")
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .font(.system(size: 16, weight: .semibold, design: .serif))
                 .foregroundStyle(AppTheme.navy)
-                .monospacedDigit()
             Text(title)
-                .font(.caption2.weight(.semibold))
+                .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(AppTheme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .padding(.vertical, 5)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(AppTheme.navySoft)
-        )
-    }
-
-    private func eventRow(_ event: CalendarEvent) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
-                .font(.caption.weight(.semibold).monospacedDigit())
-                .foregroundStyle(AppTheme.navy)
-                .frame(width: 58, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(event.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.text)
-                    .lineLimit(2)
-                if !event.location.isEmpty {
-                    Text(event.location)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.bg)
         )
     }
 }
 
-// MARK: - Location picker
+#Preview {
+    NavigationStack {
+        TodayView()
+    }
+    .environmentObject(HubStore())
+}
 
 struct WeatherPlaceSheet: View {
     @ObservedObject var weather: WeatherLoader
@@ -362,13 +497,8 @@ struct WeatherPlaceSheet: View {
                     Task { await useCurrent() }
                 } label: {
                     HStack {
-                        if locating {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "location.fill")
-                        }
-                        Text("Use current location")
-                            .font(.headline)
+                        if locating { ProgressView() } else { Image(systemName: "location.fill") }
+                        Text("Use current location").font(.headline)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -381,7 +511,7 @@ struct WeatherPlaceSheet: View {
                 }
 
                 if weather.searchResults.isEmpty {
-                    Text("Search Chicago, 60614, or any city. The place you pick is saved for the household.")
+                    Text("Search a city or ZIP. The place you pick is saved for the household.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
                 } else {
@@ -391,14 +521,9 @@ struct WeatherPlaceSheet: View {
                             dismiss()
                         } label: {
                             HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(place.label)
-                                        .font(.headline)
-                                        .foregroundStyle(AppTheme.text)
-                                }
+                                Text(place.label).font(.headline).foregroundStyle(AppTheme.text)
                                 Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundStyle(AppTheme.textTertiary)
+                                Image(systemName: "chevron.right").foregroundStyle(AppTheme.textTertiary)
                             }
                             .padding(12)
                             .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -412,9 +537,7 @@ struct WeatherPlaceSheet: View {
             .background(AppTheme.bg.ignoresSafeArea())
             .navigationTitle("Weather location")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
             }
         }
         .presentationDetents([.medium, .large])
@@ -425,18 +548,10 @@ struct WeatherPlaceSheet: View {
         locateError = nil
         defer { locating = false }
         do {
-            let place = try await weather.placeFromCurrentLocation()
-            onPick(place)
+            onPick(try await weather.placeFromCurrentLocation())
             dismiss()
         } catch {
             locateError = error.localizedDescription
         }
     }
-}
-
-#Preview {
-    NavigationStack {
-        TodayView()
-    }
-    .environmentObject(HubStore())
 }

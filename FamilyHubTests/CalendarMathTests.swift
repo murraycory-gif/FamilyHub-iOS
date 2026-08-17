@@ -32,4 +32,8 @@ final class CalendarMathTests: XCTestCase {
         XCTAssertEqual(WeatherIcon.symbol(for: 0), "sun.max.fill")
         XCTAssertEqual(WeatherIcon.symbol(for: 95), "cloud.bolt.rain.fill")
     }
+
+    func testDefaultHubWidgetsStartWithCamerasWeatherAndSnapshot() {
+        XCTAssertEqual(HubWidget.defaultSet.map(\.kind), [.cameras, .weather, .snapshot])
+    }
 }

@@ -11,6 +11,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var assignments: [ChoreAssignment]
     @Published private(set) var ledger: [LedgerEntry]
     @Published private(set) var weatherPlace: WeatherPlace?
+    @Published private(set) var hubWidgets: [HubWidget]
     @Published var errorMessage: String?
 
     private let fileManager: FileManager
@@ -32,6 +33,7 @@ final class HubStore: ObservableObject {
         assignments = []
         ledger = []
         weatherPlace = WeatherPlace.chicago
+        hubWidgets = HubWidget.defaultSet
         loadOrSeed()
     }
 
@@ -162,6 +164,31 @@ final class HubStore: ObservableObject {
     func setWeatherPlace(_ place: WeatherPlace) {
         weatherPlace = place
         persist()
+    }
+
+    func addHubWidget(_ kind: HubWidgetKind) {
+        guard !hubWidgets.contains(where: { $0.kind == kind }) else { return }
+        hubWidgets.append(.make(kind))
+        persist()
+    }
+
+    func removeHubWidget(_ id: UUID) {
+        hubWidgets.removeAll { $0.id == id }
+        persist()
+    }
+
+    func moveHubWidget(id: UUID, by delta: Int) {
+        guard let from = hubWidgets.firstIndex(where: { $0.id == id }) else { return }
+        let to = from + delta
+        guard hubWidgets.indices.contains(to) else { return }
+        hubWidgets.swapAt(from, to)
+        persist()
+    }
+
+    func unusedHubWidgets() -> [HubWidgetKind] {
+        HubWidgetKind.allCases.filter { kind in
+            !hubWidgets.contains(where: { $0.kind == kind })
+        }
     }
 
     // MARK: Events
@@ -322,6 +349,8 @@ final class HubStore: ObservableObject {
         assignments = snapshot.assignments
         ledger = snapshot.ledger.sorted { $0.createdAt > $1.createdAt }
         weatherPlace = snapshot.weatherPlace ?? WeatherPlace.chicago
+        let widgets = snapshot.hubWidgets ?? []
+        hubWidgets = widgets.isEmpty ? HubWidget.defaultSet : widgets
     }
 
     private func persist() {
@@ -334,7 +363,8 @@ final class HubStore: ObservableObject {
             chores: chores,
             assignments: assignments,
             ledger: ledger,
-            weatherPlace: weatherPlace
+            weatherPlace: weatherPlace,
+            hubWidgets: hubWidgets
         )
         do {
             let encoder = JSONEncoder()
@@ -450,7 +480,8 @@ enum SampleFamily {
             chores: [dishes, trash, room, lawn],
             assignments: [a1, a2, a3, a4],
             ledger: [],
-            weatherPlace: .chicago
+            weatherPlace: .chicago,
+            hubWidgets: HubWidget.defaultSet
         )
     }
 }

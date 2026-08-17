@@ -7,7 +7,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
 
     var title: String {
         switch self {
-        case .today: return "Hub"
+        case .today: return "HUB"
         case .calendar: return "Calendar"
         case .chores: return "Chores"
         case .lists: return "Lists"

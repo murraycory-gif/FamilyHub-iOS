@@ -257,6 +257,54 @@ struct HubSnapshot: Codable {
     var assignments: [ChoreAssignment]
     var ledger: [LedgerEntry]
     var weatherPlace: WeatherPlace?
+    var hubWidgets: [HubWidget]?
+}
+
+enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
+    case cameras
+    case weather
+    case snapshot
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .cameras: return "Cameras"
+        case .weather: return "Weather"
+        case .snapshot: return "Household"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .cameras: return "video.fill"
+        case .weather: return "cloud.sun.fill"
+        case .snapshot: return "square.grid.2x2.fill"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .cameras: return "Security cameras for the house"
+        case .weather: return "7-day forecast for your area"
+        case .snapshot: return "Open chores, reminders, and to-dos"
+        }
+    }
+}
+
+struct HubWidget: Codable, Identifiable, Hashable {
+    var id: UUID
+    var kind: HubWidgetKind
+
+    static func make(_ kind: HubWidgetKind) -> HubWidget {
+        HubWidget(id: UUID(), kind: kind)
+    }
+
+    static let defaultSet: [HubWidget] = [
+        .make(.cameras),
+        .make(.weather),
+        .make(.snapshot),
+    ]
 }
 
 struct WeatherPlace: Codable, Hashable, Identifiable {
