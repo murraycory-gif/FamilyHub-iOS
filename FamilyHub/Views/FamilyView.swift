@@ -116,7 +116,8 @@ struct FamilyView: View {
                     delegate: MemberReorderDelegate(
                         targetID: member.id,
                         draggingID: $draggingID,
-                        onMove: { store.moveMember(id: $0, before: $1) }
+                        onMove: { store.moveMemberLive(id: $0, before: $1) },
+                        onFinished: { store.persistMembers() }
                     )
                 )
             }

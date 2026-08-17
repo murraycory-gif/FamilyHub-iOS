@@ -21,6 +21,7 @@
 		A012 /* ChoresView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B012 /* ChoresView.swift */; };
 		A013 /* ListsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B013 /* ListsView.swift */; };
 		A014 /* FamilyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B014 /* FamilyView.swift */; };
+		A015 /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B015 /* WeatherService.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
 		A912 /* CalendarMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B912 /* CalendarMathTests.swift */; };
@@ -52,6 +53,7 @@
 		B012 /* ChoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoresView.swift; sourceTree = "<group>"; };
 		B013 /* ListsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListsView.swift; sourceTree = "<group>"; };
 		B014 /* FamilyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyView.swift; sourceTree = "<group>"; };
+		B015 /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
 		B900 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B902 /* FamilyHub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyHub.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -140,6 +142,7 @@
 			isa = PBXGroup;
 			children = (
 				B008 /* HubStore.swift */,
+				B015 /* WeatherService.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -263,6 +266,7 @@
 				A012 /* ChoresView.swift in Sources */,
 				A013 /* ListsView.swift in Sources */,
 				A014 /* FamilyView.swift in Sources */,
+				A015 /* WeatherService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -118,6 +118,7 @@ struct MemberReorderDelegate: DropDelegate {
     let targetID: UUID
     @Binding var draggingID: UUID?
     let onMove: (UUID, UUID) -> Void
+    var onFinished: (() -> Void)?
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
         DropProposal(operation: .move)
@@ -125,6 +126,7 @@ struct MemberReorderDelegate: DropDelegate {
 
     func performDrop(info: DropInfo) -> Bool {
         draggingID = nil
+        onFinished?()
         return true
     }
 

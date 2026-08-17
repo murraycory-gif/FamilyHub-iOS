@@ -7,7 +7,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
 
     var title: String {
         switch self {
-        case .today: return "Today"
+        case .today: return "Hub"
         case .calendar: return "Calendar"
         case .chores: return "Chores"
         case .lists: return "Lists"
@@ -17,7 +17,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
 
     var symbol: String {
         switch self {
-        case .today: return "sun.max.fill"
+        case .today: return "house.fill"
         case .calendar: return "calendar"
         case .chores: return "checkmark.circle.fill"
         case .lists: return "list.bullet.rectangle"
@@ -94,18 +94,6 @@ struct MainHubView: View {
     private var detail: some View {
         NavigationStack {
             view(for: currentSection)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
-                            }
-                        } label: {
-                            Image(systemName: "line.3.horizontal")
-                        }
-                        .accessibilityLabel("Open menu")
-                    }
-                }
         }
     }
 

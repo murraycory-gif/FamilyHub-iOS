@@ -27,4 +27,9 @@ final class CalendarMathTests: XCTestCase {
         XCTAssertTrue(PersonStyle.colors.count >= 24)
         XCTAssertTrue(PersonStyle.emojis.count >= 24)
     }
+
+    func testWeatherIconMapsClearAndStorm() {
+        XCTAssertEqual(WeatherIcon.symbol(for: 0), "sun.max.fill")
+        XCTAssertEqual(WeatherIcon.symbol(for: 95), "cloud.bolt.rain.fill")
+    }
 }

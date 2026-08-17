@@ -10,6 +10,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var chores: [Chore]
     @Published private(set) var assignments: [ChoreAssignment]
     @Published private(set) var ledger: [LedgerEntry]
+    @Published private(set) var weatherPlace: WeatherPlace?
     @Published var errorMessage: String?
 
     private let fileManager: FileManager
@@ -30,6 +31,7 @@ final class HubStore: ObservableObject {
         chores = []
         assignments = []
         ledger = []
+        weatherPlace = WeatherPlace.chicago
         loadOrSeed()
     }
 
@@ -126,22 +128,39 @@ final class HubStore: ObservableObject {
         persist()
     }
 
-    /// Live reorder used by Today cards and Family. Parents stay first until someone drags them.
-    func moveMember(id: UUID, before targetID: UUID) {
+    /// In-memory only — persist after the finger lifts so the hub does not hitch.
+    func moveMemberLive(from: Int, to: Int) {
+        guard from != to,
+              members.indices.contains(from),
+              to >= 0, to <= members.count
+        else { return }
+        members.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+    }
+
+    func moveMemberLive(id: UUID, before targetID: UUID) {
         guard let from = members.firstIndex(where: { $0.id == id }),
               let to = members.firstIndex(where: { $0.id == targetID }),
               from != to
         else { return }
-        var next = members
-        let item = next.remove(at: from)
-        let dest = next.firstIndex(where: { $0.id == targetID }) ?? min(to, next.count)
-        next.insert(item, at: dest)
-        members = next
+        moveMemberLive(from: from, to: to)
+    }
+
+    func moveMember(id: UUID, before targetID: UUID) {
+        moveMemberLive(id: id, before: targetID)
         persist()
     }
 
     func moveMembers(from offsets: IndexSet, to offset: Int) {
         members.move(fromOffsets: offsets, toOffset: offset)
+        persist()
+    }
+
+    func persistMembers() {
+        persist()
+    }
+
+    func setWeatherPlace(_ place: WeatherPlace) {
+        weatherPlace = place
         persist()
     }
 
@@ -302,6 +321,7 @@ final class HubStore: ObservableObject {
         chores = snapshot.chores
         assignments = snapshot.assignments
         ledger = snapshot.ledger.sorted { $0.createdAt > $1.createdAt }
+        weatherPlace = snapshot.weatherPlace ?? WeatherPlace.chicago
     }
 
     private func persist() {
@@ -313,7 +333,8 @@ final class HubStore: ObservableObject {
             todos: todos,
             chores: chores,
             assignments: assignments,
-            ledger: ledger
+            ledger: ledger,
+            weatherPlace: weatherPlace
         )
         do {
             let encoder = JSONEncoder()
@@ -428,7 +449,8 @@ enum SampleFamily {
             ],
             chores: [dishes, trash, room, lawn],
             assignments: [a1, a2, a3, a4],
-            ledger: []
+            ledger: [],
+            weatherPlace: .chicago
         )
     }
 }

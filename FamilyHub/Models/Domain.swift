@@ -256,6 +256,44 @@ struct HubSnapshot: Codable {
     var chores: [Chore]
     var assignments: [ChoreAssignment]
     var ledger: [LedgerEntry]
+    var weatherPlace: WeatherPlace?
+}
+
+struct WeatherPlace: Codable, Hashable, Identifiable {
+    var label: String
+    var latitude: Double
+    var longitude: Double
+
+    var id: String { "\(latitude),\(longitude)" }
+
+    static let chicago = WeatherPlace(label: "Chicago, IL", latitude: 41.8781, longitude: -87.6298)
+}
+
+struct WeatherDay: Identifiable, Hashable {
+    var dateISO: String
+    var weekday: String
+    var high: Int
+    var low: Int
+    var code: Int
+
+    var id: String { dateISO }
+
+    var symbolName: String { WeatherIcon.symbol(for: code) }
+}
+
+enum WeatherIcon {
+    static func symbol(for code: Int) -> String {
+        switch code {
+        case 0: return "sun.max.fill"
+        case 1, 2: return "cloud.sun.fill"
+        case 3: return "cloud.fill"
+        case 45, 48: return "cloud.fog.fill"
+        case 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82: return "cloud.rain.fill"
+        case 71, 73, 75, 77, 85, 86: return "cloud.snow.fill"
+        case 95, 96, 99: return "cloud.bolt.rain.fill"
+        default: return "cloud.sun.fill"
+        }
+    }
 }
 
 // MARK: - Chore engine (pure — unit tested)
