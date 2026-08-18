@@ -47,18 +47,11 @@ struct LaunchSplashView: View {
             AppTheme.bg.ignoresSafeArea()
 
             VStack(spacing: 22) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(AppTheme.elevated)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                .stroke(AppTheme.cardBorder, lineWidth: 1)
-                        )
-                        .frame(width: 112, height: 112)
-                    Image(systemName: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 40, weight: .medium))
-                        .foregroundStyle(AppTheme.ice)
-                }
+                Image("HubMark")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 128, height: 128)
+                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .scaleEffect(appear ? 1 : 0.92)
                 .opacity(appear ? 1 : 0.85)
 
