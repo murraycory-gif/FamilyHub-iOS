@@ -34,8 +34,8 @@ final class HubRouter: ObservableObject {
     @Published var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
     @Published var calendarFilter: DayFilter = .family
-
-    @Published var mealsDay = Date()
+    @Published var calendarDay = Date()
+    @Published var focusedEventID: UUID?
 
     func open(_ section: HubSection, list: ListKind? = nil) {
         if let list { listKind = list }
@@ -47,8 +47,10 @@ final class HubRouter: ObservableObject {
         section = .meals
     }
 
-    func openCalendar(filter: DayFilter) {
+    func openCalendar(filter: DayFilter, day: Date = Date(), eventID: UUID? = nil) {
         calendarFilter = filter
+        calendarDay = Calendar.current.startOfDay(for: day)
+        focusedEventID = eventID
         section = .calendar
     }
 

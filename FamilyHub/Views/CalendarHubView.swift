@@ -46,11 +46,17 @@ struct CalendarHubView: View {
             CalendarSourcesView()
         }
         .onAppear {
-            filter = router.calendarFilter
+            applyRoute()
         }
-        .onChange(of: router.calendarFilter) { _, newValue in
-            filter = newValue
-        }
+        .onChange(of: router.calendarFilter) { _, _ in applyRoute() }
+        .onChange(of: router.calendarDay) { _, _ in applyRoute() }
+        .onChange(of: router.focusedEventID) { _, _ in applyRoute() }
+    }
+
+    private func applyRoute() {
+        filter = router.calendarFilter
+        selectedDay = router.calendarDay
+        monthAnchor = router.calendarDay
     }
 
     private var monthHeader: some View {
@@ -139,7 +145,7 @@ struct CalendarHubView: View {
                                     if event.isImported, let source = event.sourceID.flatMap(store.source(id:)) {
                                         Text(source.brand.title)
                                             .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(AppTheme.ice)
+                                            .foregroundStyle(AppTheme.blue)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 2)
                                             .overlay(Capsule().stroke(AppTheme.cardBorder, lineWidth: 1))
@@ -166,6 +172,10 @@ struct CalendarHubView: View {
                             }
                         }
                     }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(event.id == router.focusedEventID ? AppTheme.blue : Color.clear, lineWidth: 2)
+                    )
                 }
             }
         }

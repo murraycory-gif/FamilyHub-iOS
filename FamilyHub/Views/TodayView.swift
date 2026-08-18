@@ -470,17 +470,22 @@ struct TodayView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
                     FamilyFocusCard(selected: profile == .family, day: selectedDay) {
-                        router.openCalendar(filter: .family)
+                        router.openCalendar(filter: .family, day: selectedDay)
+                    } onEvent: { event in
+                        router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                     }
                         .frame(width: width, height: geo.size.height)
 
                     ForEach(store.members) { member in
-                        Button {
-                            router.openCalendar(filter: .member(member.id))
-                        } label: {
-                            MemberHomeCard(member: member, selected: profile == .member(member.id), day: selectedDay)
-                        }
-                        .buttonStyle(.plain)
+                        MemberHomeCard(
+                            member: member,
+                            selected: profile == .member(member.id),
+                            day: selectedDay,
+                            onOpen: { router.openCalendar(filter: .member(member.id), day: selectedDay) },
+                            onEvent: { event in
+                                router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
+                            }
+                        )
                         .frame(width: width, height: geo.size.height)
                         .offset(x: draggingID == member.id ? dragTranslation : 0)
                         .scaleEffect(draggingID == member.id ? 1.02 : 1)
@@ -603,6 +608,7 @@ private struct FamilyFocusCard: View {
     let selected: Bool
     let day: Date
     var onOpenCalendar: () -> Void
+    var onEvent: (CalendarEvent) -> Void
     @State private var photoItem: PhotosPickerItem?
 
     private var events: [CalendarEvent] {
@@ -629,7 +635,7 @@ private struct FamilyFocusCard: View {
                     }
                     Spacer(minLength: 0)
                 }
-                dayEventList(events)
+                dayEventList(events, onEvent: onEvent)
                 Spacer(minLength: 0)
             }
             .padding(14)
@@ -683,6 +689,8 @@ private struct MemberHomeCard: View {
     let member: FamilyMember
     var selected = false
     let day: Date
+    var onOpen: () -> Void
+    var onEvent: (CalendarEvent) -> Void
 
     private var chores: [ChoreAssignment] { store.openAssignments(for: member.id) }
     private var reminders: [ReminderItem] { store.openReminders(for: member.id) }
@@ -716,10 +724,12 @@ private struct MemberHomeCard: View {
                     personStat(reminders.count, "Remind")
                     personStat(todos.count, "To-dos")
                 }
-                dayEventList(events)
+                dayEventList(events, onEvent: onEvent)
                 Spacer(minLength: 0)
             }
             .padding(12)
+            .contentShape(Rectangle())
+            .onTapGesture { onOpen() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
@@ -749,7 +759,7 @@ private struct MemberHomeCard: View {
 }
 
 @ViewBuilder
-private func dayEventList(_ events: [CalendarEvent]) -> some View {
+private func dayEventList(_ events: [CalendarEvent], onEvent: @escaping (CalendarEvent) -> Void) -> some View {
     if events.isEmpty {
         Text("Free this day")
             .font(.caption)
@@ -758,16 +768,24 @@ private func dayEventList(_ events: [CalendarEvent]) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(events) { event in
-                    HStack(alignment: .top, spacing: 6) {
-                        Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
-                            .font(.caption.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(AppTheme.blue)
-                            .frame(width: 58, alignment: .leading)
-                        Text(event.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.text)
-                            .lineLimit(2)
+                    Button {
+                        onEvent(event)
+                    } label: {
+                        HStack(alignment: .top, spacing: 6) {
+                            Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
+                                .font(.caption.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(AppTheme.blue)
+                                .frame(width: 58, alignment: .leading)
+                            Text(event.title)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.text)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
