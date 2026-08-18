@@ -76,8 +76,9 @@ struct TodayView: View {
                 .tracking(1.6)
                 .foregroundStyle(AppTheme.textTertiary)
             Text(profileTitle)
-                .font(AppTheme.paint(36))
-                .foregroundStyle(AppTheme.blue)
+                .font(.system(size: 28, weight: .semibold))
+                .tracking(-0.4)
+                .foregroundStyle(AppTheme.text)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -591,8 +592,8 @@ private struct FamilyFocusCard: View {
                     .frame(width: 44, height: 44)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Family")
-                            .font(AppTheme.paint(26))
-                            .foregroundStyle(AppTheme.blue)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(AppTheme.text)
                         Text("Everyone")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
@@ -634,8 +635,8 @@ private struct MemberHomeCard: View {
                     MemberAvatar(member: member, size: 40)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(member.name)
-                            .font(AppTheme.paint(24))
-                            .foregroundStyle(AppTheme.blue)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(AppTheme.text)
                         Text(member.role.label)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
