@@ -135,3 +135,28 @@ struct MemberReorderDelegate: DropDelegate {
         onMove(draggingID, targetID)
     }
 }
+
+struct BackToHubModifier: ViewModifier {
+    @EnvironmentObject private var router: HubRouter
+    var visible: Bool
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            if visible {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        router.open(.today)
+                    } label: {
+                        Label("HUB", systemImage: "chevron.left")
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension View {
+    func backToHub(visible: Bool = true) -> some View {
+        modifier(BackToHubModifier(visible: visible))
+    }
+}

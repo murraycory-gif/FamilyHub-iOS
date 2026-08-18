@@ -113,11 +113,11 @@ struct MainHubView: View {
     private func view(for section: HubSection) -> some View {
         switch section {
         case .today: TodayView()
-        case .calendar: CalendarHubView()
-        case .chores: ChoresView()
-        case .lists: ListsView()
-        case .meals: MealsView()
-        case .family: FamilyView()
+        case .calendar: CalendarHubView().backToHub()
+        case .chores: ChoresView().backToHub()
+        case .lists: ListsView().backToHub()
+        case .meals: MealsView().backToHub()
+        case .family: FamilyView().backToHub()
         }
     }
 }

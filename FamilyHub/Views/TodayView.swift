@@ -451,12 +451,12 @@ struct TodayView: View {
             let width = cardWidth(in: geo.size.width)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
-                    FamilyFocusCard(selected: profile == .family)
+                    FamilyFocusCard(selected: profile == .family, day: selectedDay)
                         .frame(width: width, height: geo.size.height)
                         .onTapGesture { profile = .family }
 
                     ForEach(store.members) { member in
-                        MemberHomeCard(member: member, selected: profile == .member(member.id))
+                        MemberHomeCard(member: member, selected: profile == .member(member.id), day: selectedDay)
                             .frame(width: width, height: geo.size.height)
                             .offset(x: draggingID == member.id ? dragTranslation : 0)
                             .scaleEffect(draggingID == member.id ? 1.02 : 1)
@@ -578,6 +578,11 @@ private struct HubDayItem: Identifiable {
 private struct FamilyFocusCard: View {
     @EnvironmentObject private var store: HubStore
     let selected: Bool
+    let day: Date
+
+    private var events: [CalendarEvent] {
+        store.events(on: day, filter: .family)
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -600,9 +605,7 @@ private struct FamilyFocusCard: View {
                     }
                     Spacer(minLength: 0)
                 }
-                Text("All calendars, events, and lists")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.textSecondary)
+                dayEventList(events)
                 Spacer(minLength: 0)
             }
             .padding(14)
@@ -621,10 +624,14 @@ private struct MemberHomeCard: View {
     @EnvironmentObject private var store: HubStore
     let member: FamilyMember
     var selected = false
+    let day: Date
 
     private var chores: [ChoreAssignment] { store.openAssignments(for: member.id) }
     private var reminders: [ReminderItem] { store.openReminders(for: member.id) }
     private var todos: [TodoItem] { store.openTodos(for: member.id) }
+    private var events: [CalendarEvent] {
+        store.events(on: day, filter: .member(member.id))
+    }
     private var accent: Color { Color(hex: member.colorHex) }
 
     var body: some View {
@@ -651,6 +658,7 @@ private struct MemberHomeCard: View {
                     personStat(reminders.count, "Remind")
                     personStat(todos.count, "To-dos")
                 }
+                dayEventList(events)
                 Spacer(minLength: 0)
             }
             .padding(12)
@@ -679,6 +687,32 @@ private struct MemberHomeCard: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(AppTheme.navySoft)
         )
+    }
+}
+
+@ViewBuilder
+private func dayEventList(_ events: [CalendarEvent]) -> some View {
+    if events.isEmpty {
+        Text("Free this day")
+            .font(.caption)
+            .foregroundStyle(AppTheme.textTertiary)
+    } else {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(events) { event in
+                    HStack(alignment: .top, spacing: 6) {
+                        Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
+                            .font(.caption2.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(width: 52, alignment: .leading)
+                        Text(event.title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.text)
+                            .lineLimit(2)
+                    }
+                }
+            }
+        }
     }
 }
 
