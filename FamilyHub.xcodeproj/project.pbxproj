@@ -26,6 +26,8 @@
 		A017 /* CalendarIngest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B017 /* CalendarIngest.swift */; };
 		A018 /* CalendarSourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B018 /* CalendarSourcesView.swift */; };
 		A019 /* MealsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B019 /* MealsView.swift */; };
+		A020 /* RecipeCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B020 /* RecipeCatalog.swift */; };
+		A021 /* PlacesSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = B021 /* PlacesSearch.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A904 /* RubikWetPaint-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B904 /* RubikWetPaint-Regular.ttf */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
@@ -63,6 +65,8 @@
 		B017 /* CalendarIngest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarIngest.swift; sourceTree = "<group>"; };
 		B018 /* CalendarSourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourcesView.swift; sourceTree = "<group>"; };
 		B019 /* MealsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealsView.swift; sourceTree = "<group>"; };
+		B020 /* RecipeCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeCatalog.swift; sourceTree = "<group>"; };
+		B021 /* PlacesSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesSearch.swift; sourceTree = "<group>"; };
 		B900 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B904 /* RubikWetPaint-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RubikWetPaint-Regular.ttf"; path = "Fonts/RubikWetPaint-Regular.ttf"; sourceTree = "<group>"; };
 		B901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -160,6 +164,8 @@
 				B008 /* HubStore.swift */,
 				B015 /* WeatherService.swift */,
 				B017 /* CalendarIngest.swift */,
+				B020 /* RecipeCatalog.swift */,
+				B021 /* PlacesSearch.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -289,6 +295,8 @@
 				A017 /* CalendarIngest.swift in Sources */,
 				A018 /* CalendarSourcesView.swift in Sources */,
 				A019 /* MealsView.swift in Sources */,
+				A020 /* RecipeCatalog.swift in Sources */,
+				A021 /* PlacesSearch.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

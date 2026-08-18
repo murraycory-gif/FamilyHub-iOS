@@ -35,9 +35,16 @@ final class HubRouter: ObservableObject {
 
     @Published var calendarFilter: DayFilter = .family
 
+    @Published var mealsDay = Date()
+
     func open(_ section: HubSection, list: ListKind? = nil) {
         if let list { listKind = list }
         self.section = section
+    }
+
+    func openMeals(day: Date = Date()) {
+        mealsDay = day
+        section = .meals
     }
 
     func openCalendar(filter: DayFilter) {

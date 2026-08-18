@@ -277,9 +277,57 @@ struct Recipe: Identifiable, Codable, Hashable {
     var name: String
     var kind: RecipeKind
     var notes: String
+    var ingredients: [String]
+    var instructions: String
+    var imageURL: String
+    var catalogID: String
 
-    static func make(name: String, kind: RecipeKind, notes: String = "") -> Recipe {
-        Recipe(id: UUID(), name: name, kind: kind, notes: notes)
+    static func make(
+        name: String,
+        kind: RecipeKind,
+        notes: String = "",
+        ingredients: [String] = [],
+        instructions: String = "",
+        imageURL: String = "",
+        catalogID: String = ""
+    ) -> Recipe {
+        Recipe(
+            id: UUID(),
+            name: name,
+            kind: kind,
+            notes: notes,
+            ingredients: ingredients,
+            instructions: instructions,
+            imageURL: imageURL,
+            catalogID: catalogID
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, kind, notes, ingredients, instructions, imageURL, catalogID
+    }
+
+    init(id: UUID, name: String, kind: RecipeKind, notes: String, ingredients: [String], instructions: String, imageURL: String, catalogID: String) {
+        self.id = id
+        self.name = name
+        self.kind = kind
+        self.notes = notes
+        self.ingredients = ingredients
+        self.instructions = instructions
+        self.imageURL = imageURL
+        self.catalogID = catalogID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        kind = try c.decode(RecipeKind.self, forKey: .kind)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        ingredients = try c.decodeIfPresent([String].self, forKey: .ingredients) ?? []
+        instructions = try c.decodeIfPresent(String.self, forKey: .instructions) ?? ""
+        imageURL = try c.decodeIfPresent(String.self, forKey: .imageURL) ?? ""
+        catalogID = try c.decodeIfPresent(String.self, forKey: .catalogID) ?? ""
     }
 }
 
@@ -302,13 +350,32 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
     var day: Date
     var recipeID: UUID?
     var note: String
+    var placeName: String?
+    var placeAddress: String?
+    var placePhone: String?
+    var placeURL: String?
+    var placeKind: String?
 
-    static func make(day: Date, recipeID: UUID? = nil, note: String = "") -> DinnerPlan {
+    static func make(
+        day: Date,
+        recipeID: UUID? = nil,
+        note: String = "",
+        placeName: String? = nil,
+        placeAddress: String? = nil,
+        placePhone: String? = nil,
+        placeURL: String? = nil,
+        placeKind: String? = nil
+    ) -> DinnerPlan {
         DinnerPlan(
             id: UUID(),
             day: Calendar.current.startOfDay(for: day),
             recipeID: recipeID,
-            note: note
+            note: note,
+            placeName: placeName,
+            placeAddress: placeAddress,
+            placePhone: placePhone,
+            placeURL: placeURL,
+            placeKind: placeKind
         )
     }
 }

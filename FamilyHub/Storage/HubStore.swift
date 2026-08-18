@@ -67,6 +67,7 @@ final class HubStore: ObservableObject {
 
     func dinnerTitle(on day: Date) -> String? {
         guard let plan = dinner(on: day) else { return nil }
+        if let name = plan.placeName, !name.isEmpty { return name }
         if let recipeID = plan.recipeID, let recipe = recipe(id: recipeID) {
             return recipe.name
         }
@@ -80,12 +81,68 @@ final class HubStore: ObservableObject {
     }
 
     func setDinner(on day: Date, recipeID: UUID?, note: String = "") {
+        upsertDinner(
+            on: day,
+            recipeID: recipeID,
+            note: note,
+            placeName: nil,
+            placeAddress: nil,
+            placePhone: nil,
+            placeURL: nil,
+            placeKind: nil
+        )
+    }
+
+    func setDinnerPlace(
+        on day: Date,
+        name: String,
+        address: String,
+        phone: String,
+        url: String,
+        kind: String
+    ) {
+        upsertDinner(
+            on: day,
+            recipeID: nil,
+            note: kind == "takeout" ? "Takeout" : "Eat out",
+            placeName: name,
+            placeAddress: address,
+            placePhone: phone,
+            placeURL: url,
+            placeKind: kind
+        )
+    }
+
+    private func upsertDinner(
+        on day: Date,
+        recipeID: UUID?,
+        note: String,
+        placeName: String?,
+        placeAddress: String?,
+        placePhone: String?,
+        placeURL: String?,
+        placeKind: String?
+    ) {
         let start = Calendar.current.startOfDay(for: day)
         if let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) {
             dinners[idx].recipeID = recipeID
             dinners[idx].note = note
+            dinners[idx].placeName = placeName
+            dinners[idx].placeAddress = placeAddress
+            dinners[idx].placePhone = placePhone
+            dinners[idx].placeURL = placeURL
+            dinners[idx].placeKind = placeKind
         } else {
-            dinners.append(.make(day: start, recipeID: recipeID, note: note))
+            dinners.append(.make(
+                day: start,
+                recipeID: recipeID,
+                note: note,
+                placeName: placeName,
+                placeAddress: placeAddress,
+                placePhone: placePhone,
+                placeURL: placeURL,
+                placeKind: placeKind
+            ))
         }
         persist()
     }

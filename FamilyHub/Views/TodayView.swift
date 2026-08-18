@@ -14,7 +14,6 @@ struct TodayView: View {
     @State private var profile: HubProfile = .family
     @State private var selectedDay = Date()
     @State private var showMoreDates = false
-    @State private var showDinnerPicker = false
     @State private var draggingID: UUID?
     @State private var dragTranslation: CGFloat = 0
     @State private var dragOriginIndex: Int?
@@ -61,9 +60,6 @@ struct TodayView: View {
                     }
             }
             .presentationDetents([.medium, .large])
-        }
-        .sheet(isPresented: $showDinnerPicker) {
-            DinnerPickerSheet(day: selectedDay)
         }
     }
 
@@ -377,7 +373,7 @@ struct TodayView: View {
     }
 
     private var dinnerCard: some View {
-        Button { showDinnerPicker = true } label: {
+        Button { router.openMeals(day: selectedDay) } label: {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -390,7 +386,7 @@ struct TodayView: View {
                     Text(Calendar.current.isDateInToday(selectedDay) ? "Dinner tonight" : "Dinner")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color(hex: "C2410C"))
-                    Text(store.dinnerTitle(on: selectedDay) ?? "Nothing planned — tap to choose")
+                    Text(store.dinnerTitle(on: selectedDay) ?? "Nothing planned — tap to open Meals")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(AppTheme.text)
                         .lineLimit(1)
