@@ -18,27 +18,35 @@ struct TodayView: View {
     @State private var dragOriginIndex: Int?
 
     var body: some View {
-        GeometryReader { geo in
-            let familyH = familyHeight(in: geo.size.height)
-            VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 12) {
-                    header
-                    agenda
-                    dinnerCard
-                    callouts
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 4)
-                .padding(.bottom, 12)
-                familySection
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 8)
-                    .frame(height: familyH)
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                header
+                agenda
+                dinnerCard
+                callouts
             }
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 12)
+            familySection
+                .padding(.horizontal, 24)
+                .padding(.bottom, 8)
+                .frame(height: familyHeight)
         }
-        .background(AppTheme.bg.ignoresSafeArea())
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(AppTheme.bg)
         .navigationTitle("HUB")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(AppTheme.bg, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 8) {
+                    dateButton
+                    profileButton
+                }
+            }
+        }
         .sheet(isPresented: $showMoreDates) {
             NavigationStack {
                 DatePicker("Day", selection: $selectedDay, displayedComponents: .date)
@@ -59,21 +67,17 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(profileSubtitle.uppercased())
-                    .font(.caption.weight(.semibold))
-                    .tracking(1.6)
-                    .foregroundStyle(AppTheme.textTertiary)
-                Text(profileTitle)
-                    .font(.system(size: 26, weight: .semibold))
-                    .tracking(-0.4)
-                    .foregroundStyle(AppTheme.text)
-            }
-            Spacer(minLength: 8)
-            dateButton
-            profileButton
+        VStack(alignment: .leading, spacing: 6) {
+            Text(profileSubtitle.uppercased())
+                .font(.caption.weight(.semibold))
+                .tracking(1.6)
+                .foregroundStyle(AppTheme.textTertiary)
+            Text(profileTitle)
+                .font(.system(size: 28, weight: .semibold))
+                .tracking(-0.4)
+                .foregroundStyle(AppTheme.text)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var dateButton: some View {
@@ -461,8 +465,8 @@ struct TodayView: View {
         }
     }
 
-    private func familyHeight(in total: CGFloat) -> CGFloat {
-        sizeClass == .regular ? max(280, min(360, total * 0.40)) : 250
+    private var familyHeight: CGFloat {
+        sizeClass == .regular ? 320 : 250
     }
 
     private func cardWidth(in available: CGFloat) -> CGFloat {
