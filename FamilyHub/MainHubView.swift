@@ -89,7 +89,7 @@ struct MainHubView: View {
             Label(item.title, systemImage: item.symbol)
                 .tag(Optional(item))
         }
-        .navigationTitle("FamilyHub")
+        .navigationTitle("HUB")
         .listStyle(.sidebar)
         .safeAreaInset(edge: .top, spacing: 0) {
             Text(store.householdName.uppercased())

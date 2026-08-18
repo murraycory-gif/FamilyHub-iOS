@@ -16,7 +16,7 @@ struct OnboardingView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
 
-            Button(page == 2 ? "Open FamilyHub" : "Continue") {
+            Button(page == 2 ? "Open HUB" : "Continue") {
                 if page < 2 {
                     withAnimation { page += 1 }
                 } else {

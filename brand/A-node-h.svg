@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220">
+  <rect width="220" height="220" fill="#F5F7FC"/>
+  <path d="M58 42h28v56h48V42h28v136h-28v-56H86v56H58z" fill="#266BF2"/>
+  <circle cx="72" cy="42" r="10" fill="#1447B8"/>
+  <circle cx="148" cy="42" r="10" fill="#1447B8"/>
+  <circle cx="72" cy="178" r="10" fill="#1447B8"/>
+  <circle cx="148" cy="178" r="10" fill="#1447B8"/>
+  <circle cx="110" cy="98" r="11" fill="#0B1220"/>
+  <circle cx="110" cy="98" r="6" fill="#266BF2"/>
+  <circle cx="46" cy="98" r="5" fill="#DC2626"/>
+  <circle cx="174" cy="98" r="5" fill="#059669"/>
+  <circle cx="110" cy="28" r="5" fill="#D97706"/>
+  <text x="110" y="208" text-anchor="middle" font-family="Avenir Next, Helvetica, sans-serif" font-size="22" font-weight="800" letter-spacing="4" fill="#141928">HUB</text>
+</svg>

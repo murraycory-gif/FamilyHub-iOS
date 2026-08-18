@@ -63,7 +63,7 @@ struct LaunchSplashView: View {
                 .opacity(appear ? 1 : 0.85)
 
                 VStack(spacing: 6) {
-                    Text("FamilyHub")
+                    Text("HUB")
                         .font(.system(size: 34, weight: .semibold))
                         .tracking(-0.6)
                         .foregroundStyle(AppTheme.text)
