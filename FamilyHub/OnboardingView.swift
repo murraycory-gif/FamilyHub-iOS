@@ -36,15 +36,20 @@ struct OnboardingView: View {
         VStack(spacing: 22) {
             Spacer()
             ZStack {
-                RoundedRectangle(cornerRadius: 32, style: .continuous)
-                    .fill(AppTheme.forest)
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(AppTheme.elevated)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .stroke(AppTheme.cardBorder, lineWidth: 1)
+                    )
                     .frame(width: 96, height: 96)
-                Image(systemName: "house.fill")
-                    .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(AppTheme.bg)
+                Image(systemName: "dot.radiowaves.left.and.right")
+                    .font(.system(size: 36, weight: .medium))
+                    .foregroundStyle(AppTheme.ice)
             }
             Text("The household, in one place")
-                .font(.system(size: 34, weight: .semibold, design: .serif))
+                .font(.system(size: 32, weight: .semibold))
+                .tracking(-0.5)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(AppTheme.text)
             Text("Family calendar, reminders, to-dos, and a chore board your kids can check off for allowance.")

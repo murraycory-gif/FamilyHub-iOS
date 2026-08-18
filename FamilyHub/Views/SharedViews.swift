@@ -41,7 +41,7 @@ struct MemberAvatar: View {
         }
         .frame(width: size, height: size)
         .overlay {
-            Circle().stroke(Color.white.opacity(0.35), lineWidth: 1)
+            Circle().stroke(AppTheme.cardBorder, lineWidth: 1)
         }
         .accessibilityLabel(member.name)
     }
@@ -52,7 +52,7 @@ struct MoneyText: View {
 
     var body: some View {
         Text(Money.cents(cents))
-            .foregroundStyle(AppTheme.navy)
+            .foregroundStyle(AppTheme.ice)
             .font(.headline.monospacedDigit())
     }
 }
@@ -63,7 +63,7 @@ struct SectionLabel: View {
     var body: some View {
         Text(title.uppercased())
             .font(.caption.weight(.semibold))
-            .tracking(0.8)
+            .tracking(1.4)
             .foregroundStyle(AppTheme.textTertiary)
     }
 }
@@ -106,9 +106,9 @@ struct FilterChip: View {
             .padding(.vertical, 8)
             .background(
                 Capsule(style: .continuous)
-                    .fill(selected ? AppTheme.forest : AppTheme.forestSoft)
+                    .fill(selected ? AppTheme.navy : AppTheme.navySoft)
             )
-            .foregroundStyle(selected ? Color.white : AppTheme.navy)
+            .foregroundStyle(selected ? AppTheme.bg : AppTheme.text)
         }
         .buttonStyle(.plain)
     }

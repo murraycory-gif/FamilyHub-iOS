@@ -26,8 +26,8 @@ struct RootView: View {
                     .zIndex(1)
             }
         }
-        .preferredColorScheme(.light)
-        .tint(AppTheme.forest)
+        .preferredColorScheme(.dark)
+        .tint(AppTheme.ice)
         .background(AppTheme.bg.ignoresSafeArea())
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
@@ -48,22 +48,28 @@ struct LaunchSplashView: View {
 
             VStack(spacing: 22) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 36, style: .continuous)
-                        .fill(AppTheme.forest)
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(AppTheme.elevated)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
                         .frame(width: 112, height: 112)
-                    Image(systemName: "house.fill")
-                        .font(.system(size: 48, weight: .semibold))
-                        .foregroundStyle(AppTheme.bg)
+                    Image(systemName: "dot.radiowaves.left.and.right")
+                        .font(.system(size: 40, weight: .medium))
+                        .foregroundStyle(AppTheme.ice)
                 }
                 .scaleEffect(appear ? 1 : 0.92)
                 .opacity(appear ? 1 : 0.85)
 
                 VStack(spacing: 6) {
                     Text("FamilyHub")
-                        .font(.system(size: 36, weight: .semibold, design: .serif))
+                        .font(.system(size: 34, weight: .semibold))
+                        .tracking(-0.6)
                         .foregroundStyle(AppTheme.text)
-                    Text("The household, in one place")
-                        .font(.title3)
+                    Text("Household command")
+                        .font(.subheadline.weight(.medium))
+                        .tracking(1.2)
                         .foregroundStyle(AppTheme.textSecondary)
                 }
             }

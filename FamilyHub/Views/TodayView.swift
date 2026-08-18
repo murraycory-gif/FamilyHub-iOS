@@ -52,21 +52,39 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.textSecondary)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()).uppercased())
+                .font(.caption.weight(.semibold))
+                .tracking(1.6)
+                .foregroundStyle(AppTheme.textTertiary)
             Text("\(store.householdName) household")
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .font(.system(size: 22, weight: .semibold))
+                .tracking(-0.4)
                 .foregroundStyle(AppTheme.text)
         }
     }
 
     private var widgets: some View {
         VStack(spacing: 12) {
-            ForEach(Array(store.hubWidgets.enumerated()), id: \.element.id) { index, widget in
-                widgetChrome(widget, index: index) {
-                    widgetBody(widget)
+            if pairCamerasAndWeather {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(pairedTopWidgets) { widget in
+                        widgetChrome(widget, index: store.hubWidgets.firstIndex(where: { $0.id == widget.id }) ?? 0) {
+                            widgetBody(widget)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .top)
+                    }
+                }
+                ForEach(Array(remainingWidgets.enumerated()), id: \.element.id) { index, widget in
+                    widgetChrome(widget, index: store.hubWidgets.firstIndex(where: { $0.id == widget.id }) ?? index) {
+                        widgetBody(widget)
+                    }
+                }
+            } else {
+                ForEach(Array(store.hubWidgets.enumerated()), id: \.element.id) { index, widget in
+                    widgetChrome(widget, index: index) {
+                        widgetBody(widget)
+                    }
                 }
             }
 
@@ -83,6 +101,25 @@ struct TodayView: View {
                 .disabled(store.unusedHubWidgets().isEmpty)
             }
         }
+    }
+
+    private var pairCamerasAndWeather: Bool {
+        sizeClass == .regular
+            && store.hubWidgets.contains(where: { $0.kind == .cameras })
+            && store.hubWidgets.contains(where: { $0.kind == .weather })
+    }
+
+    private var pairedTopWidgets: [HubWidget] {
+        store.hubWidgets.filter { $0.kind == .cameras || $0.kind == .weather }
+            .sorted { lhs, rhs in
+                if lhs.kind == .cameras { return true }
+                if rhs.kind == .cameras { return false }
+                return false
+            }
+    }
+
+    private var remainingWidgets: [HubWidget] {
+        store.hubWidgets.filter { $0.kind != .cameras && $0.kind != .weather }
     }
 
     @ViewBuilder
@@ -124,7 +161,7 @@ struct TodayView: View {
                     }
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.navy)
+                .foregroundStyle(AppTheme.ice)
                 .padding(.horizontal, 4)
             }
             content()
@@ -133,11 +170,11 @@ struct TodayView: View {
 
     private var weatherStrip: some View {
         HubCard {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text("Weather")
-                            .font(.headline)
+                            .font(.headline.weight(.semibold))
                         Button {
                             showPlaceSheet = true
                         } label: {
@@ -145,11 +182,11 @@ struct TodayView: View {
                                 Image(systemName: "location.fill")
                                     .font(.caption2)
                                 Text(store.weatherPlace?.label ?? "Set location")
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(.caption.weight(.semibold))
                                 Image(systemName: "chevron.down")
-                                    .font(.caption2.weight(.bold))
+                                    .font(.system(size: 8, weight: .bold))
                             }
-                            .foregroundStyle(AppTheme.navy)
+                            .foregroundStyle(AppTheme.ice)
                         }
                         .buttonStyle(.plain)
                     }
@@ -162,30 +199,31 @@ struct TodayView: View {
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
                 } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(weather.days) { day in
-                                VStack(spacing: 4) {
-                                    Text(day.weekday.uppercased())
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(AppTheme.textSecondary)
-                                    Image(systemName: day.symbolName)
-                                        .font(.body)
-                                        .foregroundStyle(AppTheme.navy)
-                                        .symbolRenderingMode(.hierarchical)
-                                    Text("\(day.high)°")
-                                        .font(.subheadline.weight(.semibold))
-                                    Text("\(day.low)°")
-                                        .font(.caption2)
-                                        .foregroundStyle(AppTheme.textTertiary)
-                                }
-                                .frame(width: 52)
-                                .padding(.vertical, 6)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(AppTheme.navySoft.opacity(0.65))
-                                )
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+                        ForEach(weather.days) { day in
+                            VStack(spacing: 4) {
+                                Text(day.weekday.uppercased())
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .tracking(0.6)
+                                    .foregroundStyle(AppTheme.textTertiary)
+                                Image(systemName: day.symbolName)
+                                    .font(.body)
+                                    .foregroundStyle(AppTheme.ice)
+                                    .symbolRenderingMode(.hierarchical)
+                                    .frame(height: 18)
+                                Text("\(day.high)°")
+                                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(AppTheme.text)
+                                Text("\(day.low)°")
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(AppTheme.textTertiary)
                             }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(AppTheme.navySoft)
+                            )
                         }
                     }
                 }
@@ -203,13 +241,16 @@ struct TodayView: View {
 
     private func householdStat(_ title: String, _ value: String, _ symbol: String) -> some View {
         HubCard {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Image(systemName: symbol)
-                    .foregroundStyle(AppTheme.navy)
+                    .foregroundStyle(AppTheme.ice)
                 Text(value)
-                    .font(.system(size: 24, weight: .semibold, design: .serif))
-                Text(title)
-                    .font(.caption)
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.text)
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(0.8)
                     .foregroundStyle(AppTheme.textSecondary)
             }
         }
@@ -295,40 +336,45 @@ private struct CamerasPlaceholderCard: View {
 
     var body: some View {
         HubCard {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Cameras")
-                        .font(.headline)
+                        .font(.headline.weight(.semibold))
                     Spacer()
-                    Text("Coming soon")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.navy)
+                    Text("STANDBY")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundStyle(AppTheme.ice)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(AppTheme.navySoft, in: Capsule())
+                        .overlay(
+                            Capsule().stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
                 }
-                HStack(spacing: 8) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                     ForEach(cams, id: \.0) { name, symbol in
-                        VStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 6) {
                             ZStack {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.black.opacity(0.78))
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Color.black.opacity(0.55))
                                 Image(systemName: symbol)
                                     .font(.title3)
-                                    .foregroundStyle(.white.opacity(0.7))
-                                Image(systemName: "video.slash.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.85))
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                                    .padding(6)
+                                    .foregroundStyle(AppTheme.ice.opacity(0.7))
+                                VStack {
+                                    HStack {
+                                        Circle().fill(AppTheme.ice.opacity(0.35)).frame(width: 6, height: 6)
+                                        Spacer()
+                                    }
+                                    Spacer()
+                                }
+                                .padding(8)
                             }
-                            .frame(height: 72)
-                            Text(name)
-                                .font(.caption2.weight(.semibold))
+                            .frame(height: 78)
+                            Text(name.uppercased())
+                                .font(.system(size: 10, weight: .semibold))
+                                .tracking(0.6)
                                 .foregroundStyle(AppTheme.textSecondary)
-                                .lineLimit(1)
                         }
-                        .frame(maxWidth: .infinity)
                     }
                 }
             }
@@ -364,7 +410,7 @@ private struct AddWidgetSheet: View {
                                 }
                             } icon: {
                                 Image(systemName: kind.symbol)
-                                    .foregroundStyle(AppTheme.navy)
+                                    .foregroundStyle(AppTheme.ice)
                             }
                         }
                     }
@@ -401,7 +447,8 @@ private struct MemberHomeCard: View {
                     MemberAvatar(member: member, size: 34)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(member.name)
-                            .font(.system(size: 16, weight: .semibold, design: .serif))
+                            .font(.system(size: 16, weight: .semibold))
+                            .tracking(-0.2)
                         Text(member.role.label)
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
@@ -449,8 +496,8 @@ private struct MemberHomeCard: View {
     private func personStat(_ value: Int, _ title: String) -> some View {
         VStack(spacing: 1) {
             Text("\(value)")
-                .font(.system(size: 16, weight: .semibold, design: .serif))
-                .foregroundStyle(AppTheme.navy)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundStyle(AppTheme.ice)
             Text(title)
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(AppTheme.textSecondary)
