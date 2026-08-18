@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 560">
+  <defs>
+    <linearGradient id="hFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4DA3FF"/>
+      <stop offset="1" stop-color="#1B5FE8"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <pattern id="honey" width="28" height="48" patternUnits="userSpaceOnUse">
+      <path d="M14 0 L28 8 V24 L14 32 L0 24 V8 Z" fill="none" stroke="#C9DBFF" stroke-width="1.2"/>
+    </pattern>
+  </defs>
+  <polygon points="256,36 430,136 430,336 256,436 82,336 82,136"
+           fill="#F4F8FF" stroke="none"/>
+  <polygon points="256,36 430,136 430,336 256,436 82,336 82,136"
+           fill="url(#honey)"/>
+  <polygon points="256,36 430,136 430,336 256,436 82,336 82,136"
+           fill="none" stroke="#2B74F6" stroke-width="14" stroke-linejoin="round" filter="url(#glow)"/>
+  <polygon points="256,68 404,154 404,318 256,404 108,318 108,154"
+           fill="none" stroke="#9EC0FF" stroke-width="3"/>
+  <text x="256" y="310" text-anchor="middle"
+        font-family="Avenir Next Condensed, Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="210" font-weight="700" fill="#1447B8">H</text>
+  <circle cx="256" cy="36" r="10" fill="#2B74F6"/>
+  <circle cx="82" cy="136" r="9" fill="#E11D48"/>
+  <circle cx="430" cy="136" r="9" fill="#D97706"/>
+  <circle cx="256" cy="436" r="9" fill="#059669"/>
+</svg>
