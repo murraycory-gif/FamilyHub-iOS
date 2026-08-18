@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>HUB uses a photo for the family card on the home screen.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>FamilyHub uses your location to show this week's weather for your area.</string>
 	<key>NSCalendarsUsageDescription</key>

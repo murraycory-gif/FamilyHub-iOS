@@ -33,9 +33,16 @@ final class HubRouter: ObservableObject {
     @Published var listKind: ListKind = .reminders
     @Published var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
+    @Published var calendarFilter: DayFilter = .family
+
     func open(_ section: HubSection, list: ListKind? = nil) {
         if let list { listKind = list }
         self.section = section
+    }
+
+    func openCalendar(filter: DayFilter) {
+        calendarFilter = filter
+        section = .calendar
     }
 
     func toggleSidebar() {
@@ -60,6 +67,7 @@ struct MainHubView: View {
                 }
                 .navigationSplitViewStyle(.prominentDetail)
                 .toolbar(removing: .sidebarToggle)
+                .background(HideSystemSidebarToggle())
             } else {
                 TabView(selection: tabSelection) {
                     ForEach(HubSection.allCases) { item in
@@ -112,6 +120,8 @@ struct MainHubView: View {
         NavigationStack {
             view(for: currentSection)
         }
+        .toolbar(removing: .sidebarToggle)
+        .background(HideSystemSidebarToggle())
     }
 
     @ViewBuilder

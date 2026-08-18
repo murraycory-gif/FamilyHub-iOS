@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CalendarHubView: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
     @State private var monthAnchor = Date()
     @State private var selectedDay = Date()
     @State private var filter: DayFilter = .family
@@ -26,7 +27,6 @@ struct CalendarHubView: View {
             .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("Calendar")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 HStack(spacing: 14) {
@@ -40,6 +40,12 @@ struct CalendarHubView: View {
         }
         .sheet(isPresented: $showSources) {
             CalendarSourcesView()
+        }
+        .onAppear {
+            filter = router.calendarFilter
+        }
+        .onChange(of: router.calendarFilter) { _, newValue in
+            filter = newValue
         }
     }
 

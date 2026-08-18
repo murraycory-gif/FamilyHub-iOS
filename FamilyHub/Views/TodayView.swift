@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 
 enum HubProfile: Hashable {
     case family
@@ -329,11 +331,32 @@ struct TodayView: View {
                 }
             }
             Spacer(minLength: 0)
-            if let member = item.memberID.flatMap(store.member(id:)) {
+            if profile == .family {
+                Text(assigneeName(for: item))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(assigneeColor(for: item))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(assigneeColor(for: item).opacity(0.12), in: Capsule())
+            } else if let member = item.memberID.flatMap(store.member(id:)) {
                 MemberDot(member: member, size: 8)
             }
         }
         .padding(.vertical, 8)
+    }
+
+    private func assigneeName(for item: HubDayItem) -> String {
+        if let id = item.memberID, let member = store.member(id: id) {
+            return member.name
+        }
+        return "Family"
+    }
+
+    private func assigneeColor(for item: HubDayItem) -> Color {
+        if let id = item.memberID, let member = store.member(id: id) {
+            return Color(hex: member.colorHex)
+        }
+        return AppTheme.blue
     }
 
     private var dinnerCard: some View {
@@ -432,9 +455,10 @@ struct TodayView: View {
             let width = cardWidth(in: geo.size.width)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
-                    FamilyFocusCard(selected: profile == .family, day: selectedDay)
+                    FamilyFocusCard(selected: profile == .family, day: selectedDay) {
+                        router.openCalendar(filter: .family)
+                    }
                         .frame(width: width, height: geo.size.height)
-                        .onTapGesture { profile = .family }
 
                     ForEach(store.members) { member in
                         MemberHomeCard(member: member, selected: profile == .member(member.id), day: selectedDay)
@@ -442,7 +466,7 @@ struct TodayView: View {
                             .offset(x: draggingID == member.id ? dragTranslation : 0)
                             .scaleEffect(draggingID == member.id ? 1.02 : 1)
                             .zIndex(draggingID == member.id ? 10 : 0)
-                            .onTapGesture { profile = .member(member.id) }
+                            .onTapGesture { router.openCalendar(filter: .member(member.id)) }
                             .highPriorityGesture(reorderGesture(for: member, cardWidth: width))
                     }
                 }
@@ -560,6 +584,8 @@ private struct FamilyFocusCard: View {
     @EnvironmentObject private var store: HubStore
     let selected: Bool
     let day: Date
+    var onOpenCalendar: () -> Void
+    @State private var photoItem: PhotosPickerItem?
 
     private var events: [CalendarEvent] {
         store.events(on: day, filter: .family)
@@ -570,17 +596,15 @@ private struct FamilyFocusCard: View {
             AppTheme.blue.frame(width: 5)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    ZStack {
-                        Circle().fill(AppTheme.navySoft)
-                        Image(systemName: "person.3.fill")
-                            .foregroundStyle(AppTheme.blue)
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        familyAvatar
                     }
-                    .frame(width: 44, height: 44)
+                    .buttonStyle(.plain)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Family")
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(AppTheme.text)
-                        Text("Everyone")
+                        Text("Everyone · tap photo to change")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
                     }
@@ -590,6 +614,8 @@ private struct FamilyFocusCard: View {
                 Spacer(minLength: 0)
             }
             .padding(14)
+            .contentShape(Rectangle())
+            .onTapGesture { onOpenCalendar() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
@@ -598,6 +624,31 @@ private struct FamilyFocusCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(selected ? AppTheme.blue : AppTheme.cardBorder, lineWidth: selected ? 2 : 1)
         )
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    store.setFamilyPhoto(data)
+                }
+            }
+        }
+    }
+
+    private var familyAvatar: some View {
+        ZStack {
+            if let data = store.familyPhotoData, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Circle().fill(AppTheme.navySoft)
+                Image(systemName: "person.3.fill")
+                    .foregroundStyle(AppTheme.blue)
+            }
+        }
+        .frame(width: 44, height: 44)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(AppTheme.cardBorder, lineWidth: 1))
     }
 }
 

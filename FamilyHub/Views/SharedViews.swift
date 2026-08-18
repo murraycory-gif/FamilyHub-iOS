@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct HubCard<Content: View>: View {
     @ViewBuilder var content: Content
@@ -200,5 +201,30 @@ extension View {
 
     func backToHub(visible: Bool = true) -> some View {
         hubChrome(showBack: visible)
+    }
+}
+
+struct HideSystemSidebarToggle: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        DispatchQueue.main.async { hide(from: view) }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        hide(from: uiView)
+    }
+
+    private func hide(from view: UIView) {
+        var responder: UIResponder? = view
+        while let current = responder {
+            if let split = current as? UISplitViewController {
+                split.displayModeButtonVisibility = .never
+                return
+            }
+            responder = current.next
+        }
     }
 }

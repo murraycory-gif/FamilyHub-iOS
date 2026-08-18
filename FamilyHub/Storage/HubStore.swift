@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 @MainActor
 final class HubStore: ObservableObject {
@@ -16,9 +17,11 @@ final class HubStore: ObservableObject {
     @Published private(set) var recipes: [Recipe]
     @Published private(set) var dinners: [DinnerPlan]
     @Published var errorMessage: String?
+    @Published private(set) var familyPhotoData: Data?
 
     private let fileManager: FileManager
     private let snapshotURL: URL
+    private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
 
     init(rootURL: URL? = nil) {
         fileManager = .default
@@ -40,7 +43,9 @@ final class HubStore: ObservableObject {
         calendarSources = []
         recipes = []
         dinners = []
+        familyPhotoData = nil
         loadOrSeed()
+        familyPhotoData = try? Data(contentsOf: familyPhotoURL)
     }
 
     private static func defaultRoot() -> URL {
@@ -153,6 +158,20 @@ final class HubStore: ObservableObject {
     func setHouseholdName(_ name: String) {
         householdName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         persist()
+    }
+
+    func setFamilyPhoto(_ data: Data?) {
+        if let data, let image = UIImage(data: data) {
+            let resized = image.preparingThumbnail(of: CGSize(width: 600, height: 600)) ?? image
+            familyPhotoData = resized.jpegData(compressionQuality: 0.82)
+        } else {
+            familyPhotoData = nil
+        }
+        if let familyPhotoData {
+            try? familyPhotoData.write(to: familyPhotoURL, options: [.atomic])
+        } else {
+            try? fileManager.removeItem(at: familyPhotoURL)
+        }
     }
 
     func addMember(_ member: FamilyMember) {
