@@ -36,6 +36,7 @@ final class HubRouter: ObservableObject {
     @Published var calendarFilter: DayFilter = .family
     @Published var calendarDay = Date()
     @Published var focusedEventID: UUID?
+    @Published var mealsDay = Date()
 
     func open(_ section: HubSection, list: ListKind? = nil) {
         if let list { listKind = list }
