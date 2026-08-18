@@ -5,6 +5,9 @@ import Foundation
 enum MemberRole: String, Codable, CaseIterable, Identifiable {
     case parent
     case child
+    case dog
+    case cat
+    case bird
 
     var id: String { rawValue }
 
@@ -12,6 +15,26 @@ enum MemberRole: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .parent: return "Parent"
         case .child: return "Kid"
+        case .dog: return "Dog"
+        case .cat: return "Cat"
+        case .bird: return "Bird"
+        }
+    }
+
+    var isPet: Bool {
+        switch self {
+        case .dog, .cat, .bird: return true
+        default: return false
+        }
+    }
+
+    var defaultEmoji: String {
+        switch self {
+        case .parent: return "😎"
+        case .child: return "🌟"
+        case .dog: return "🐶"
+        case .cat: return "🐱"
+        case .bird: return "🐦"
         }
     }
 }
@@ -94,14 +117,18 @@ enum PersonStyle {
         "C026D3", "A855F7", "7C3AED", "8B5CF6", "4F46E5", "6366F1", "78716C", "A8A29E"
     ]
 
-    static let emojis: [String] = [
-        "😎", "🤠", "🥳", "🤓", "🦊", "🐼", "🦁", "🐯",
-        "🐻", "🐨", "🐸", "🦄", "🐲", "🐙", "🦋", "🐶",
-        "🐱", "🐵", "🐧", "🦉", "🚀", "🌟", "⚡️", "🌈",
-        "🎯", "🏆", "⚽️", "🏀", "🏈", "🎾", "🏐", "🎮",
-        "🎸", "🎨", "📚", "🎤", "🎧", "🎹", "🍕", "🌮",
-        "🧁", "🍩", "🛹", "🚴", "🏊", "🧩", "🪁", "🧸"
+    static let groups: [(title: String, emojis: [String])] = [
+        ("Faces", ["😎", "🤠", "🥳", "🤓", "😇", "🤩", "😍", "🤗", "😴", "🧐", "👻", "👽", "🤖", "🎃", "😈", "🦸", "🧙", "🧚"]),
+        ("Dogs", ["🐶", "🐕", "🦮", "🐩", "🐺", "🦴", "🌭"]),
+        ("Cats", ["🐱", "🐈", "🐈‍⬛", "🦁", "🐯", "🐆"]),
+        ("Birds", ["🐦", "🐤", "🐣", "🐥", "🦅", "🦉", "🐧", "🦆", "🦢", "🦜", "🦩", "🦚"]),
+        ("Animals", ["🦊", "🐼", "🐻", "🐨", "🐸", "🦄", "🐲", "🐙", "🦋", "🐵", "🐮", "🐷", "🐰", "🐹", "🐭", "🐢", "🦖", "🦕", "🐳", "🐬"]),
+        ("Sports", ["⚽️", "🏀", "🏈", "🎾", "🏐", "⚾️", "🏉", "🎱", "🏓", "⛳️", "🏒", "🥍", "🏸", "🥊", "🏅", "🏆"]),
+        ("Play", ["🚀", "🌟", "⚡️", "🌈", "🎯", "🎮", "🎸", "🎨", "📚", "🎤", "🎧", "🎹", "🛹", "🚴", "🏊", "🧩", "🪁", "🧸", "🎲", "🎬", "🎪", "🪄", "👑", "💎"]),
+        ("Food", ["🍕", "🌮", "🍔", "🍟", "🍦", "🧁", "🍩", "🍪", "🍎", "🍓", "🍉", "🍇", "🍿", "🥨", "🍣", "🥑"])
     ]
+
+    static var emojis: [String] { groups.flatMap(\.emojis) }
 
     static func emoji(fromStored stored: String) -> String {
         if looksLikeEmoji(stored) { return stored }

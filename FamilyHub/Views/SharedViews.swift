@@ -31,16 +31,24 @@ struct MemberDot: View {
 }
 
 struct MemberAvatar: View {
+    @EnvironmentObject private var store: HubStore
     let member: FamilyMember
     var size: CGFloat = 40
 
     var body: some View {
         ZStack {
-            Circle().fill(Color(hex: member.colorHex))
-            Text(member.displayEmoji)
-                .font(.system(size: size * 0.48))
+            if let data = store.photo(for: member), let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Circle().fill(Color(hex: member.colorHex))
+                Text(member.displayEmoji)
+                    .font(.system(size: size * 0.48))
+            }
         }
         .frame(width: size, height: size)
+        .clipShape(Circle())
         .overlay {
             Circle().stroke(AppTheme.cardBorder, lineWidth: 1)
         }

@@ -18,10 +18,12 @@ final class HubStore: ObservableObject {
     @Published private(set) var dinners: [DinnerPlan]
     @Published var errorMessage: String?
     @Published private(set) var familyPhotoData: Data?
+    @Published private(set) var memberPhotos: [UUID: Data] = [:]
 
     private let fileManager: FileManager
     private let snapshotURL: URL
     private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
+    private var memberPhotoFolder: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("member-photos", isDirectory: true) }
 
     init(rootURL: URL? = nil) {
         fileManager = .default
@@ -46,6 +48,7 @@ final class HubStore: ObservableObject {
         familyPhotoData = nil
         loadOrSeed()
         familyPhotoData = try? Data(contentsOf: familyPhotoURL)
+        loadMemberPhotos()
     }
 
     private static func defaultRoot() -> URL {
@@ -235,6 +238,9 @@ final class HubStore: ObservableObject {
         if member.role == .parent {
             let insertAt = members.lastIndex(where: { $0.role == .parent }).map { $0 + 1 } ?? 0
             members.insert(member, at: insertAt)
+        } else if member.role == .child {
+            let insertAt = members.lastIndex(where: { $0.role == .parent || $0.role == .child }).map { $0 + 1 } ?? members.count
+            members.insert(member, at: insertAt)
         } else {
             members.append(member)
         }
@@ -249,7 +255,40 @@ final class HubStore: ObservableObject {
 
     func deleteMember(_ id: UUID) {
         members.removeAll { $0.id == id }
+        setMemberPhoto(id, data: nil)
         persist()
+    }
+
+    func photo(for member: FamilyMember) -> Data? {
+        memberPhotos[member.id]
+    }
+
+    func setMemberPhoto(_ id: UUID, data: Data?) {
+        if let data, let image = UIImage(data: data) {
+            let resized = image.preparingThumbnail(of: CGSize(width: 600, height: 600)) ?? image
+            memberPhotos[id] = resized.jpegData(compressionQuality: 0.82)
+        } else {
+            memberPhotos[id] = nil
+        }
+        let url = memberPhotoFolder.appendingPathComponent("\(id.uuidString).jpg")
+        if let payload = memberPhotos[id] {
+            try? fileManager.createDirectory(at: memberPhotoFolder, withIntermediateDirectories: true)
+            try? payload.write(to: url, options: [.atomic])
+        } else {
+            try? fileManager.removeItem(at: url)
+        }
+    }
+
+    private func loadMemberPhotos() {
+        guard let files = try? fileManager.contentsOfDirectory(at: memberPhotoFolder, includingPropertiesForKeys: nil) else { return }
+        var loaded: [UUID: Data] = [:]
+        for file in files where file.pathExtension.lowercased() == "jpg" {
+            if let id = UUID(uuidString: file.deletingPathExtension().lastPathComponent),
+               let data = try? Data(contentsOf: file) {
+                loaded[id] = data
+            }
+        }
+        memberPhotos = loaded
     }
 
     /// In-memory only — persist after the finger lifts so the hub does not hitch.
