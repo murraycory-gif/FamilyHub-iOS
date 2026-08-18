@@ -26,8 +26,8 @@ struct RootView: View {
                     .zIndex(1)
             }
         }
-        .preferredColorScheme(.dark)
-        .tint(AppTheme.ice)
+        .preferredColorScheme(.light)
+        .tint(AppTheme.blue)
         .background(AppTheme.bg.ignoresSafeArea())
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {

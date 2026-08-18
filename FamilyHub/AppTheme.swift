@@ -1,28 +1,39 @@
 import SwiftUI
 
-/// Night command-center: near-black navy, steel accent, hairline glass.
+/// EnviroMap light paper: cool white surfaces, brand blue, quiet type.
 enum AppTheme {
-    static let navy = Color(hex: "C5CDD6")
-    static let navySoft = Color(hex: "1B2330")
-    static let navyMuted = Color(hex: "8A96A6")
-    static let ice = Color(hex: "9BB0C0")
+    static let blue = Color(red: 0.15, green: 0.42, blue: 0.95)
+    static let blueSoft = Color(red: 0.88, green: 0.92, blue: 1.0)
+    static let blueDeep = Color(red: 0.08, green: 0.28, blue: 0.72)
 
-    static let forest = navy
-    static let forestSoft = navySoft
-    static let clay = Color(hex: "8FA8B8")
+    static let navy = blue
+    static let navySoft = blueSoft
+    static let navyMuted = Color(red: 0.38, green: 0.42, blue: 0.50)
+    static let ice = blue
 
-    static let bg = Color(hex: "080B10")
-    static let elevated = Color(hex: "11161F")
-    static let card = Color(hex: "141A24")
-    static let cardBorder = Color.white.opacity(0.10)
+    static let forest = blue
+    static let forestSoft = blueSoft
+    static let clay = blueDeep
 
-    static let text = Color(hex: "EDF1F5")
-    static let textSecondary = Color(hex: "9AA6B4")
-    static let textTertiary = Color(hex: "6D7886")
+    static let bg = Color(red: 0.96, green: 0.97, blue: 0.99)
+    static let elevated = Color.white
+    static let card = Color.white
+    static let cardBorder = Color.black.opacity(0.06)
+
+    static let text = Color(red: 0.08, green: 0.10, blue: 0.16)
+    static let textSecondary = Color(red: 0.38, green: 0.42, blue: 0.50)
+    static let textTertiary = Color(red: 0.55, green: 0.58, blue: 0.65)
+
+    static let chore = Color(hex: "DC2626")
+    static let choreSoft = Color(hex: "FEE2E2")
+    static let reminder = Color(hex: "D97706")
+    static let reminderSoft = Color(hex: "FEF3C7")
+    static let todo = Color(hex: "059669")
+    static let todoSoft = Color(hex: "D1FAE5")
 
     static let radiusL: CGFloat = 20
-    static let radiusM: CGFloat = 12
-    static let radiusS: CGFloat = 8
+    static let radiusM: CGFloat = 14
+    static let radiusS: CGFloat = 10
 }
 
 extension Color {
@@ -35,7 +46,7 @@ extension Color {
         case 6:
             (r, g, b) = ((int >> 16) & 0xFF, (int >> 8) & 0xFF, int & 0xFF)
         default:
-            (r, g, b) = (197, 205, 214)
+            (r, g, b) = (38, 107, 242)
         }
         self.init(
             red: Double(r) / 255,
@@ -49,12 +60,12 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.semibold))
-            .foregroundStyle(AppTheme.bg)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.radiusM, style: .continuous)
-                    .fill(AppTheme.navy)
+                    .fill(AppTheme.blue)
                     .opacity(configuration.isPressed ? 0.88 : 1)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
@@ -66,13 +77,12 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(AppTheme.text)
+            .foregroundStyle(AppTheme.blue)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
                 Capsule(style: .continuous)
-                    .stroke(AppTheme.cardBorder, lineWidth: 1)
-                    .background(Capsule(style: .continuous).fill(AppTheme.navySoft))
+                    .fill(AppTheme.blueSoft)
             )
             .opacity(configuration.isPressed ? 0.85 : 1)
     }

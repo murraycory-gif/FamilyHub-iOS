@@ -40,15 +40,84 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(profileSubtitle.uppercased())
-                .font(.caption.weight(.semibold))
-                .tracking(1.6)
-                .foregroundStyle(AppTheme.textTertiary)
-            Text(profileTitle)
-                .font(.system(size: 26, weight: .semibold))
-                .tracking(-0.4)
-                .foregroundStyle(AppTheme.text)
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(profileSubtitle.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(AppTheme.textTertiary)
+                Text(profileTitle)
+                    .font(.system(size: 26, weight: .semibold))
+                    .tracking(-0.4)
+                    .foregroundStyle(AppTheme.text)
+            }
+            Spacer(minLength: 8)
+            profileButton
+        }
+    }
+
+    private var profileButton: some View {
+        Menu {
+            Button {
+                profile = .family
+            } label: {
+                Label("Whole family", systemImage: profile == .family ? "checkmark" : "person.3.fill")
+            }
+            ForEach(store.members) { member in
+                Button {
+                    profile = .member(member.id)
+                } label: {
+                    if profile == .member(member.id) {
+                        Label(member.name, systemImage: "checkmark")
+                    } else {
+                        Text(member.name)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                profileAvatar
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Profile")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(AppTheme.textTertiary)
+                    Text(shortProfileName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.text)
+                }
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(AppTheme.card, in: Capsule(style: .continuous))
+            .overlay(Capsule().stroke(AppTheme.cardBorder, lineWidth: 1))
+        }
+    }
+
+    @ViewBuilder
+    private var profileAvatar: some View {
+        switch profile {
+        case .family:
+            ZStack {
+                Circle().fill(AppTheme.blueSoft)
+                Image(systemName: "person.3.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+            .frame(width: 32, height: 32)
+        case .member(let id):
+            if let member = store.member(id: id) {
+                MemberAvatar(member: member, size: 32)
+            }
+        }
+    }
+
+    private var shortProfileName: String {
+        switch profile {
+        case .family: return "Family"
+        case .member(let id): return store.member(id: id)?.name ?? "Family"
         }
     }
 
@@ -75,7 +144,7 @@ struct TodayView: View {
             Button { shiftWeek(-7) } label: {
                 Image(systemName: "chevron.left")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.ice)
+                    .foregroundStyle(AppTheme.blue)
                     .frame(width: 28, height: 44)
             }
             .buttonStyle(.plain)
@@ -89,19 +158,19 @@ struct TodayView: View {
                     VStack(spacing: 4) {
                         Text(day.formatted(.dateTime.weekday(.narrow)))
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(selected ? AppTheme.bg : AppTheme.textTertiary)
+                            .foregroundStyle(selected ? Color.white : AppTheme.textTertiary)
                         Text("\(Calendar.current.component(.day, from: day))")
                             .font(.headline.monospacedDigit())
-                            .foregroundStyle(selected ? AppTheme.bg : AppTheme.text)
+                            .foregroundStyle(selected ? Color.white : AppTheme.text)
                         Circle()
-                            .fill(today && !selected ? AppTheme.ice : Color.clear)
+                            .fill(today && !selected ? AppTheme.blue : Color.clear)
                             .frame(width: 4, height: 4)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(selected ? AppTheme.navy : AppTheme.card)
+                            .fill(selected ? AppTheme.blue : AppTheme.card)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -114,7 +183,7 @@ struct TodayView: View {
             Button { shiftWeek(7) } label: {
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.ice)
+                    .foregroundStyle(AppTheme.blue)
                     .frame(width: 28, height: 44)
             }
             .buttonStyle(.plain)
@@ -257,10 +326,10 @@ struct TodayView: View {
     }
 
     private var callouts: some View {
-        HStack(spacing: 10) {
-            callout("Open chores", "\(focusedChores.count)", "checkmark.circle")
-            callout("Reminders", "\(focusedReminders.count)", "bell")
-            callout("To-dos", "\(focusedTodos.count)", "square.and.pencil")
+        HStack(spacing: 8) {
+            callout("Open chores", "\(focusedChores.count)", "checkmark.circle.fill", AppTheme.chore, AppTheme.choreSoft)
+            callout("Reminders", "\(focusedReminders.count)", "bell.fill", AppTheme.reminder, AppTheme.reminderSoft)
+            callout("To-dos", "\(focusedTodos.count)", "square.and.pencil", AppTheme.todo, AppTheme.todoSoft)
         }
     }
 
@@ -272,19 +341,26 @@ struct TodayView: View {
         store.todos.filter { !$0.isCompleted && matchesProfile($0.memberID) }
     }
 
-    private func callout(_ title: String, _ value: String, _ symbol: String) -> some View {
-        HubCard {
-            VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: symbol).foregroundStyle(AppTheme.ice)
+    private func callout(_ title: String, _ value: String, _ symbol: String, _ color: Color, _ soft: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 1) {
                 Text(value)
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                Text(title.uppercased())
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.8)
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .foregroundStyle(AppTheme.text)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(color)
             }
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(soft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var familySection: some View {
@@ -438,13 +514,13 @@ private struct FamilyFocusCard: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            AppTheme.ice.frame(width: 5)
+            AppTheme.blue.frame(width: 5)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     ZStack {
                         Circle().fill(AppTheme.navySoft)
                         Image(systemName: "person.3.fill")
-                            .foregroundStyle(AppTheme.ice)
+                            .foregroundStyle(AppTheme.blue)
                     }
                     .frame(width: 44, height: 44)
                     VStack(alignment: .leading, spacing: 2) {
@@ -468,7 +544,7 @@ private struct FamilyFocusCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(selected ? AppTheme.ice : AppTheme.cardBorder, lineWidth: selected ? 2 : 1)
+                .stroke(selected ? AppTheme.blue : AppTheme.cardBorder, lineWidth: selected ? 2 : 1)
         )
     }
 }
