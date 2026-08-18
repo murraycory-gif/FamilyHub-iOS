@@ -108,11 +108,11 @@ struct CalendarSourcesView: View {
                     Button(ingest.isAuthorized ? "Refresh accounts" : "Allow Calendar access") {
                         Task {
                             if ingest.isAuthorized {
-                                ingest.refreshStatus()
-                                store.upsertCalendarSources(ingest.available)
+                                ingest.refreshStatus(resetStore: true)
+                                await ingest.sync(into: store, quiet: true)
                             } else {
                                 await ingest.requestAccess()
-                                store.upsertCalendarSources(ingest.available)
+                                store.reconcileCalendarSources(ingest.available)
                             }
                         }
                     }
@@ -152,7 +152,10 @@ struct CalendarSourcesView: View {
                     Spacer()
                     Toggle("", isOn: Binding(
                         get: { source.isEnabled },
-                        set: { store.setSourceEnabled(source.id, enabled: $0) }
+                        set: {
+                            store.setSourceEnabled(source.id, enabled: $0)
+                            ingest.scheduleSync(quiet: true)
+                        }
                     ))
                     .labelsHidden()
                     .tint(AppTheme.ice)
@@ -172,12 +175,10 @@ struct CalendarSourcesView: View {
                         .font(.caption2)
                         .foregroundStyle(AppTheme.textTertiary)
                 }
-                if source.icsURL != nil {
-                    Button("Remove link", role: .destructive) {
-                        store.removeCalendarSource(source.id)
-                    }
-                    .font(.caption.weight(.semibold))
+                Button(source.icsURL != nil ? "Remove link" : "Remove from HUB", role: .destructive) {
+                    store.removeCalendarSource(source.id)
                 }
+                .font(.caption.weight(.semibold))
             }
         }
     }

@@ -3,6 +3,7 @@ import SwiftUI
 struct CalendarHubView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var router: HubRouter
+    @EnvironmentObject private var ingest: CalendarIngestor
     @State private var monthAnchor = Date()
     @State private var selectedDay = Date()
     @State private var filter: DayFilter = .family
@@ -161,15 +162,13 @@ struct CalendarHubView: View {
                                 }
                             }
                             Spacer()
-                            if !event.isImported {
-                                Button(role: .destructive) {
-                                    store.deleteEvent(event.id)
-                                } label: {
-                                    Image(systemName: "trash")
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(AppTheme.textTertiary)
+                            Button(role: .destructive) {
+                                ingest.deleteEvent(event)
+                            } label: {
+                                Image(systemName: "trash")
                             }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(AppTheme.textTertiary)
                         }
                     }
                     .overlay(
@@ -219,7 +218,7 @@ struct AddEventSheet: View {
                 }
                 if !destinations.isEmpty {
                     Picker("Save to", selection: $destinationID) {
-                        Text("HUB only").tag(String?.none)
+                        Text("Choose calendar").tag(String?.none)
                         ForEach(destinations) { calendar in
                             Text("\(calendar.title) · \(calendar.account)").tag(Optional(calendar.eventKitID))
                         }
@@ -239,29 +238,36 @@ struct AddEventSheet: View {
             }
             .onAppear {
                 start = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: day) ?? day
-                if destinationID == nil {
-                    destinationID = defaultDestination()
-                }
+                destinationID = defaultDestination()
+            }
+            .onChange(of: memberID) { _, _ in
+                destinationID = defaultDestination()
             }
         }
     }
 
     private func defaultDestination() -> String? {
         if let memberID,
-           let match = store.calendarSources.first(where: { $0.memberID == memberID && $0.eventKitID != nil })?.eventKitID {
+           let match = store.calendarSources.first(where: {
+               $0.memberID == memberID && $0.isEnabled && $0.eventKitID != nil
+           })?.eventKitID {
             return match
+        }
+        if let enabled = store.calendarSources.first(where: { $0.isEnabled && $0.eventKitID != nil })?.eventKitID {
+            return enabled
         }
         return destinations.first?.eventKitID
     }
 
     private func save() {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let calendarID = destinationID ?? defaultDestination()
         var sourceID: UUID?
         var externalID: String?
-        if let destinationID {
+        if let calendarID {
             do {
                 externalID = try ingest.saveToDevice(
-                    calendarID: destinationID,
+                    calendarID: calendarID,
                     title: trimmed,
                     start: start,
                     end: nil,
@@ -269,7 +275,7 @@ struct AddEventSheet: View {
                     location: location,
                     notes: ""
                 )
-                sourceID = store.calendarSources.first(where: { $0.eventKitID == destinationID })?.id
+                sourceID = store.calendarSources.first(where: { $0.eventKitID == calendarID })?.id
             } catch {
                 errorText = error.localizedDescription
                 return
@@ -284,6 +290,7 @@ struct AddEventSheet: View {
             sourceID: sourceID,
             externalID: externalID
         ))
+        ingest.scheduleSync(quiet: true)
         dismiss()
     }
 }

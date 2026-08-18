@@ -316,6 +316,10 @@ final class HubStore: ObservableObject {
     // MARK: Calendar sources
 
     func upsertCalendarSources(_ discovered: [DiscoveredCalendar]) {
+        reconcileCalendarSources(discovered)
+    }
+
+    func reconcileCalendarSources(_ discovered: [DiscoveredCalendar]) {
         for item in discovered {
             if let idx = calendarSources.firstIndex(where: { $0.eventKitID == item.eventKitID }) {
                 calendarSources[idx].title = item.title
@@ -333,6 +337,15 @@ final class HubStore: ObservableObject {
                     )
                 )
             }
+        }
+        let liveIDs = Set(discovered.map(\.eventKitID))
+        let stale = calendarSources.filter { source in
+            guard let eventKitID = source.eventKitID else { return false }
+            return !liveIDs.contains(eventKitID)
+        }
+        for source in stale {
+            events.removeAll { $0.sourceID == source.id }
+            calendarSources.removeAll { $0.id == source.id }
         }
         persist()
     }

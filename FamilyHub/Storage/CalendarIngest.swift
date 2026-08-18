@@ -31,10 +31,12 @@ final class CalendarIngestor: ObservableObject {
         return authorization == .authorized
     }
 
-    func refreshStatus() {
+    func refreshStatus(resetStore: Bool = false) {
         authorization = EKEventStore.authorizationStatus(for: .event)
         if isAuthorized {
+            if resetStore { ekStore.reset() }
             available = EventKitBridge.list(store: ekStore)
+            hub?.reconcileCalendarSources(available)
         }
     }
 
@@ -67,7 +69,7 @@ final class CalendarIngestor: ObservableObject {
 
     func attach(_ hub: HubStore) {
         self.hub = hub
-        refreshStatus()
+        refreshStatus(resetStore: true)
         startWatching()
         if isAuthorized {
             hub.upsertCalendarSources(available)
@@ -79,10 +81,11 @@ final class CalendarIngestor: ObservableObject {
         if observer == nil {
             observer = NotificationCenter.default.addObserver(
                 forName: .EKEventStoreChanged,
-                object: ekStore,
+                object: nil,
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor in
+                    self?.refreshStatus()
                     self?.scheduleSync(quiet: true)
                 }
             }
@@ -94,7 +97,7 @@ final class CalendarIngestor: ObservableObject {
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor in
-                    self?.refreshStatus()
+                    self?.refreshStatus(resetStore: true)
                     self?.scheduleSync(quiet: true)
                 }
             }
@@ -135,11 +138,48 @@ final class CalendarIngestor: ObservableObject {
         )
     }
 
+    func updateOnDevice(
+        externalID: String,
+        title: String,
+        start: Date,
+        end: Date?,
+        allDay: Bool,
+        location: String,
+        notes: String
+    ) throws {
+        try EventKitBridge.update(
+            store: ekStore,
+            eventID: externalID,
+            title: title,
+            start: start,
+            end: end,
+            allDay: allDay,
+            location: location,
+            notes: notes
+        )
+    }
+
+    func deleteFromDevice(externalID: String) throws {
+        try EventKitBridge.delete(store: ekStore, eventID: externalID)
+    }
+
+    func deleteEvent(_ event: CalendarEvent) {
+        if let externalID = event.externalID {
+            try? deleteFromDevice(externalID: externalID)
+        }
+        hub?.deleteEvent(event.id)
+    }
+
     func sync(into hub: HubStore, quiet: Bool = false) async {
         isSyncing = true
         defer { isSyncing = false }
         var imported = 0
-        for source in hub.calendarSources where source.isEnabled {
+        for source in hub.calendarSources {
+            if let eventKitID = source.eventKitID, ekStore.calendar(withIdentifier: eventKitID) == nil {
+                hub.removeCalendarSource(source.id)
+                continue
+            }
+            guard source.isEnabled else { continue }
             do {
                 let events: [CalendarEvent]
                 if let eventKitID = source.eventKitID {
@@ -227,13 +267,52 @@ enum EventKitBridge {
         return event.eventIdentifier
     }
 
+    static func update(
+        store: EKEventStore,
+        eventID: String,
+        title: String,
+        start: Date,
+        end: Date?,
+        allDay: Bool,
+        location: String,
+        notes: String
+    ) throws {
+        guard let event = store.event(withIdentifier: eventID) else {
+            throw CalendarWriteError.missingEvent
+        }
+        guard event.calendar.allowsContentModifications else {
+            throw CalendarWriteError.readOnly
+        }
+        event.title = title
+        event.isAllDay = allDay
+        event.startDate = start
+        if allDay {
+            event.endDate = end ?? Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
+        } else {
+            event.endDate = end ?? start.addingTimeInterval(3600)
+        }
+        event.location = location.isEmpty ? nil : location
+        event.notes = notes.isEmpty ? nil : notes
+        try store.save(event, span: .thisEvent, commit: true)
+    }
+
+    static func delete(store: EKEventStore, eventID: String) throws {
+        guard let event = store.event(withIdentifier: eventID) else { return }
+        guard event.calendar.allowsContentModifications else {
+            throw CalendarWriteError.readOnly
+        }
+        try store.remove(event, span: .thisEvent, commit: true)
+    }
+
     enum CalendarWriteError: LocalizedError {
         case missingCalendar
+        case missingEvent
         case readOnly
 
         var errorDescription: String? {
             switch self {
             case .missingCalendar: return "That calendar isn’t on this iPad anymore."
+            case .missingEvent: return "That event is no longer on the linked calendar."
             case .readOnly: return "That calendar is read-only."
             }
         }
