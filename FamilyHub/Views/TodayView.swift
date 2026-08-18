@@ -43,11 +43,11 @@ struct TodayView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Image("HubMark")
+                Image("HubGlyph")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 36, height: 36)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .frame(width: 64, height: 64)
+                    .padding(.vertical, -12)
                     .accessibilityLabel("HUB")
             }
             ToolbarItem(placement: .topBarTrailing) {
