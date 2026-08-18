@@ -93,13 +93,16 @@ enum EventKitBridge {
     static func list(store: EKEventStore) -> [DiscoveredCalendar] {
         store.calendars(for: .event)
             .filter { $0.type != .birthday }
-            .map { calendar in
-                let source = calendar.source
+            .compactMap { calendar -> DiscoveredCalendar? in
+                guard let source = calendar.source else { return nil }
                 return DiscoveredCalendar(
                     eventKitID: calendar.calendarIdentifier,
                     title: calendar.title,
                     account: source.title,
-                    brand: CalendarBrand.infer(sourceTitle: source.title, typeName: sourceTypeName(source.sourceType)),
+                    brand: CalendarBrand.infer(
+                        sourceTitle: source.title,
+                        typeName: sourceTypeName(source.sourceType)
+                    ),
                     colorHex: hex(from: calendar.cgColor) ?? "3B82F6"
                 )
             }
