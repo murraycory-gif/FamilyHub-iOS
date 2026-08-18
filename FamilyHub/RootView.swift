@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var store: HubStore
-    @AppStorage("familyhub.onboarding.completed.v1") private var onboardingCompleted = false
+    @AppStorage("familyhub.onboarding.completed.v2") private var onboardingCompleted = false
     @State private var showSplash = true
 
     var body: some View {
@@ -72,4 +72,5 @@ struct LaunchSplashView: View {
 #Preview {
     RootView()
         .environmentObject(HubStore())
+    .environmentObject(CalendarIngestor())
 }
