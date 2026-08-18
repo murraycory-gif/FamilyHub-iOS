@@ -1,5 +1,6 @@
-# Xcode
-xcuserdata/
+# Local Apple team — never overwrite on pull
+FamilyHub/Config/Team.xcconfig
+
 *.xcuserstate
 *.xccheckout
 *.moved-aside
