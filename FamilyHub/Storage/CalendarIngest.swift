@@ -1,5 +1,6 @@
 import EventKit
 import Foundation
+import UIKit
 
 struct DiscoveredCalendar: Identifiable, Hashable {
     var id: String { eventKitID }
@@ -18,6 +19,10 @@ final class CalendarIngestor: ObservableObject {
     @Published var message: String?
 
     private let ekStore = EKEventStore()
+    private var observer: NSObjectProtocol?
+    private var foregroundObserver: NSObjectProtocol?
+    private var pendingSync: Task<Void, Never>?
+    private weak var hub: HubStore?
 
     var isAuthorized: Bool {
         if #available(iOS 17.0, *) {
@@ -55,7 +60,82 @@ final class CalendarIngestor: ObservableObject {
         }
     }
 
-    func sync(into hub: HubStore) async {
+    deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        if let foregroundObserver { NotificationCenter.default.removeObserver(foregroundObserver) }
+    }
+
+    func attach(_ hub: HubStore) {
+        self.hub = hub
+        refreshStatus()
+        startWatching()
+        if isAuthorized {
+            hub.upsertCalendarSources(available)
+            scheduleSync(quiet: true)
+        }
+    }
+
+    func startWatching() {
+        if observer == nil {
+            observer = NotificationCenter.default.addObserver(
+                forName: .EKEventStoreChanged,
+                object: ekStore,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.scheduleSync(quiet: true)
+                }
+            }
+        }
+        if foregroundObserver == nil {
+            foregroundObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.willEnterForegroundNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.refreshStatus()
+                    self?.scheduleSync(quiet: true)
+                }
+            }
+        }
+    }
+
+    func scheduleSync(quiet: Bool = true) {
+        pendingSync?.cancel()
+        pendingSync = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled, let hub else { return }
+            await sync(into: hub, quiet: quiet)
+        }
+    }
+
+    func writableCalendars() -> [DiscoveredCalendar] {
+        EventKitBridge.writable(store: ekStore)
+    }
+
+    func saveToDevice(
+        calendarID: String,
+        title: String,
+        start: Date,
+        end: Date?,
+        allDay: Bool,
+        location: String,
+        notes: String
+    ) throws -> String {
+        try EventKitBridge.save(
+            store: ekStore,
+            calendarID: calendarID,
+            title: title,
+            start: start,
+            end: end,
+            allDay: allDay,
+            location: location,
+            notes: notes
+        )
+    }
+
+    func sync(into hub: HubStore, quiet: Bool = false) async {
         isSyncing = true
         defer { isSyncing = false }
         var imported = 0
@@ -80,10 +160,10 @@ final class CalendarIngestor: ObservableObject {
                 hub.markSourceSynced(source.id)
                 imported += events.count
             } catch {
-                message = "Could not sync \(source.title)."
+                if !quiet { message = "Could not sync \(source.title)." }
             }
         }
-        if message == nil {
+        if !quiet {
             message = imported == 0 ? "No events in the open window." : "Brought in \(imported) events."
         }
     }
@@ -107,6 +187,56 @@ enum EventKitBridge {
                 )
             }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    static func writable(store: EKEventStore) -> [DiscoveredCalendar] {
+        list(store: store).filter { discovered in
+            store.calendar(withIdentifier: discovered.eventKitID)?.allowsContentModifications == true
+        }
+    }
+
+    static func save(
+        store: EKEventStore,
+        calendarID: String,
+        title: String,
+        start: Date,
+        end: Date?,
+        allDay: Bool,
+        location: String,
+        notes: String
+    ) throws -> String {
+        guard let calendar = store.calendar(withIdentifier: calendarID) else {
+            throw CalendarWriteError.missingCalendar
+        }
+        guard calendar.allowsContentModifications else {
+            throw CalendarWriteError.readOnly
+        }
+        let event = EKEvent(eventStore: store)
+        event.calendar = calendar
+        event.title = title
+        event.isAllDay = allDay
+        event.startDate = start
+        if allDay {
+            event.endDate = end ?? Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
+        } else {
+            event.endDate = end ?? start.addingTimeInterval(3600)
+        }
+        event.location = location.isEmpty ? nil : location
+        event.notes = notes.isEmpty ? nil : notes
+        try store.save(event, span: .thisEvent, commit: true)
+        return event.eventIdentifier
+    }
+
+    enum CalendarWriteError: LocalizedError {
+        case missingCalendar
+        case readOnly
+
+        var errorDescription: String? {
+            switch self {
+            case .missingCalendar: return "That calendar isn’t on this iPad anymore."
+            case .readOnly: return "That calendar is read-only."
+            }
+        }
     }
 
     private static func sourceTypeName(_ type: EKSourceType) -> String {

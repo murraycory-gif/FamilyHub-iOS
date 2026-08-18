@@ -180,6 +180,7 @@ struct CalendarHubView: View {
 
 struct AddEventSheet: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var ingest: CalendarIngestor
     @Environment(\.dismiss) private var dismiss
     let day: Date
 
@@ -188,6 +189,10 @@ struct AddEventSheet: View {
     @State private var start = Date()
     @State private var allDay = false
     @State private var memberID: UUID?
+    @State private var destinationID: String?
+    @State private var errorText: String?
+
+    private var destinations: [DiscoveredCalendar] { ingest.writableCalendars() }
 
     var body: some View {
         NavigationStack {
@@ -202,27 +207,73 @@ struct AddEventSheet: View {
                         Text(member.name).tag(Optional(member.id))
                     }
                 }
+                if !destinations.isEmpty {
+                    Picker("Save to", selection: $destinationID) {
+                        Text("HUB only").tag(String?.none)
+                        ForEach(destinations) { calendar in
+                            Text("\(calendar.title) · \(calendar.account)").tag(Optional(calendar.eventKitID))
+                        }
+                    }
+                }
+                if let errorText {
+                    Text(errorText).foregroundStyle(AppTheme.chore)
+                }
             }
             .navigationTitle("New event")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        store.addEvent(.make(
-                            title: title,
-                            startAt: start,
-                            allDay: allDay,
-                            location: location,
-                            memberID: memberID
-                        ))
-                        dismiss()
-                    }
+                    Button("Add") { save() }
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             .onAppear {
                 start = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: day) ?? day
+                if destinationID == nil {
+                    destinationID = defaultDestination()
+                }
             }
         }
+    }
+
+    private func defaultDestination() -> String? {
+        if let memberID,
+           let match = store.calendarSources.first(where: { $0.memberID == memberID && $0.eventKitID != nil })?.eventKitID {
+            return match
+        }
+        return destinations.first?.eventKitID
+    }
+
+    private func save() {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        var sourceID: UUID?
+        var externalID: String?
+        if let destinationID {
+            do {
+                externalID = try ingest.saveToDevice(
+                    calendarID: destinationID,
+                    title: trimmed,
+                    start: start,
+                    end: nil,
+                    allDay: allDay,
+                    location: location,
+                    notes: ""
+                )
+                sourceID = store.calendarSources.first(where: { $0.eventKitID == destinationID })?.id
+            } catch {
+                errorText = error.localizedDescription
+                return
+            }
+        }
+        store.addEvent(.make(
+            title: trimmed,
+            startAt: start,
+            allDay: allDay,
+            location: location,
+            memberID: memberID,
+            sourceID: sourceID,
+            externalID: externalID
+        ))
+        dismiss()
     }
 }

@@ -3,7 +3,7 @@ import SwiftUI
 struct CalendarSourcesView: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var ingest = CalendarIngestor()
+    @EnvironmentObject private var ingest: CalendarIngestor
     @State private var showICS = false
     @State private var brandHint: CalendarBrand?
 
@@ -11,7 +11,7 @@ struct CalendarSourcesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Pull iCloud, Google, and Outlook into the family calendar. FamilyHub reads the accounts already on this iPad, or a calendar link.")
+                    Text("HUB stays in sync with iCloud, Google, and Outlook calendars already on this iPad. Changes here write back to those calendars. Link-only calendars stay read-only.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
 

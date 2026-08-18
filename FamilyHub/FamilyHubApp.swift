@@ -4,6 +4,7 @@ import UIKit
 @main
 struct FamilyHubApp: App {
     @StateObject private var store = HubStore()
+    @StateObject private var ingest = CalendarIngestor()
 
     private let launchUI = UIColor(red: 0.96, green: 0.97, blue: 0.99, alpha: 1)
     private let launch = Color(red: 0.96, green: 0.97, blue: 0.99)
@@ -32,6 +33,8 @@ struct FamilyHubApp: App {
                 launch.ignoresSafeArea()
                 RootView()
                     .environmentObject(store)
+                    .environmentObject(ingest)
+                    .onAppear { ingest.attach(store) }
             }
             .background(launch.ignoresSafeArea())
             .preferredColorScheme(.light)
