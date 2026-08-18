@@ -28,6 +28,10 @@
 	<string>FamilyHub reads iCloud, Google, and Outlook calendars on this iPad so the family hub stays in sync.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>FamilyHub reads iCloud, Google, and Outlook calendars on this iPad so the family hub stays in sync.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>RubikWetPaint-Regular.ttf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

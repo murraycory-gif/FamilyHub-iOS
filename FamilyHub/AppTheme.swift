@@ -34,6 +34,10 @@ enum AppTheme {
     static let radiusL: CGFloat = 20
     static let radiusM: CGFloat = 14
     static let radiusS: CGFloat = 10
+
+    static func paint(_ size: CGFloat) -> Font {
+        .custom("RubikWetPaint-Regular", size: size)
+    }
 }
 
 extension Color {

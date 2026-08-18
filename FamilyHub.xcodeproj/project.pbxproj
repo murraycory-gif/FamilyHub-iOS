@@ -27,6 +27,7 @@
 		A018 /* CalendarSourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B018 /* CalendarSourcesView.swift */; };
 		A019 /* MealsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B019 /* MealsView.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
+		A904 /* RubikWetPaint-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B904 /* RubikWetPaint-Regular.ttf */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
 		A912 /* CalendarMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B912 /* CalendarMathTests.swift */; };
 		A913 /* OpenItemsTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B913 /* OpenItemsTrackerTests.swift */; };
@@ -63,6 +64,7 @@
 		B018 /* CalendarSourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourcesView.swift; sourceTree = "<group>"; };
 		B019 /* MealsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealsView.swift; sourceTree = "<group>"; };
 		B900 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B904 /* RubikWetPaint-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RubikWetPaint-Regular.ttf"; path = "Fonts/RubikWetPaint-Regular.ttf"; sourceTree = "<group>"; };
 		B901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B903 /* FamilyHub.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FamilyHub.entitlements; sourceTree = "<group>"; };
 		B902 /* FamilyHub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyHub.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -112,6 +114,7 @@
 				D006 /* Storage */,
 				D004 /* Views */,
 				B900 /* Assets.xcassets */,
+				B904 /* RubikWetPaint-Regular.ttf */,
 				B901 /* Info.plist */,
 				B903 /* FamilyHub.entitlements */,
 			);
@@ -249,6 +252,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A900 /* Assets.xcassets in Resources */,
+				A904 /* RubikWetPaint-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

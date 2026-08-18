@@ -18,30 +18,33 @@ struct TodayView: View {
     @State private var dragOriginIndex: Int?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                header
-                agenda
-                dinnerCard
-                callouts
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
-            .padding(.bottom, 12)
-            familySection
+        GeometryReader { geo in
+            let familyH = max(geo.size.height * 0.40, sizeClass == .regular ? 300 : 260)
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 12) {
+                    header
+                    agenda
+                    dinnerCard
+                    callouts
+                }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 8)
-                .frame(height: familyHeight)
+                .padding(.top, 8)
+                .padding(.bottom, 10)
+                .frame(maxHeight: .infinity, alignment: .top)
+                familySection
+                    .padding(.horizontal, 24)
+                    .frame(height: familyH)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(AppTheme.bg)
+        .background(AppTheme.bg.ignoresSafeArea())
+        .ignoresSafeArea(edges: .bottom)
         .navigationTitle("HUB")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(AppTheme.bg, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     dateButton
                     profileButton
                 }
@@ -73,9 +76,8 @@ struct TodayView: View {
                 .tracking(1.6)
                 .foregroundStyle(AppTheme.textTertiary)
             Text(profileTitle)
-                .font(.system(size: 28, weight: .semibold))
-                .tracking(-0.4)
-                .foregroundStyle(AppTheme.text)
+                .font(AppTheme.paint(36))
+                .foregroundStyle(AppTheme.blue)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -123,50 +125,52 @@ struct TodayView: View {
                 }
             }
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 profileAvatar
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Profile")
-                        .font(.caption2.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(AppTheme.textTertiary)
                     Text(shortProfileName)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(AppTheme.text)
                 }
                 Image(systemName: "chevron.down")
-                    .font(.caption.weight(.bold))
+                    .font(.body.weight(.bold))
                     .foregroundStyle(AppTheme.blue)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(minHeight: 52)
             .background(AppTheme.card, in: Capsule(style: .continuous))
             .overlay(Capsule().stroke(AppTheme.cardBorder, lineWidth: 1))
         }
     }
 
     private func pillButton(symbol: String, caption: String, title: String) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             ZStack {
                 Circle().fill(AppTheme.blueSoft)
                 Image(systemName: symbol)
-                    .font(.caption.weight(.semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(AppTheme.blue)
             }
-            .frame(width: 32, height: 32)
-            VStack(alignment: .leading, spacing: 1) {
+            .frame(width: 36, height: 36)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(caption)
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.textTertiary)
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(AppTheme.text)
             }
             Image(systemName: "chevron.down")
-                .font(.caption.weight(.bold))
+                .font(.body.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(minHeight: 52)
         .background(AppTheme.card, in: Capsule(style: .continuous))
         .overlay(Capsule().stroke(AppTheme.cardBorder, lineWidth: 1))
     }
@@ -181,10 +185,10 @@ struct TodayView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.blue)
             }
-            .frame(width: 32, height: 32)
+            .frame(width: 36, height: 36)
         case .member(let id):
             if let member = store.member(id: id) {
-                MemberAvatar(member: member, size: 32)
+                MemberAvatar(member: member, size: 36)
             }
         }
     }
@@ -259,7 +263,7 @@ struct TodayView: View {
                 }
             }
         }
-        .frame(height: 168)
+        .frame(maxHeight: .infinity)
     }
 
     private var dayHeadline: String {
@@ -465,16 +469,13 @@ struct TodayView: View {
         }
     }
 
-    private var familyHeight: CGFloat {
-        sizeClass == .regular ? 320 : 250
-    }
-
     private func cardWidth(in available: CGFloat) -> CGFloat {
         let count = store.members.count + 1
-        if sizeClass == .regular && count <= 5 {
-            return (available - CGFloat(count - 1) * 12) / CGFloat(count)
+        let spacing = CGFloat(count - 1) * 12
+        if count <= 5 {
+            return max(160, (available - spacing) / CGFloat(count))
         }
-        return max(200, available / 2.4)
+        return max(200, available / 2.6)
     }
 
     private func reorderGesture(for member: FamilyMember, cardWidth: CGFloat) -> some Gesture {
@@ -590,7 +591,8 @@ private struct FamilyFocusCard: View {
                     .frame(width: 44, height: 44)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Family")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(AppTheme.paint(26))
+                            .foregroundStyle(AppTheme.blue)
                         Text("Everyone")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
@@ -632,7 +634,8 @@ private struct MemberHomeCard: View {
                     MemberAvatar(member: member, size: 40)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(member.name)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(AppTheme.paint(24))
+                            .foregroundStyle(AppTheme.blue)
                         Text(member.role.label)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
