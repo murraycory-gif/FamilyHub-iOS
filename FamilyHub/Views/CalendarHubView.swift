@@ -28,10 +28,14 @@ struct CalendarHubView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 14) {
-                    Button { showSources = true } label: { Image(systemName: "calendar.badge.plus") }
-                    Button { showAdd = true } label: { Image(systemName: "plus") }
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 8) {
+                    HubIconButton(symbol: "calendar.badge.plus", label: "Calendars") {
+                        showSources = true
+                    }
+                    HubIconButton(symbol: "plus", label: "Add") {
+                        showAdd = true
+                    }
                 }
             }
         }
@@ -51,14 +55,14 @@ struct CalendarHubView: View {
 
     private var monthHeader: some View {
         HStack {
-            Button { shiftMonth(-1) } label: { Image(systemName: "chevron.left") }
+            HubIconButton(symbol: "chevron.left", label: "Previous month") { shiftMonth(-1) }
             Spacer()
             Text(monthAnchor.formatted(.dateTime.month(.wide).year()))
-                .font(.system(size: 24, weight: .semibold, design: .serif))
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(AppTheme.text)
             Spacer()
-            Button { shiftMonth(1) } label: { Image(systemName: "chevron.right") }
+            HubIconButton(symbol: "chevron.right", label: "Next month") { shiftMonth(1) }
         }
-        .foregroundStyle(AppTheme.text)
     }
 
     private var filterRow: some View {

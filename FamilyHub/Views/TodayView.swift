@@ -208,6 +208,24 @@ struct TodayView: View {
         return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
     }
 
+    private var daySwipe: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                if value.translation.width < -24 {
+                    shiftSelectedDay(1)
+                } else if value.translation.width > 24 {
+                    shiftSelectedDay(-1)
+                }
+            }
+    }
+
+    private func shiftSelectedDay(_ delta: Int) {
+        if let next = Calendar.current.date(byAdding: .day, value: delta, to: selectedDay) {
+            selectedDay = Calendar.current.startOfDay(for: next)
+        }
+    }
+
     private var shortDayName: String {
         if Calendar.current.isDateInToday(selectedDay) { return "Today" }
         if Calendar.current.isDateInTomorrow(selectedDay) { return "Tomorrow" }
@@ -247,6 +265,7 @@ struct TodayView: View {
             }
         }
         .frame(maxHeight: .infinity)
+        .simultaneousGesture(daySwipe)
     }
 
     private var dayHeadline: String {
@@ -386,6 +405,7 @@ struct TodayView: View {
             .background(Color(hex: "FFF7ED"), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(daySwipe)
     }
 
     private var callouts: some View {

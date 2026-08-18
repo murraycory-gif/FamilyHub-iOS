@@ -102,8 +102,22 @@ struct MainHubView: View {
             Label(item.title, systemImage: item.symbol)
                 .tag(Optional(item))
         }
-        .navigationTitle("HUB")
         .listStyle(.sidebar)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("")
+        .toolbar(removing: .sidebarToggle)
+        .toolbarBackground(AppTheme.bg, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                HubNavLogo()
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                HubIconButton(symbol: "sidebar.left", label: "Menu") {
+                    router.toggleSidebar()
+                }
+            }
+        }
         .safeAreaInset(edge: .top, spacing: 0) {
             Text(store.householdName.uppercased())
                 .font(.caption.weight(.semibold))
@@ -113,6 +127,7 @@ struct MainHubView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 8)
         }
+        .background(HideSystemSidebarToggle())
     }
 
     @ViewBuilder

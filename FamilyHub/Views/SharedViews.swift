@@ -107,9 +107,9 @@ struct FilterChip: View {
             .padding(.vertical, 8)
             .background(
                 Capsule(style: .continuous)
-                    .fill(selected ? AppTheme.navy : AppTheme.navySoft)
+                    .fill(selected ? AppTheme.blue : AppTheme.blueSoft)
             )
-            .foregroundStyle(selected ? AppTheme.bg : AppTheme.text)
+            .foregroundStyle(selected ? Color.white : AppTheme.text)
         }
         .buttonStyle(.plain)
     }
@@ -134,6 +134,24 @@ struct MemberReorderDelegate: DropDelegate {
     func dropEntered(info: DropInfo) {
         guard let draggingID, draggingID != targetID else { return }
         onMove(draggingID, targetID)
+    }
+}
+
+struct HubIconButton: View {
+    let symbol: String
+    var label: String = ""
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.blue)
+                .frame(width: 40, height: 36)
+                .background(AppTheme.card, in: Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label.isEmpty ? symbol : label)
     }
 }
 
@@ -164,28 +182,14 @@ struct HubChromeModifier: ViewModifier {
                 ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 8) {
                         if sizeClass == .regular {
-                            Button {
+                            HubIconButton(symbol: "sidebar.left", label: "Menu") {
                                 router.toggleSidebar()
-                            } label: {
-                                Image(systemName: "sidebar.left")
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(AppTheme.blue)
-                                    .frame(width: 40, height: 36)
-                                    .background(AppTheme.card, in: Capsule(style: .continuous))
                             }
-                            .accessibilityLabel("Menu")
                         }
                         if showBack {
-                            Button {
+                            HubIconButton(symbol: "chevron.left", label: "HUB") {
                                 router.open(.today)
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(AppTheme.blue)
-                                    .frame(width: 40, height: 36)
-                                    .background(AppTheme.card, in: Capsule(style: .continuous))
                             }
-                            .accessibilityLabel("HUB")
                         }
                     }
                 }
