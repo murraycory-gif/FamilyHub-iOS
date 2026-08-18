@@ -6,7 +6,7 @@ struct HubCard<Content: View>: View {
     var body: some View {
         content
             .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.radiusL, style: .continuous)
                     .fill(AppTheme.card)

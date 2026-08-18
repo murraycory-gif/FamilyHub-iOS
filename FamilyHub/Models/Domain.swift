@@ -323,9 +323,30 @@ struct WeatherDay: Identifiable, Hashable {
     var high: Int
     var low: Int
     var code: Int
+    var precip: Int
 
     var id: String { dateISO }
 
+    var symbolName: String { WeatherIcon.symbol(for: code) }
+}
+
+struct WeatherNow: Hashable {
+    var temp: Int
+    var feelsLike: Int
+    var code: Int
+    var isDay: Bool
+
+    var symbolName: String { WeatherIcon.symbol(for: code) }
+    var condition: String { WeatherIcon.condition(for: code) }
+}
+
+struct WeatherHour: Identifiable, Hashable {
+    var at: Date
+    var temp: Int
+    var code: Int
+    var precip: Int
+
+    var id: TimeInterval { at.timeIntervalSince1970 }
     var symbolName: String { WeatherIcon.symbol(for: code) }
 }
 
@@ -340,6 +361,43 @@ enum WeatherIcon {
         case 71, 73, 75, 77, 85, 86: return "cloud.snow.fill"
         case 95, 96, 99: return "cloud.bolt.rain.fill"
         default: return "cloud.sun.fill"
+        }
+    }
+
+    static func condition(for code: Int) -> String {
+        switch code {
+        case 0: return "Clear"
+        case 1: return "Mostly Clear"
+        case 2: return "Partly Cloudy"
+        case 3: return "Cloudy"
+        case 45, 48: return "Foggy"
+        case 51, 53, 55, 56, 57: return "Drizzle"
+        case 61, 63, 66, 67: return "Rain"
+        case 65: return "Heavy Rain"
+        case 71, 73, 77, 85: return "Snow"
+        case 75, 86: return "Heavy Snow"
+        case 80, 81, 82: return "Showers"
+        case 95, 96, 99: return "Thunderstorms"
+        default: return "Partly Cloudy"
+        }
+    }
+}
+
+enum WeatherSky {
+    static func colors(code: Int, isDay: Bool) -> [Color] {
+        if !isDay {
+            return [Color(hex: "0B1026"), Color(hex: "1C2A4A")]
+        }
+        switch code {
+        case 0, 1: return [Color(hex: "2F80D4"), Color(hex: "6EB5E8")]
+        case 2: return [Color(hex: "4A86C4"), Color(hex: "86B2D4")]
+        case 3: return [Color(hex: "5A6E82"), Color(hex: "8A9AAB")]
+        case 45, 48: return [Color(hex: "6B7684"), Color(hex: "9AA4B0")]
+        case 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82:
+            return [Color(hex: "3E5368"), Color(hex: "6A7E92")]
+        case 71, 73, 75, 77, 85, 86: return [Color(hex: "7A8CA0"), Color(hex: "C0CCD8")]
+        case 95, 96, 99: return [Color(hex: "2A3344"), Color(hex: "4A5568")]
+        default: return [Color(hex: "2F80D4"), Color(hex: "6EB5E8")]
         }
     }
 }

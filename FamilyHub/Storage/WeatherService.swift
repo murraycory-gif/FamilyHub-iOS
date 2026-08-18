@@ -4,6 +4,8 @@ import Foundation
 @MainActor
 final class WeatherLoader: ObservableObject {
     @Published var days: [WeatherDay] = []
+    @Published var hours: [WeatherHour] = []
+    @Published var now: WeatherNow?
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var searchResults: [WeatherPlace] = []
@@ -15,7 +17,10 @@ final class WeatherLoader: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            days = try await WeatherAPI.forecast(for: place)
+            let bundle = try await WeatherAPI.forecast(for: place)
+            days = bundle.days
+            hours = bundle.hours
+            now = bundle.now
         } catch {
             errorMessage = "Could not load weather."
         }
@@ -77,20 +82,27 @@ enum WeatherAPI {
         )
     }
 
-    static func forecast(for place: WeatherPlace) async throws -> [WeatherDay] {
+    static func forecast(for place: WeatherPlace) async throws -> WeatherBundle {
         var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
         components.queryItems = [
             URLQueryItem(name: "latitude", value: String(place.latitude)),
             URLQueryItem(name: "longitude", value: String(place.longitude)),
-            URLQueryItem(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min"),
+            URLQueryItem(name: "current", value: "temperature_2m,apparent_temperature,weather_code,is_day"),
+            URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation_probability"),
+            URLQueryItem(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"),
             URLQueryItem(name: "temperature_unit", value: "fahrenheit"),
             URLQueryItem(name: "timezone", value: "auto"),
             URLQueryItem(name: "forecast_days", value: "7"),
         ]
         let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let decoded = try JSONDecoder().decode(ForecastResponse.self, from: data)
-        return decoded.days()
+        return try JSONDecoder().decode(ForecastResponse.self, from: data).bundle()
     }
+}
+
+struct WeatherBundle {
+    var now: WeatherNow
+    var hours: [WeatherHour]
+    var days: [WeatherDay]
 }
 
 private struct GeocodeSearch: Decodable {
@@ -113,31 +125,82 @@ private struct GeocodeHit: Decodable {
 }
 
 private struct ForecastResponse: Decodable {
+    var current: Current
+    var hourly: Hourly
     var daily: Daily
+
+    struct Current: Decodable {
+        var temperature_2m: Double
+        var apparent_temperature: Double
+        var weather_code: Int
+        var is_day: Int
+    }
+
+    struct Hourly: Decodable {
+        var time: [String]
+        var temperature_2m: [Double]
+        var weather_code: [Int]
+        var precipitation_probability: [Int]?
+    }
 
     struct Daily: Decodable {
         var time: [String]
         var weather_code: [Int]
         var temperature_2m_max: [Double]
         var temperature_2m_min: [Double]
+        var precipitation_probability_max: [Int]?
     }
 
-    func days() -> [WeatherDay] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+    func bundle() -> WeatherBundle {
+        let dayStamp = DateFormatter()
+        dayStamp.dateFormat = "yyyy-MM-dd"
+        dayStamp.locale = Locale(identifier: "en_US_POSIX")
         let weekday = DateFormatter()
         weekday.dateFormat = "EEE"
-        return zip(daily.time.indices, daily.time).map { index, iso in
-            let date = formatter.date(from: iso) ?? Date()
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withColonSeparatorInTime]
+        let loose = DateFormatter()
+        loose.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        loose.locale = Locale(identifier: "en_US_POSIX")
+
+        func parseHour(_ raw: String) -> Date {
+            iso.date(from: raw) ?? loose.date(from: raw) ?? Date()
+        }
+
+        let now = WeatherNow(
+            temp: Int(current.temperature_2m.rounded()),
+            feelsLike: Int(current.apparent_temperature.rounded()),
+            code: current.weather_code,
+            isDay: current.is_day == 1
+        )
+
+        let start = Date().addingTimeInterval(-30 * 60)
+        let hours: [WeatherHour] = zip(hourly.time.indices, hourly.time).compactMap { index, raw in
+            let at = parseHour(raw)
+            guard at >= start else { return nil }
+            return WeatherHour(
+                at: at,
+                temp: Int(hourly.temperature_2m[index].rounded()),
+                code: hourly.weather_code[index],
+                precip: hourly.precipitation_probability?[index] ?? 0
+            )
+        }
+        .prefix(12)
+        .map { $0 }
+
+        let days: [WeatherDay] = zip(daily.time.indices, daily.time).map { index, isoDay in
+            let date = dayStamp.date(from: isoDay) ?? Date()
             return WeatherDay(
-                dateISO: iso,
+                dateISO: isoDay,
                 weekday: weekday.string(from: date),
                 high: Int(daily.temperature_2m_max[index].rounded()),
                 low: Int(daily.temperature_2m_min[index].rounded()),
-                code: daily.weather_code[index]
+                code: daily.weather_code[index],
+                precip: daily.precipitation_probability_max?[index] ?? 0
             )
         }
+
+        return WeatherBundle(now: now, hours: hours, days: days)
     }
 }
 

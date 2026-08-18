@@ -12,19 +12,27 @@ struct TodayView: View {
     @State private var showAddWidget = false
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 16) {
-                header
-                widgets
+        GeometryReader { geo in
+            let familyH = familyHeight(in: geo.size.height)
+            VStack(alignment: .leading, spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        header
+                        widgets
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 4)
+                    .padding(.bottom, 12)
+                }
                 familySection
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 8)
+                    .frame(height: familyH)
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 6)
-            .padding(.bottom, 28)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("HUB")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(isCustomizing ? "Done" : "Customize") {
@@ -72,9 +80,10 @@ struct TodayView: View {
                         widgetChrome(widget, index: store.hubWidgets.firstIndex(where: { $0.id == widget.id }) ?? 0) {
                             widgetBody(widget)
                         }
-                        .frame(maxWidth: .infinity, alignment: .top)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
                 }
+                .frame(minHeight: 320, alignment: .top)
                 ForEach(Array(remainingWidgets.enumerated()), id: \.element.id) { index, widget in
                     widgetChrome(widget, index: store.hubWidgets.firstIndex(where: { $0.id == widget.id }) ?? index) {
                         widgetBody(widget)
@@ -127,8 +136,18 @@ struct TodayView: View {
         switch widget.kind {
         case .cameras:
             CamerasPlaceholderCard()
+                .frame(maxHeight: .infinity)
         case .weather:
-            weatherStrip
+            AppleWeatherCard(
+                placeLabel: store.weatherPlace?.label ?? "Set location",
+                now: weather.now,
+                hours: weather.hours,
+                days: weather.days,
+                isLoading: weather.isLoading,
+                errorMessage: weather.errorMessage,
+                onChangePlace: { showPlaceSheet = true }
+            )
+            .frame(maxHeight: .infinity)
         case .snapshot:
             householdStats
         }
@@ -168,69 +187,6 @@ struct TodayView: View {
         }
     }
 
-    private var weatherStrip: some View {
-        HubCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Weather")
-                            .font(.headline.weight(.semibold))
-                        Button {
-                            showPlaceSheet = true
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "location.fill")
-                                    .font(.caption2)
-                                Text(store.weatherPlace?.label ?? "Set location")
-                                    .font(.caption.weight(.semibold))
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 8, weight: .bold))
-                            }
-                            .foregroundStyle(AppTheme.ice)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Spacer()
-                    if weather.isLoading { ProgressView() }
-                }
-
-                if let errorMessage = weather.errorMessage, weather.days.isEmpty {
-                    Text(errorMessage)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.textSecondary)
-                } else {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                        ForEach(weather.days) { day in
-                            VStack(spacing: 4) {
-                                Text(day.weekday.uppercased())
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .tracking(0.6)
-                                    .foregroundStyle(AppTheme.textTertiary)
-                                Image(systemName: day.symbolName)
-                                    .font(.body)
-                                    .foregroundStyle(AppTheme.ice)
-                                    .symbolRenderingMode(.hierarchical)
-                                    .frame(height: 18)
-                                Text("\(day.high)°")
-                                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                                    .foregroundStyle(AppTheme.text)
-                                Text("\(day.low)°")
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(AppTheme.textTertiary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(AppTheme.navySoft)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private var householdStats: some View {
         HStack(spacing: 10) {
             householdStat("Open chores", "\(store.openAssignments().count)", "checkmark.circle")
@@ -257,7 +213,7 @@ struct TodayView: View {
     }
 
     private var familySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 SectionLabel(title: "Family")
                 Spacer()
@@ -276,7 +232,7 @@ struct TodayView: View {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(store.members) { member in
                         MemberHomeCard(member: member)
-                            .frame(width: width, height: 210)
+                            .frame(width: width, height: geo.size.height)
                             .offset(x: draggingID == member.id ? dragTranslation : 0)
                             .scaleEffect(draggingID == member.id ? 1.02 : 1)
                             .zIndex(draggingID == member.id ? 10 : 0)
@@ -286,7 +242,21 @@ struct TodayView: View {
             }
             .scrollDisabled(draggingID != nil)
         }
-        .frame(height: 210)
+    }
+
+    private func familyHeight(in total: CGFloat) -> CGFloat {
+        if sizeClass == .regular {
+            return max(300, min(400, total * 0.42))
+        }
+        return max(240, total * 0.36)
+    }
+
+    private func cardWidth(in available: CGFloat) -> CGFloat {
+        let count = max(store.members.count, 1)
+        if sizeClass == .regular && count <= 4 {
+            return (available - CGFloat(count - 1) * 12) / CGFloat(count)
+        }
+        return max(240, available - 40)
     }
 
     private func reorderGesture(for member: FamilyMember, cardWidth: CGFloat) -> some Gesture {
@@ -314,13 +284,6 @@ struct TodayView: View {
                 dragTranslation = 0
                 dragOriginIndex = nil
             }
-    }
-
-    private func cardWidth(in available: CGFloat) -> CGFloat {
-        if sizeClass == .regular {
-            return min(300, max(240, (available - 12) / 2.4))
-        }
-        return max(230, available - 48)
     }
 }
 
@@ -358,7 +321,7 @@ private struct CamerasPlaceholderCard: View {
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                                     .fill(Color.black.opacity(0.55))
                                 Image(systemName: symbol)
-                                    .font(.title3)
+                                    .font(.title2)
                                     .foregroundStyle(AppTheme.ice.opacity(0.7))
                                 VStack {
                                     HStack {
@@ -369,15 +332,18 @@ private struct CamerasPlaceholderCard: View {
                                 }
                                 .padding(8)
                             }
-                            .frame(height: 78)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                             Text(name.uppercased())
                                 .font(.system(size: 10, weight: .semibold))
                                 .tracking(0.6)
                                 .foregroundStyle(AppTheme.textSecondary)
                         }
+                        .frame(minHeight: 92)
                     }
                 }
+                .frame(maxHeight: .infinity)
             }
+            .frame(maxHeight: .infinity, alignment: .top)
         }
     }
 }
@@ -436,21 +402,21 @@ private struct MemberHomeCard: View {
     private var chores: [ChoreAssignment] { store.openAssignments(for: member.id) }
     private var reminders: [ReminderItem] { store.openReminders(for: member.id) }
     private var todos: [TodoItem] { store.openTodos(for: member.id) }
-    private var events: [CalendarEvent] { Array(store.todayEvents(for: member.id).prefix(2)) }
+    private var events: [CalendarEvent] { Array(store.todayEvents(for: member.id).prefix(4)) }
     private var accent: Color { Color(hex: member.colorHex) }
 
     var body: some View {
         HStack(spacing: 0) {
             accent.frame(width: 5)
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    MemberAvatar(member: member, size: 34)
-                    VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    MemberAvatar(member: member, size: 44)
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(member.name)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 20, weight: .semibold))
                             .tracking(-0.2)
                         Text(member.role.label)
-                            .font(.caption2.weight(.semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
                     }
                     Spacer(minLength: 0)
@@ -482,7 +448,7 @@ private struct MemberHomeCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(10)
+            .padding(14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
@@ -496,14 +462,14 @@ private struct MemberHomeCard: View {
     private func personStat(_ value: Int, _ title: String) -> some View {
         VStack(spacing: 1) {
             Text("\(value)")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
                 .foregroundStyle(AppTheme.ice)
             Text(title)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 5)
+        .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(AppTheme.navySoft)
