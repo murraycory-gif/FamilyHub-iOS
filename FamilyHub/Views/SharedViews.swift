@@ -149,6 +149,7 @@ struct HubNavLogo: View {
 
 struct HubChromeModifier: ViewModifier {
     @EnvironmentObject private var router: HubRouter
+    @Environment(\.horizontalSizeClass) private var sizeClass
     var showBack: Bool
 
     func body(content: Content) -> some View {
@@ -157,12 +158,31 @@ struct HubChromeModifier: ViewModifier {
             .toolbarBackground(AppTheme.bg, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
-                if showBack {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            router.open(.today)
-                        } label: {
-                            Label("HUB", systemImage: "chevron.left")
+                ToolbarItem(placement: .topBarLeading) {
+                    HStack(spacing: 8) {
+                        if sizeClass == .regular {
+                            Button {
+                                router.toggleSidebar()
+                            } label: {
+                                Image(systemName: "sidebar.left")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(AppTheme.blue)
+                                    .frame(width: 40, height: 36)
+                                    .background(AppTheme.card, in: Capsule(style: .continuous))
+                            }
+                            .accessibilityLabel("Menu")
+                        }
+                        if showBack {
+                            Button {
+                                router.open(.today)
+                            } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(AppTheme.blue)
+                                    .frame(width: 40, height: 36)
+                                    .background(AppTheme.card, in: Capsule(style: .continuous))
+                            }
+                            .accessibilityLabel("HUB")
                         }
                     }
                 }

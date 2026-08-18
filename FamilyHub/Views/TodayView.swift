@@ -19,9 +19,9 @@ struct TodayView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let familyH = max(geo.size.height * 0.48, sizeClass == .regular ? 340 : 280)
+            let familyH = max(geo.size.height * 0.40, sizeClass == .regular ? 300 : 250)
             VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     header
                     agenda
                     dinnerCard
@@ -29,7 +29,7 @@ struct TodayView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 2)
-                .padding(.bottom, 8)
+                .padding(.bottom, 10)
                 .frame(maxHeight: .infinity, alignment: .top)
                 familySection
                     .padding(.horizontal, 24)
@@ -244,7 +244,7 @@ struct TodayView: View {
                 }
             }
         }
-        .frame(maxHeight: 148)
+        .frame(maxHeight: .infinity)
     }
 
     private var dayHeadline: String {
@@ -345,22 +345,23 @@ struct TodayView: View {
                     Image(systemName: "fork.knife")
                         .foregroundStyle(Color(hex: "C2410C"))
                 }
-                .frame(width: 40, height: 40)
-                VStack(alignment: .leading, spacing: 2) {
+                .frame(width: 48, height: 48)
+                VStack(alignment: .leading, spacing: 3) {
                     Text(Calendar.current.isDateInToday(selectedDay) ? "Dinner tonight" : "Dinner")
-                        .font(.caption.weight(.semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color(hex: "C2410C"))
                     Text(store.dinnerTitle(on: selectedDay) ?? "Nothing planned — tap to choose")
-                        .font(.headline)
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(AppTheme.text)
                         .lineLimit(1)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
+                    .font(.body.weight(.bold))
                     .foregroundStyle(AppTheme.textTertiary)
             }
-            .padding(12)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
             .background(Color(hex: "FFF7ED"), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -394,21 +395,21 @@ struct TodayView: View {
     private func callout(_ title: String, _ value: String, _ symbol: String, _ color: Color, _ soft: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
-                .font(.title3.weight(.semibold))
+                .font(.title2.weight(.semibold))
                 .foregroundStyle(color)
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .font(.system(size: 30, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(AppTheme.text)
                 Text(title)
-                    .font(.caption.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(color)
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(soft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }

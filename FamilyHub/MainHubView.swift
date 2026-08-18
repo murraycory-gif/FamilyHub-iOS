@@ -31,10 +31,15 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
 final class HubRouter: ObservableObject {
     @Published var section: HubSection? = .today
     @Published var listKind: ListKind = .reminders
+    @Published var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
     func open(_ section: HubSection, list: ListKind? = nil) {
         if let list { listKind = list }
         self.section = section
+    }
+
+    func toggleSidebar() {
+        columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
     }
 }
 
@@ -42,19 +47,19 @@ struct MainHubView: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.horizontalSizeClass) private var sizeClass
     @StateObject private var router = HubRouter()
-    @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
     private var currentSection: HubSection { router.section ?? .today }
 
     var body: some View {
         Group {
             if sizeClass == .regular {
-                NavigationSplitView(columnVisibility: $columnVisibility) {
+                NavigationSplitView(columnVisibility: $router.columnVisibility) {
                     sidebar
                 } detail: {
                     detail
                 }
                 .navigationSplitViewStyle(.prominentDetail)
+                .toolbar(removing: .sidebarToggle)
             } else {
                 TabView(selection: tabSelection) {
                     ForEach(HubSection.allCases) { item in
@@ -72,7 +77,7 @@ struct MainHubView: View {
         .onChange(of: router.section) { _, _ in
             guard sizeClass == .regular else { return }
             withAnimation(.easeInOut(duration: 0.2)) {
-                columnVisibility = .detailOnly
+                router.columnVisibility = .detailOnly
             }
         }
     }
