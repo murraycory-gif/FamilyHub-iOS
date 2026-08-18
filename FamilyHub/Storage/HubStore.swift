@@ -13,6 +13,8 @@ final class HubStore: ObservableObject {
     @Published private(set) var weatherPlace: WeatherPlace?
     @Published private(set) var hubWidgets: [HubWidget]
     @Published private(set) var calendarSources: [CalendarSource]
+    @Published private(set) var recipes: [Recipe]
+    @Published private(set) var dinners: [DinnerPlan]
     @Published var errorMessage: String?
 
     private let fileManager: FileManager
@@ -36,6 +38,8 @@ final class HubStore: ObservableObject {
         weatherPlace = WeatherPlace.chicago
         hubWidgets = HubWidget.defaultSet
         calendarSources = []
+        recipes = []
+        dinners = []
         loadOrSeed()
     }
 
@@ -46,6 +50,46 @@ final class HubStore: ObservableObject {
     }
 
     // MARK: Lookups
+
+    func recipe(id: UUID) -> Recipe? {
+        recipes.first { $0.id == id }
+    }
+
+    func dinner(on day: Date) -> DinnerPlan? {
+        let start = Calendar.current.startOfDay(for: day)
+        return dinners.first { Calendar.current.isDate($0.day, inSameDayAs: start) }
+    }
+
+    func dinnerTitle(on day: Date) -> String? {
+        guard let plan = dinner(on: day) else { return nil }
+        if let recipeID = plan.recipeID, let recipe = recipe(id: recipeID) {
+            return recipe.name
+        }
+        if !plan.note.isEmpty { return plan.note }
+        return nil
+    }
+
+    func addRecipe(_ recipe: Recipe) {
+        recipes.insert(recipe, at: 0)
+        persist()
+    }
+
+    func setDinner(on day: Date, recipeID: UUID?, note: String = "") {
+        let start = Calendar.current.startOfDay(for: day)
+        if let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) {
+            dinners[idx].recipeID = recipeID
+            dinners[idx].note = note
+        } else {
+            dinners.append(.make(day: start, recipeID: recipeID, note: note))
+        }
+        persist()
+    }
+
+    func clearDinner(on day: Date) {
+        let start = Calendar.current.startOfDay(for: day)
+        dinners.removeAll { Calendar.current.isDate($0.day, inSameDayAs: start) }
+        persist()
+    }
 
     func member(id: UUID) -> FamilyMember? {
         members.first { $0.id == id }
@@ -426,6 +470,8 @@ final class HubStore: ObservableObject {
         let widgets = snapshot.hubWidgets ?? []
         hubWidgets = widgets.isEmpty ? HubWidget.defaultSet : widgets
         calendarSources = snapshot.calendarSources ?? []
+        recipes = snapshot.recipes ?? SampleFamily.starterRecipes
+        dinners = snapshot.dinners ?? []
     }
 
     private func persist() {
@@ -440,7 +486,9 @@ final class HubStore: ObservableObject {
             ledger: ledger,
             weatherPlace: weatherPlace,
             hubWidgets: hubWidgets,
-            calendarSources: calendarSources
+            calendarSources: calendarSources,
+            recipes: recipes,
+            dinners: dinners
         )
         do {
             let encoder = JSONEncoder()
@@ -512,6 +560,14 @@ struct UpcomingItem: Identifiable {
 }
 
 enum SampleFamily {
+    static let starterRecipes: [Recipe] = [
+        .make(name: "Tacos", kind: .recipe, notes: "Beef, shells, toppings"),
+        .make(name: "Spaghetti", kind: .recipe, notes: "Marinara and garlic bread"),
+        .make(name: "Grilled chicken", kind: .cooked),
+        .make(name: "Leftovers", kind: .cooked),
+        .make(name: "Pizza night", kind: .recipe),
+    ]
+
     static func snapshot(now: Date = Date(), calendar: Calendar = .current) -> HubSnapshot {
         let cory = FamilyMember.make(name: "Cory", role: .parent, colorHex: "163A5F", symbol: "😎")
         let alex = FamilyMember.make(name: "Alex", role: .child, colorHex: "2563EB", symbol: "🏃")
@@ -557,7 +613,11 @@ enum SampleFamily {
             assignments: [a1, a2, a3, a4],
             ledger: [],
             weatherPlace: .chicago,
-            hubWidgets: HubWidget.defaultSet
+            hubWidgets: HubWidget.defaultSet,
+            recipes: starterRecipes,
+            dinners: [
+                .make(day: now, recipeID: starterRecipes.first(where: { $0.name == "Tacos" })?.id),
+            ]
         )
     }
 }

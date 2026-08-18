@@ -8,6 +8,7 @@ enum ListKind: String, CaseIterable, Identifiable {
 
 struct ListsView: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
     @State private var kind: ListKind = .reminders
     @State private var showAdd = false
     @State private var memberFilter: UUID?
@@ -63,6 +64,10 @@ struct ListsView: View {
         }
         .sheet(isPresented: $showAdd) {
             AddListItemSheet(kind: kind, defaultMember: memberFilter)
+        }
+        .onAppear { kind = router.listKind }
+        .onChange(of: router.listKind) { _, next in
+            kind = next
         }
     }
 

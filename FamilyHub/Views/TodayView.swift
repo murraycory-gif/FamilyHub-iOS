@@ -7,10 +7,12 @@ enum HubProfile: Hashable {
 
 struct TodayView: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var profile: HubProfile = .family
     @State private var selectedDay = Date()
-    @State private var weekStart = Calendar.current.startOfDay(for: Date())
+    @State private var showMoreDates = false
+    @State private var showDinnerPicker = false
     @State private var draggingID: UUID?
     @State private var dragTranslation: CGFloat = 0
     @State private var dragOriginIndex: Int?
@@ -19,10 +21,10 @@ struct TodayView: View {
         GeometryReader { geo in
             let familyH = familyHeight(in: geo.size.height)
             VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     header
-                    dayStrip
                     agenda
+                    dinnerCard
                     callouts
                 }
                 .padding(.horizontal, 24)
@@ -37,10 +39,27 @@ struct TodayView: View {
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("HUB")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showMoreDates) {
+            NavigationStack {
+                DatePicker("Day", selection: $selectedDay, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .padding()
+                    .navigationTitle("Pick a day")
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showMoreDates = false }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showDinnerPicker) {
+            DinnerPickerSheet(day: selectedDay)
+        }
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(profileSubtitle.uppercased())
                     .font(.caption.weight(.semibold))
@@ -52,7 +71,32 @@ struct TodayView: View {
                     .foregroundStyle(AppTheme.text)
             }
             Spacer(minLength: 8)
+            dateButton
             profileButton
+        }
+    }
+
+    private var dateButton: some View {
+        Menu {
+            ForEach(upcomingDays, id: \.self) { day in
+                Button {
+                    selectedDay = day
+                } label: {
+                    if Calendar.current.isDate(day, inSameDayAs: selectedDay) {
+                        Label(menuDayLabel(day), systemImage: "checkmark")
+                    } else {
+                        Text(menuDayLabel(day))
+                    }
+                }
+            }
+            Divider()
+            Button("More dates…") { showMoreDates = true }
+        } label: {
+            pillButton(
+                symbol: "calendar",
+                caption: "Day",
+                title: shortDayName
+            )
         }
     }
 
@@ -96,6 +140,33 @@ struct TodayView: View {
         }
     }
 
+    private func pillButton(symbol: String, caption: String, title: String) -> some View {
+        HStack(spacing: 8) {
+            ZStack {
+                Circle().fill(AppTheme.blueSoft)
+                Image(systemName: symbol)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+            .frame(width: 32, height: 32)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(caption)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(AppTheme.textTertiary)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.text)
+            }
+            Image(systemName: "chevron.down")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(AppTheme.card, in: Capsule(style: .continuous))
+        .overlay(Capsule().stroke(AppTheme.cardBorder, lineWidth: 1))
+    }
+
     @ViewBuilder
     private var profileAvatar: some View {
         switch profile {
@@ -123,87 +194,38 @@ struct TodayView: View {
 
     private var profileTitle: String {
         switch profile {
-        case .family:
-            return "\(store.householdName) family"
-        case .member(let id):
-            return store.member(id: id)?.name ?? "Family"
+        case .family: return "\(store.householdName) family"
+        case .member(let id): return store.member(id: id)?.name ?? "Family"
         }
     }
 
     private var profileSubtitle: String {
         switch profile {
-        case .family:
-            return "Whole household"
-        case .member(let id):
-            return store.member(id: id)?.role.label ?? "Member"
+        case .family: return "Whole household"
+        case .member(let id): return store.member(id: id)?.role.label ?? "Member"
         }
     }
 
-    private var dayStrip: some View {
-        HStack(spacing: 8) {
-            Button { shiftWeek(-7) } label: {
-                Image(systemName: "chevron.left")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
-                    .frame(width: 28, height: 44)
-            }
-            .buttonStyle(.plain)
-
-            ForEach(visibleDays, id: \.self) { day in
-                let selected = Calendar.current.isDate(day, inSameDayAs: selectedDay)
-                let today = Calendar.current.isDateInToday(day)
-                Button {
-                    selectedDay = day
-                } label: {
-                    VStack(spacing: 4) {
-                        Text(day.formatted(.dateTime.weekday(.narrow)))
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(selected ? Color.white : AppTheme.textTertiary)
-                        Text("\(Calendar.current.component(.day, from: day))")
-                            .font(.headline.monospacedDigit())
-                            .foregroundStyle(selected ? Color.white : AppTheme.text)
-                        Circle()
-                            .fill(today && !selected ? AppTheme.blue : Color.clear)
-                            .frame(width: 4, height: 4)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(selected ? AppTheme.blue : AppTheme.card)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(AppTheme.cardBorder, lineWidth: selected ? 0 : 1)
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-
-            Button { shiftWeek(7) } label: {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
-                    .frame(width: 28, height: 44)
-            }
-            .buttonStyle(.plain)
-        }
+    private var upcomingDays: [Date] {
+        let start = Calendar.current.startOfDay(for: Date())
+        return (0..<7).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
     }
 
-    private var visibleDays: [Date] {
-        (0..<7).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: weekStart) }
+    private func menuDayLabel(_ day: Date) -> String {
+        if Calendar.current.isDateInToday(day) { return "Today" }
+        if Calendar.current.isDateInTomorrow(day) { return "Tomorrow" }
+        return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
     }
 
-    private func shiftWeek(_ days: Int) {
-        if let next = Calendar.current.date(byAdding: .day, value: days, to: weekStart) {
-            weekStart = next
-            selectedDay = next
-        }
+    private var shortDayName: String {
+        if Calendar.current.isDateInToday(selectedDay) { return "Today" }
+        if Calendar.current.isDateInTomorrow(selectedDay) { return "Tomorrow" }
+        return selectedDay.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 
     private var agenda: some View {
         HubCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(dayHeadline)
                         .font(.headline)
@@ -217,7 +239,8 @@ struct TodayView: View {
                     Text(emptyDayCopy)
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
-                        .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 0) {
@@ -229,11 +252,10 @@ struct TodayView: View {
                             }
                         }
                     }
-                    .frame(minHeight: 140, maxHeight: 280)
                 }
             }
         }
-        .frame(maxHeight: .infinity)
+        .frame(height: 168)
     }
 
     private var dayHeadline: String {
@@ -302,7 +324,7 @@ struct TodayView: View {
         HStack(alignment: .top, spacing: 12) {
             Text(item.timeLabel)
                 .font(.caption.weight(.semibold).monospacedDigit())
-                .foregroundStyle(AppTheme.ice)
+                .foregroundStyle(AppTheme.blue)
                 .frame(width: 64, alignment: .leading)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
@@ -322,14 +344,53 @@ struct TodayView: View {
                 MemberDot(member: member, size: 8)
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
+    }
+
+    private var dinnerCard: some View {
+        Button { showDinnerPicker = true } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(hex: "FFEDD5"))
+                    Image(systemName: "fork.knife")
+                        .foregroundStyle(Color(hex: "C2410C"))
+                }
+                .frame(width: 40, height: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Calendar.current.isDateInToday(selectedDay) ? "Dinner tonight" : "Dinner")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color(hex: "C2410C"))
+                    Text(store.dinnerTitle(on: selectedDay) ?? "Nothing planned — tap to choose")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.text)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.textTertiary)
+            }
+            .padding(12)
+            .background(Color(hex: "FFF7ED"), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var callouts: some View {
-        HStack(spacing: 8) {
-            callout("Open chores", "\(focusedChores.count)", "checkmark.circle.fill", AppTheme.chore, AppTheme.choreSoft)
-            callout("Reminders", "\(focusedReminders.count)", "bell.fill", AppTheme.reminder, AppTheme.reminderSoft)
-            callout("To-dos", "\(focusedTodos.count)", "square.and.pencil", AppTheme.todo, AppTheme.todoSoft)
+        HStack(spacing: 10) {
+            Button { router.open(.chores) } label: {
+                callout("Open chores", "\(focusedChores.count)", "checkmark.circle.fill", AppTheme.chore, AppTheme.choreSoft)
+            }
+            .buttonStyle(.plain)
+            Button { router.open(.lists, list: .reminders) } label: {
+                callout("Reminders", "\(focusedReminders.count)", "bell.fill", AppTheme.reminder, AppTheme.reminderSoft)
+            }
+            .buttonStyle(.plain)
+            Button { router.open(.lists, list: .todos) } label: {
+                callout("To-dos", "\(focusedTodos.count)", "square.and.pencil", AppTheme.todo, AppTheme.todoSoft)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -344,11 +405,11 @@ struct TodayView: View {
     private func callout(_ title: String, _ value: String, _ symbol: String, _ color: Color, _ soft: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
-                .font(.body.weight(.semibold))
+                .font(.title3.weight(.semibold))
                 .foregroundStyle(color)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(AppTheme.text)
                 Text(title)
@@ -357,10 +418,10 @@ struct TodayView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(soft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(soft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var familySection: some View {
@@ -401,7 +462,7 @@ struct TodayView: View {
     }
 
     private func familyHeight(in total: CGFloat) -> CGFloat {
-        sizeClass == .regular ? max(220, min(280, total * 0.32)) : 220
+        sizeClass == .regular ? max(280, min(360, total * 0.40)) : 250
     }
 
     private func cardWidth(in available: CGFloat) -> CGFloat {
@@ -599,7 +660,7 @@ private struct MemberHomeCard: View {
         VStack(spacing: 1) {
             Text("\(value)")
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundStyle(AppTheme.ice)
+                .foregroundStyle(AppTheme.blue)
             Text(title)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(AppTheme.textSecondary)
@@ -618,4 +679,5 @@ private struct MemberHomeCard: View {
         TodayView()
     }
     .environmentObject(HubStore())
+    .environmentObject(HubRouter())
 }

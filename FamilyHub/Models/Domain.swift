@@ -268,6 +268,49 @@ struct HubSnapshot: Codable {
     var weatherPlace: WeatherPlace?
     var hubWidgets: [HubWidget]?
     var calendarSources: [CalendarSource]?
+    var recipes: [Recipe]?
+    var dinners: [DinnerPlan]?
+}
+
+struct Recipe: Identifiable, Codable, Hashable {
+    var id: UUID
+    var name: String
+    var kind: RecipeKind
+    var notes: String
+
+    static func make(name: String, kind: RecipeKind, notes: String = "") -> Recipe {
+        Recipe(id: UUID(), name: name, kind: kind, notes: notes)
+    }
+}
+
+enum RecipeKind: String, Codable, CaseIterable, Identifiable {
+    case recipe
+    case cooked
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .recipe: return "Recipe"
+        case .cooked: return "Already made"
+        }
+    }
+}
+
+struct DinnerPlan: Identifiable, Codable, Hashable {
+    var id: UUID
+    var day: Date
+    var recipeID: UUID?
+    var note: String
+
+    static func make(day: Date, recipeID: UUID? = nil, note: String = "") -> DinnerPlan {
+        DinnerPlan(
+            id: UUID(),
+            day: Calendar.current.startOfDay(for: day),
+            recipeID: recipeID,
+            note: note
+        )
+    }
 }
 
 enum CalendarBrand: String, Codable, CaseIterable, Identifiable {

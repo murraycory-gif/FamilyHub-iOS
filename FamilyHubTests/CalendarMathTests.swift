@@ -89,4 +89,16 @@ final class CalendarMathTests: XCTestCase {
         XCTAssertTrue(store.events.contains(where: { $0.title == "Family dinner" }))
         XCTAssertFalse(store.events.contains(where: { $0.title == "Imported" }))
     }
+
+    @MainActor
+    func testDinnerPlanUsesRecipeName() {
+        let store = HubStore(rootURL: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+        let recipe = Recipe.make(name: "Tacos", kind: .recipe)
+        store.addRecipe(recipe)
+        let day = Date()
+        store.setDinner(on: day, recipeID: recipe.id)
+        XCTAssertEqual(store.dinnerTitle(on: day), "Tacos")
+        store.clearDinner(on: day)
+        XCTAssertNil(store.dinnerTitle(on: day))
+    }
 }

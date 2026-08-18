@@ -25,6 +25,7 @@
 		A016 /* WeatherCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B016 /* WeatherCard.swift */; };
 		A017 /* CalendarIngest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B017 /* CalendarIngest.swift */; };
 		A018 /* CalendarSourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B018 /* CalendarSourcesView.swift */; };
+		A019 /* MealsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B019 /* MealsView.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
 		A912 /* CalendarMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B912 /* CalendarMathTests.swift */; };
@@ -60,6 +61,7 @@
 		B016 /* WeatherCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherCard.swift; sourceTree = "<group>"; };
 		B017 /* CalendarIngest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarIngest.swift; sourceTree = "<group>"; };
 		B018 /* CalendarSourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourcesView.swift; sourceTree = "<group>"; };
+		B019 /* MealsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealsView.swift; sourceTree = "<group>"; };
 		B900 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B903 /* FamilyHub.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FamilyHub.entitlements; sourceTree = "<group>"; };
@@ -136,6 +138,7 @@
 				B012 /* ChoresView.swift */,
 				B013 /* ListsView.swift */,
 				B014 /* FamilyView.swift */,
+				B019 /* MealsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -281,6 +284,7 @@
 				A016 /* WeatherCard.swift in Sources */,
 				A017 /* CalendarIngest.swift in Sources */,
 				A018 /* CalendarSourcesView.swift in Sources */,
+				A019 /* MealsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

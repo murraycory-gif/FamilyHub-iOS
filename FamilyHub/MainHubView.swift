@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum HubSection: String, CaseIterable, Identifiable, Hashable {
-    case today, calendar, chores, lists, family
+    case today, calendar, chores, lists, meals, family
 
     var id: String { rawValue }
 
@@ -11,6 +11,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .calendar: return "Calendar"
         case .chores: return "Chores"
         case .lists: return "Lists"
+        case .meals: return "Meals"
         case .family: return "Family"
         }
     }
@@ -21,19 +22,29 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .calendar: return "calendar"
         case .chores: return "checkmark.circle.fill"
         case .lists: return "list.bullet.rectangle"
+        case .meals: return "fork.knife"
         case .family: return "person.3.fill"
         }
+    }
+}
+
+final class HubRouter: ObservableObject {
+    @Published var section: HubSection? = .today
+    @Published var listKind: ListKind = .reminders
+
+    func open(_ section: HubSection, list: ListKind? = nil) {
+        if let list { listKind = list }
+        self.section = section
     }
 }
 
 struct MainHubView: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.horizontalSizeClass) private var sizeClass
-    /// Optional — iOS `List(selection:)` requires `Binding<Selection?>`.
-    @State private var section: HubSection? = .today
+    @StateObject private var router = HubRouter()
     @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
-    private var currentSection: HubSection { section ?? .today }
+    private var currentSection: HubSection { router.section ?? .today }
 
     var body: some View {
         Group {
@@ -56,8 +67,9 @@ struct MainHubView: View {
                 }
             }
         }
+        .environmentObject(router)
         .background(AppTheme.bg.ignoresSafeArea())
-        .onChange(of: section) { _, _ in
+        .onChange(of: router.section) { _, _ in
             guard sizeClass == .regular else { return }
             withAnimation(.easeInOut(duration: 0.2)) {
                 columnVisibility = .detailOnly
@@ -68,12 +80,12 @@ struct MainHubView: View {
     private var tabSelection: Binding<HubSection> {
         Binding(
             get: { currentSection },
-            set: { section = $0 }
+            set: { router.section = $0 }
         )
     }
 
     private var sidebar: some View {
-        List(HubSection.allCases, id: \.self, selection: $section) { item in
+        List(HubSection.allCases, id: \.self, selection: $router.section) { item in
             Label(item.title, systemImage: item.symbol)
                 .tag(Optional(item))
         }
@@ -104,6 +116,7 @@ struct MainHubView: View {
         case .calendar: CalendarHubView()
         case .chores: ChoresView()
         case .lists: ListsView()
+        case .meals: MealsView()
         case .family: FamilyView()
         }
     }
