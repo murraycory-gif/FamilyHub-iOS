@@ -38,11 +38,18 @@ struct TodayView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .ignoresSafeArea(edges: .bottom)
-        .navigationTitle("HUB")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(AppTheme.bg, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Image("HubMark")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityLabel("HUB")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 10) {
                     dateButton

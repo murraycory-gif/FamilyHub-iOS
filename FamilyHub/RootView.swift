@@ -46,25 +46,19 @@ struct LaunchSplashView: View {
         ZStack {
             AppTheme.bg.ignoresSafeArea()
 
-            VStack(spacing: 22) {
+            VStack(spacing: 18) {
                 Image("HubMark")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 128, height: 128)
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .scaleEffect(appear ? 1 : 0.92)
-                .opacity(appear ? 1 : 0.85)
+                    .frame(width: 160, height: 160)
+                    .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+                    .scaleEffect(appear ? 1 : 0.92)
+                    .opacity(appear ? 1 : 0.85)
 
-                VStack(spacing: 6) {
-                    Text("HUB")
-                        .font(.system(size: 34, weight: .semibold))
-                        .tracking(-0.6)
-                        .foregroundStyle(AppTheme.text)
-                    Text("Household command")
-                        .font(.subheadline.weight(.medium))
-                        .tracking(1.2)
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
+                Text("HUB")
+                    .font(.system(size: 36, weight: .semibold))
+                    .tracking(4)
+                    .foregroundStyle(AppTheme.text)
             }
         }
         .onAppear {
