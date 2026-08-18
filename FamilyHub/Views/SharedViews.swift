@@ -156,8 +156,10 @@ struct HubChromeModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("")
             .toolbarBackground(AppTheme.bg, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar(removing: .sidebarToggle)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 8) {
@@ -206,25 +208,43 @@ extension View {
 
 struct HideSystemSidebarToggle: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
+        let view = Sentinel()
         view.isUserInteractionEnabled = false
         view.backgroundColor = .clear
-        DispatchQueue.main.async { hide(from: view) }
         return view
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
-        hide(from: uiView)
+        (uiView as? Sentinel)?.hideSoon()
     }
 
-    private func hide(from view: UIView) {
-        var responder: UIResponder? = view
-        while let current = responder {
-            if let split = current as? UISplitViewController {
+    final class Sentinel: UIView {
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            hideSoon()
+        }
+
+        func hideSoon() {
+            hideNow()
+            DispatchQueue.main.async { self.hideNow() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self.hideNow() }
+        }
+
+        private func hideNow() {
+            guard let root = window?.rootViewController else { return }
+            hide(in: root)
+        }
+
+        private func hide(in controller: UIViewController) {
+            if let split = controller as? UISplitViewController {
                 split.displayModeButtonVisibility = .never
-                return
             }
-            responder = current.next
+            for child in controller.children {
+                hide(in: child)
+            }
+            if let presented = controller.presentedViewController {
+                hide(in: presented)
+            }
         }
     }
 }

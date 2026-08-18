@@ -333,13 +333,11 @@ struct TodayView: View {
             Spacer(minLength: 0)
             if profile == .family {
                 Text(assigneeName(for: item))
-                    .font(.caption.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(assigneeColor(for: item))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(assigneeColor(for: item).opacity(0.12), in: Capsule())
-            } else if let member = item.memberID.flatMap(store.member(id:)) {
-                MemberDot(member: member, size: 8)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(assigneeColor(for: item).opacity(0.14), in: Capsule())
             }
         }
         .padding(.vertical, 8)
@@ -442,7 +440,7 @@ struct TodayView: View {
             HStack {
                 SectionLabel(title: "Family")
                 Spacer()
-                Text("Tap to focus · hold to move")
+                Text("Tap a person for their calendar · hold to move")
                     .font(.caption)
                     .foregroundStyle(AppTheme.textTertiary)
             }
@@ -461,13 +459,17 @@ struct TodayView: View {
                         .frame(width: width, height: geo.size.height)
 
                     ForEach(store.members) { member in
-                        MemberHomeCard(member: member, selected: profile == .member(member.id), day: selectedDay)
-                            .frame(width: width, height: geo.size.height)
-                            .offset(x: draggingID == member.id ? dragTranslation : 0)
-                            .scaleEffect(draggingID == member.id ? 1.02 : 1)
-                            .zIndex(draggingID == member.id ? 10 : 0)
-                            .onTapGesture { router.openCalendar(filter: .member(member.id)) }
-                            .highPriorityGesture(reorderGesture(for: member, cardWidth: width))
+                        Button {
+                            router.openCalendar(filter: .member(member.id))
+                        } label: {
+                            MemberHomeCard(member: member, selected: profile == .member(member.id), day: selectedDay)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: width, height: geo.size.height)
+                        .offset(x: draggingID == member.id ? dragTranslation : 0)
+                        .scaleEffect(draggingID == member.id ? 1.02 : 1)
+                        .zIndex(draggingID == member.id ? 10 : 0)
+                        .simultaneousGesture(reorderGesture(for: member, cardWidth: width))
                     }
                 }
             }
@@ -600,6 +602,7 @@ private struct FamilyFocusCard: View {
                         familyAvatar
                     }
                     .buttonStyle(.plain)
+                    .zIndex(2)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Family")
                             .font(.system(size: 20, weight: .semibold))
@@ -649,6 +652,13 @@ private struct FamilyFocusCard: View {
         .frame(width: 44, height: 44)
         .clipShape(Circle())
         .overlay(Circle().stroke(AppTheme.cardBorder, lineWidth: 1))
+        .overlay(alignment: .bottomTrailing) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(3)
+                .background(AppTheme.blue, in: Circle())
+        }
     }
 }
 
