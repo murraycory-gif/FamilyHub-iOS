@@ -136,27 +136,49 @@ struct MemberReorderDelegate: DropDelegate {
     }
 }
 
-struct BackToHubModifier: ViewModifier {
+struct HubNavLogo: View {
+    var body: some View {
+        Image("HubGlyph")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 56, height: 56)
+            .padding(.vertical, -10)
+            .accessibilityLabel("HUB")
+    }
+}
+
+struct HubChromeModifier: ViewModifier {
     @EnvironmentObject private var router: HubRouter
-    var visible: Bool
+    var showBack: Bool
 
     func body(content: Content) -> some View {
-        content.toolbar {
-            if visible {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        router.open(.today)
-                    } label: {
-                        Label("HUB", systemImage: "chevron.left")
+        content
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(AppTheme.bg, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                if showBack {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            router.open(.today)
+                        } label: {
+                            Label("HUB", systemImage: "chevron.left")
+                        }
                     }
                 }
+                ToolbarItem(placement: .principal) {
+                    HubNavLogo()
+                }
             }
-        }
     }
 }
 
 extension View {
+    func hubChrome(showBack: Bool = false) -> some View {
+        modifier(HubChromeModifier(showBack: showBack))
+    }
+
     func backToHub(visible: Bool = true) -> some View {
-        modifier(BackToHubModifier(visible: visible))
+        hubChrome(showBack: visible)
     }
 }

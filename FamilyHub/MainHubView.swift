@@ -112,12 +112,12 @@ struct MainHubView: View {
     @ViewBuilder
     private func view(for section: HubSection) -> some View {
         switch section {
-        case .today: TodayView()
-        case .calendar: CalendarHubView().backToHub()
-        case .chores: ChoresView().backToHub()
-        case .lists: ListsView().backToHub()
-        case .meals: MealsView().backToHub()
-        case .family: FamilyView().backToHub()
+        case .today: TodayView().hubChrome()
+        case .calendar: CalendarHubView().hubChrome(showBack: true)
+        case .chores: ChoresView().hubChrome(showBack: true)
+        case .lists: ListsView().hubChrome(showBack: true)
+        case .meals: MealsView().hubChrome(showBack: true)
+        case .family: FamilyView().hubChrome(showBack: true)
         }
     }
 }

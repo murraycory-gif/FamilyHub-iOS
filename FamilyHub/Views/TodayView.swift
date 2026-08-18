@@ -19,17 +19,17 @@ struct TodayView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let familyH = max(geo.size.height * 0.40, sizeClass == .regular ? 300 : 260)
+            let familyH = max(geo.size.height * 0.48, sizeClass == .regular ? 340 : 280)
             VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
                     header
                     agenda
                     dinnerCard
                     callouts
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 8)
-                .padding(.bottom, 10)
+                .padding(.top, 2)
+                .padding(.bottom, 8)
                 .frame(maxHeight: .infinity, alignment: .top)
                 familySection
                     .padding(.horizontal, 24)
@@ -38,20 +38,9 @@ struct TodayView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .ignoresSafeArea(edges: .bottom)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(AppTheme.bg, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Image("HubGlyph")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 64, height: 64)
-                    .padding(.vertical, -12)
-                    .accessibilityLabel("HUB")
-            }
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     dateButton
                     profileButton
                 }
@@ -77,14 +66,14 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(profileSubtitle.uppercased())
                 .font(.caption.weight(.semibold))
-                .tracking(1.6)
+                .tracking(1.4)
                 .foregroundStyle(AppTheme.textTertiary)
             Text(profileTitle)
-                .font(.system(size: 28, weight: .semibold))
-                .tracking(-0.4)
+                .font(.system(size: 26, weight: .semibold))
+                .tracking(-0.3)
                 .foregroundStyle(AppTheme.text)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -133,54 +122,38 @@ struct TodayView: View {
                 }
             }
         } label: {
-            HStack(spacing: 10) {
-                profileAvatar
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Profile")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.textTertiary)
-                    Text(shortProfileName)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.text)
-                }
-                Image(systemName: "chevron.down")
-                    .font(.body.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
+            cleanPill(icon: { profileAvatar }) {
+                Text(shortProfileName)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .frame(minHeight: 52)
-            .background(AppTheme.card, in: Capsule(style: .continuous))
-            .overlay(Capsule().stroke(AppTheme.cardBorder, lineWidth: 1))
         }
     }
 
     private func pillButton(symbol: String, caption: String, title: String) -> some View {
-        HStack(spacing: 10) {
-            ZStack {
-                Circle().fill(AppTheme.blueSoft)
-                Image(systemName: symbol)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.blue)
-            }
-            .frame(width: 36, height: 36)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(caption)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.textTertiary)
-                Text(title)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.text)
-            }
+        cleanPill(icon: {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.blue)
+        }) {
+            Text(title)
+        }
+    }
+
+    private func cleanPill<Icon: View, Label: View>(
+        @ViewBuilder icon: () -> Icon,
+        @ViewBuilder label: () -> Label
+    ) -> some View {
+        HStack(spacing: 8) {
+            icon()
+            label()
+                .font(.headline)
+                .foregroundStyle(AppTheme.text)
             Image(systemName: "chevron.down")
-                .font(.body.weight(.bold))
+                .font(.caption.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .frame(minHeight: 52)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
         .background(AppTheme.card, in: Capsule(style: .continuous))
-        .overlay(Capsule().stroke(AppTheme.cardBorder, lineWidth: 1))
     }
 
     @ViewBuilder
@@ -193,10 +166,10 @@ struct TodayView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.blue)
             }
-            .frame(width: 36, height: 36)
+            .frame(width: 28, height: 28)
         case .member(let id):
             if let member = store.member(id: id) {
-                MemberAvatar(member: member, size: 36)
+                MemberAvatar(member: member, size: 28)
             }
         }
     }
@@ -271,7 +244,7 @@ struct TodayView: View {
                 }
             }
         }
-        .frame(maxHeight: .infinity)
+        .frame(maxHeight: 148)
     }
 
     private var dayHeadline: String {
@@ -339,19 +312,19 @@ struct TodayView: View {
     private func dayRow(_ item: HubDayItem) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text(item.timeLabel)
-                .font(.caption.weight(.semibold).monospacedDigit())
+                .font(.subheadline.weight(.semibold).monospacedDigit())
                 .foregroundStyle(AppTheme.blue)
-                .frame(width: 64, alignment: .leading)
-            VStack(alignment: .leading, spacing: 3) {
+                .frame(width: 72, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(item.title).font(.subheadline.weight(.semibold))
+                    Text(item.title).font(.body.weight(.semibold))
                     Text(item.kindLabel)
-                        .font(.caption2.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(AppTheme.textTertiary)
                 }
                 if !item.detail.isEmpty {
                     Text(item.detail)
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
                 }
             }
@@ -709,11 +682,11 @@ private func dayEventList(_ events: [CalendarEvent]) -> some View {
                 ForEach(events) { event in
                     HStack(alignment: .top, spacing: 6) {
                         Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
-                            .font(.caption2.weight(.semibold).monospacedDigit())
+                            .font(.caption.weight(.semibold).monospacedDigit())
                             .foregroundStyle(AppTheme.blue)
-                            .frame(width: 52, alignment: .leading)
+                            .frame(width: 58, alignment: .leading)
                         Text(event.title)
-                            .font(.caption.weight(.semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(AppTheme.text)
                             .lineLimit(2)
                     }
