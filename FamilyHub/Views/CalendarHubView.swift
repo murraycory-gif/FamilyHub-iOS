@@ -6,6 +6,7 @@ struct CalendarHubView: View {
     @State private var selectedDay = Date()
     @State private var filter: DayFilter = .family
     @State private var showAdd = false
+    @State private var showSources = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
 
@@ -28,11 +29,17 @@ struct CalendarHubView: View {
         .navigationTitle("Calendar")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { showAdd = true } label: { Image(systemName: "plus") }
+                HStack(spacing: 14) {
+                    Button { showSources = true } label: { Image(systemName: "calendar.badge.plus") }
+                    Button { showAdd = true } label: { Image(systemName: "plus") }
+                }
             }
         }
         .sheet(isPresented: $showAdd) {
             AddEventSheet(day: selectedDay)
+        }
+        .sheet(isPresented: $showSources) {
+            CalendarSourcesView()
         }
     }
 
@@ -117,7 +124,17 @@ struct CalendarHubView: View {
                         HStack(alignment: .top, spacing: 12) {
                             MemberDot(member: event.memberID.flatMap(store.member(id:)), size: 12)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(event.title).font(.headline)
+                                HStack(spacing: 6) {
+                                    Text(event.title).font(.headline)
+                                    if event.isImported, let source = event.sourceID.flatMap(store.source(id:)) {
+                                        Text(source.brand.title)
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(AppTheme.ice)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .overlay(Capsule().stroke(AppTheme.cardBorder, lineWidth: 1))
+                                    }
+                                }
                                 Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
                                     .font(.caption)
                                     .foregroundStyle(AppTheme.textSecondary)
@@ -128,13 +145,15 @@ struct CalendarHubView: View {
                                 }
                             }
                             Spacer()
-                            Button(role: .destructive) {
-                                store.deleteEvent(event.id)
-                            } label: {
-                                Image(systemName: "trash")
+                            if !event.isImported {
+                                Button(role: .destructive) {
+                                    store.deleteEvent(event.id)
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(AppTheme.textTertiary)
                             }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(AppTheme.textTertiary)
                         }
                     }
                 }

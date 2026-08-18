@@ -38,4 +38,55 @@ final class CalendarMathTests: XCTestCase {
     func testDefaultHubWidgetsStartWithCamerasWeatherAndSnapshot() {
         XCTAssertEqual(HubWidget.defaultSet.map(\.kind), [.cameras, .weather, .snapshot])
     }
+
+    func testCalendarBrandInfersMajorProviders() {
+        XCTAssertEqual(CalendarBrand.infer(sourceTitle: "iCloud", typeName: "caldav"), .icloud)
+        XCTAssertEqual(CalendarBrand.infer(sourceTitle: "Gmail", typeName: "caldav"), .google)
+        XCTAssertEqual(CalendarBrand.infer(sourceTitle: "Outlook", typeName: "caldav"), .outlook)
+        XCTAssertEqual(CalendarBrand.infer(sourceTitle: "Work", typeName: "exchange"), .exchange)
+    }
+
+    func testICSParserReadsEventAndWeeklyRule() {
+        let ics = """
+        BEGIN:VCALENDAR
+        BEGIN:VEVENT
+        UID:soccer-1
+        SUMMARY:Soccer practice
+        DTSTART:20260817T163000
+        DTEND:20260817T180000
+        LOCATION:Lincoln Park
+        RRULE:FREQ=WEEKLY;COUNT=4
+        END:VEVENT
+        END:VCALENDAR
+        """
+        let source = UUID()
+        let parsed = ICSParser.parse(ics, sourceID: source, now: Date(timeIntervalSince1970: 1_787_000_000))
+        XCTAssertGreaterThanOrEqual(parsed.count, 1)
+        XCTAssertEqual(parsed.first?.title, "Soccer practice")
+        XCTAssertEqual(parsed.first?.location, "Lincoln Park")
+        XCTAssertEqual(parsed.first?.sourceID, source)
+        XCTAssertTrue(parsed.allSatisfy(\.isImported))
+    }
+
+    func testICSParserAllDayDate() {
+        let parsed = ICSParser.parseDate("DTSTART;VALUE=DATE:20260817")
+        XCTAssertEqual(parsed?.allDay, true)
+        XCTAssertNotNil(parsed?.date)
+    }
+
+    @MainActor
+    func testReplaceImportedLeavesLocalEvents() {
+        let store = HubStore(rootURL: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+        let local = CalendarEvent.make(title: "Family dinner", startAt: Date())
+        store.addEvent(local)
+        let source = UUID()
+        store.replaceImportedEvents(sourceID: source, with: [
+            CalendarEvent.make(title: "Imported", startAt: Date(), sourceID: source, externalID: "abc"),
+        ])
+        XCTAssertTrue(store.events.contains(where: { $0.title == "Family dinner" && !$0.isImported }))
+        XCTAssertTrue(store.events.contains(where: { $0.title == "Imported" && $0.isImported }))
+        store.replaceImportedEvents(sourceID: source, with: [])
+        XCTAssertTrue(store.events.contains(where: { $0.title == "Family dinner" }))
+        XCTAssertFalse(store.events.contains(where: { $0.title == "Imported" }))
+    }
 }

@@ -132,6 +132,9 @@ struct CalendarEvent: Identifiable, Codable, Hashable {
     var notes: String
     /// `nil` means the whole household.
     var memberID: UUID?
+    /// FamilyHub-created events have no source.
+    var sourceID: UUID?
+    var externalID: String?
 
     static func make(
         title: String,
@@ -140,7 +143,9 @@ struct CalendarEvent: Identifiable, Codable, Hashable {
         allDay: Bool = false,
         location: String = "",
         notes: String = "",
-        memberID: UUID? = nil
+        memberID: UUID? = nil,
+        sourceID: UUID? = nil,
+        externalID: String? = nil
     ) -> CalendarEvent {
         CalendarEvent(
             id: UUID(),
@@ -150,9 +155,13 @@ struct CalendarEvent: Identifiable, Codable, Hashable {
             allDay: allDay,
             location: location,
             notes: notes,
-            memberID: memberID
+            memberID: memberID,
+            sourceID: sourceID,
+            externalID: externalID
         )
     }
+
+    var isImported: Bool { sourceID != nil }
 }
 
 struct ReminderItem: Identifiable, Codable, Hashable {
@@ -258,6 +267,106 @@ struct HubSnapshot: Codable {
     var ledger: [LedgerEntry]
     var weatherPlace: WeatherPlace?
     var hubWidgets: [HubWidget]?
+    var calendarSources: [CalendarSource]?
+}
+
+enum CalendarBrand: String, Codable, CaseIterable, Identifiable {
+    case icloud
+    case google
+    case outlook
+    case exchange
+    case subscribed
+    case ics
+    case other
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .icloud: return "iCloud"
+        case .google: return "Google"
+        case .outlook: return "Outlook"
+        case .exchange: return "Exchange"
+        case .subscribed: return "Subscribed"
+        case .ics: return "Calendar link"
+        case .other: return "Other"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .icloud: return "icloud.fill"
+        case .google: return "g.circle.fill"
+        case .outlook: return "envelope.fill"
+        case .exchange: return "building.2.fill"
+        case .subscribed, .ics: return "link"
+        case .other: return "calendar"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .icloud: return "Calendars signed into this iPad with your Apple ID"
+        case .google: return "Gmail and Google Calendar accounts on this iPad"
+        case .outlook: return "Outlook and Microsoft 365 calendars on this iPad"
+        case .exchange: return "Work or school Exchange calendars"
+        case .subscribed: return "Calendars you subscribed to in the Calendar app"
+        case .ics: return "A secret or public .ics link"
+        case .other: return "Any other calendar on this iPad"
+        }
+    }
+
+    static let featured: [CalendarBrand] = [.icloud, .google, .outlook]
+
+    static func infer(sourceTitle: String, typeName: String) -> CalendarBrand {
+        let hay = (sourceTitle + " " + typeName).lowercased()
+        if hay.contains("icloud") || hay.contains("mobileme") { return .icloud }
+        if hay.contains("google") || hay.contains("gmail") || hay.contains("googlemail") { return .google }
+        if hay.contains("outlook") || hay.contains("hotmail") || hay.contains("live.com") || hay.contains("office 365") || hay.contains("microsoft") {
+            return .outlook
+        }
+        if hay.contains("exchange") { return .exchange }
+        if hay.contains("subscribed") || hay.contains("caldav") && hay.contains("subscribe") { return .subscribed }
+        if typeName.lowercased().contains("exchange") { return .exchange }
+        if typeName.lowercased().contains("subscribed") { return .subscribed }
+        if typeName.lowercased().contains("caldav") && sourceTitle.lowercased().contains("icloud") { return .icloud }
+        return .other
+    }
+}
+
+struct CalendarSource: Identifiable, Codable, Hashable {
+    var id: UUID
+    var brand: CalendarBrand
+    var title: String
+    var account: String
+    var isEnabled: Bool
+    var eventKitID: String?
+    var icsURL: String?
+    var memberID: UUID?
+    var lastSyncedAt: Date?
+    var colorHex: String
+
+    static func make(
+        brand: CalendarBrand,
+        title: String,
+        account: String = "",
+        eventKitID: String? = nil,
+        icsURL: String? = nil,
+        colorHex: String = "3B82F6"
+    ) -> CalendarSource {
+        CalendarSource(
+            id: UUID(),
+            brand: brand,
+            title: title,
+            account: account,
+            isEnabled: false,
+            eventKitID: eventKitID,
+            icsURL: icsURL,
+            memberID: nil,
+            lastSyncedAt: nil,
+            colorHex: colorHex
+        )
+    }
 }
 
 enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {

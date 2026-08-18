@@ -23,6 +23,8 @@
 		A014 /* FamilyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B014 /* FamilyView.swift */; };
 		A015 /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B015 /* WeatherService.swift */; };
 		A016 /* WeatherCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B016 /* WeatherCard.swift */; };
+		A017 /* CalendarIngest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B017 /* CalendarIngest.swift */; };
+		A018 /* CalendarSourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B018 /* CalendarSourcesView.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
 		A912 /* CalendarMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B912 /* CalendarMathTests.swift */; };
@@ -56,6 +58,8 @@
 		B014 /* FamilyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyView.swift; sourceTree = "<group>"; };
 		B015 /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
 		B016 /* WeatherCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherCard.swift; sourceTree = "<group>"; };
+		B017 /* CalendarIngest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarIngest.swift; sourceTree = "<group>"; };
+		B018 /* CalendarSourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSourcesView.swift; sourceTree = "<group>"; };
 		B900 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B902 /* FamilyHub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyHub.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -125,6 +129,7 @@
 				B009 /* TodayView.swift */,
 				B016 /* WeatherCard.swift */,
 				B010 /* CalendarHubView.swift */,
+				B018 /* CalendarSourcesView.swift */,
 				B011 /* SharedViews.swift */,
 				B012 /* ChoresView.swift */,
 				B013 /* ListsView.swift */,
@@ -146,6 +151,7 @@
 			children = (
 				B008 /* HubStore.swift */,
 				B015 /* WeatherService.swift */,
+				B017 /* CalendarIngest.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -271,6 +277,8 @@
 				A014 /* FamilyView.swift in Sources */,
 				A015 /* WeatherService.swift in Sources */,
 				A016 /* WeatherCard.swift in Sources */,
+				A017 /* CalendarIngest.swift in Sources */,
+				A018 /* CalendarSourcesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

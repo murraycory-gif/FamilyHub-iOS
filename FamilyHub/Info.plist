@@ -24,6 +24,10 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>FamilyHub uses your location to show this week's weather for your area.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>FamilyHub reads iCloud, Google, and Outlook calendars on this iPad so the family hub stays in sync.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>FamilyHub reads iCloud, Google, and Outlook calendars on this iPad so the family hub stays in sync.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

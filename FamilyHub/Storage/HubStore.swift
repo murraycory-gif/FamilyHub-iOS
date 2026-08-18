@@ -12,6 +12,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var ledger: [LedgerEntry]
     @Published private(set) var weatherPlace: WeatherPlace?
     @Published private(set) var hubWidgets: [HubWidget]
+    @Published private(set) var calendarSources: [CalendarSource]
     @Published var errorMessage: String?
 
     private let fileManager: FileManager
@@ -34,6 +35,7 @@ final class HubStore: ObservableObject {
         ledger = []
         weatherPlace = WeatherPlace.chicago
         hubWidgets = HubWidget.defaultSet
+        calendarSources = []
         loadOrSeed()
     }
 
@@ -189,6 +191,78 @@ final class HubStore: ObservableObject {
         HubWidgetKind.allCases.filter { kind in
             !hubWidgets.contains(where: { $0.kind == kind })
         }
+    }
+
+    // MARK: Calendar sources
+
+    func upsertCalendarSources(_ discovered: [DiscoveredCalendar]) {
+        for item in discovered {
+            if let idx = calendarSources.firstIndex(where: { $0.eventKitID == item.eventKitID }) {
+                calendarSources[idx].title = item.title
+                calendarSources[idx].account = item.account
+                calendarSources[idx].brand = item.brand
+                calendarSources[idx].colorHex = item.colorHex
+            } else {
+                calendarSources.append(
+                    .make(
+                        brand: item.brand,
+                        title: item.title,
+                        account: item.account,
+                        eventKitID: item.eventKitID,
+                        colorHex: item.colorHex
+                    )
+                )
+            }
+        }
+        persist()
+    }
+
+    func addICSSource(title: String, url: String, brand: CalendarBrand = .ics) {
+        var source = CalendarSource.make(brand: brand, title: title.isEmpty ? "Calendar link" : title, icsURL: url)
+        source.isEnabled = true
+        calendarSources.append(source)
+        persist()
+    }
+
+    func setSourceEnabled(_ id: UUID, enabled: Bool) {
+        guard let idx = calendarSources.firstIndex(where: { $0.id == id }) else { return }
+        calendarSources[idx].isEnabled = enabled
+        if !enabled {
+            events.removeAll { $0.sourceID == id }
+        }
+        persist()
+    }
+
+    func setSourceMember(_ id: UUID, memberID: UUID?) {
+        guard let idx = calendarSources.firstIndex(where: { $0.id == id }) else { return }
+        calendarSources[idx].memberID = memberID
+        for i in events.indices where events[i].sourceID == id {
+            events[i].memberID = memberID
+        }
+        persist()
+    }
+
+    func removeCalendarSource(_ id: UUID) {
+        calendarSources.removeAll { $0.id == id }
+        events.removeAll { $0.sourceID == id }
+        persist()
+    }
+
+    func replaceImportedEvents(sourceID: UUID, with incoming: [CalendarEvent]) {
+        events.removeAll { $0.sourceID == sourceID }
+        events.append(contentsOf: incoming)
+        events.sort { $0.startAt < $1.startAt }
+        persist()
+    }
+
+    func markSourceSynced(_ id: UUID) {
+        guard let idx = calendarSources.firstIndex(where: { $0.id == id }) else { return }
+        calendarSources[idx].lastSyncedAt = Date()
+        persist()
+    }
+
+    func source(id: UUID) -> CalendarSource? {
+        calendarSources.first { $0.id == id }
     }
 
     // MARK: Events
@@ -351,6 +425,7 @@ final class HubStore: ObservableObject {
         weatherPlace = snapshot.weatherPlace ?? WeatherPlace.chicago
         let widgets = snapshot.hubWidgets ?? []
         hubWidgets = widgets.isEmpty ? HubWidget.defaultSet : widgets
+        calendarSources = snapshot.calendarSources ?? []
     }
 
     private func persist() {
@@ -364,7 +439,8 @@ final class HubStore: ObservableObject {
             assignments: assignments,
             ledger: ledger,
             weatherPlace: weatherPlace,
-            hubWidgets: hubWidgets
+            hubWidgets: hubWidgets,
+            calendarSources: calendarSources
         )
         do {
             let encoder = JSONEncoder()
