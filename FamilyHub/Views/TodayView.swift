@@ -1,29 +1,33 @@
 import SwiftUI
 
+enum HubProfile: Hashable {
+    case family
+    case member(UUID)
+}
+
 struct TodayView: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @StateObject private var weather = WeatherLoader()
+    @State private var profile: HubProfile = .family
+    @State private var selectedDay = Date()
+    @State private var weekStart = Calendar.current.startOfDay(for: Date())
     @State private var draggingID: UUID?
     @State private var dragTranslation: CGFloat = 0
     @State private var dragOriginIndex: Int?
-    @State private var showPlaceSheet = false
-    @State private var isCustomizing = false
-    @State private var showAddWidget = false
 
     var body: some View {
         GeometryReader { geo in
             let familyH = familyHeight(in: geo.size.height)
             VStack(alignment: .leading, spacing: 0) {
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        header
-                        widgets
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 4)
-                    .padding(.bottom, 12)
+                VStack(alignment: .leading, spacing: 14) {
+                    header
+                    dayStrip
+                    agenda
+                    callouts
                 }
+                .padding(.horizontal, 24)
+                .padding(.top, 4)
+                .padding(.bottom, 12)
                 familySection
                     .padding(.horizontal, 24)
                     .padding(.bottom, 8)
@@ -33,177 +37,248 @@ struct TodayView: View {
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("HUB")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(isCustomizing ? "Done" : "Customize") {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isCustomizing.toggle()
-                    }
-                }
-            }
-        }
-        .task(id: store.weatherPlace?.id) {
-            if let place = store.weatherPlace {
-                await weather.load(place: place)
-            }
-        }
-        .sheet(isPresented: $showPlaceSheet) {
-            WeatherPlaceSheet(weather: weather) { place in
-                store.setWeatherPlace(place)
-            }
-        }
-        .sheet(isPresented: $showAddWidget) {
-            AddWidgetSheet { kind in
-                store.addHubWidget(kind)
-            }
-        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()).uppercased())
+            Text(profileSubtitle.uppercased())
                 .font(.caption.weight(.semibold))
                 .tracking(1.6)
                 .foregroundStyle(AppTheme.textTertiary)
-            Text("\(store.householdName) household")
-                .font(.system(size: 22, weight: .semibold))
+            Text(profileTitle)
+                .font(.system(size: 26, weight: .semibold))
                 .tracking(-0.4)
                 .foregroundStyle(AppTheme.text)
         }
     }
 
-    private var widgets: some View {
-        VStack(spacing: 12) {
-            if pairCamerasAndWeather {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(pairedTopWidgets) { widget in
-                        widgetChrome(widget, index: store.hubWidgets.firstIndex(where: { $0.id == widget.id }) ?? 0) {
-                            widgetBody(widget)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    }
-                }
-                .frame(minHeight: 320, alignment: .top)
-                ForEach(Array(remainingWidgets.enumerated()), id: \.element.id) { index, widget in
-                    widgetChrome(widget, index: store.hubWidgets.firstIndex(where: { $0.id == widget.id }) ?? index) {
-                        widgetBody(widget)
-                    }
-                }
-            } else {
-                ForEach(Array(store.hubWidgets.enumerated()), id: \.element.id) { index, widget in
-                    widgetChrome(widget, index: index) {
-                        widgetBody(widget)
-                    }
-                }
-            }
+    private var profileTitle: String {
+        switch profile {
+        case .family:
+            return "\(store.householdName) family"
+        case .member(let id):
+            return store.member(id: id)?.name ?? "Family"
+        }
+    }
 
-            if isCustomizing {
+    private var profileSubtitle: String {
+        switch profile {
+        case .family:
+            return "Whole household"
+        case .member(let id):
+            return store.member(id: id)?.role.label ?? "Member"
+        }
+    }
+
+    private var dayStrip: some View {
+        HStack(spacing: 8) {
+            Button { shiftWeek(-7) } label: {
+                Image(systemName: "chevron.left")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.ice)
+                    .frame(width: 28, height: 44)
+            }
+            .buttonStyle(.plain)
+
+            ForEach(visibleDays, id: \.self) { day in
+                let selected = Calendar.current.isDate(day, inSameDayAs: selectedDay)
+                let today = Calendar.current.isDateInToday(day)
                 Button {
-                    showAddWidget = true
+                    selectedDay = day
                 } label: {
-                    Label("Add to HUB", systemImage: "plus")
+                    VStack(spacing: 4) {
+                        Text(day.formatted(.dateTime.weekday(.narrow)))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(selected ? AppTheme.bg : AppTheme.textTertiary)
+                        Text("\(Calendar.current.component(.day, from: day))")
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(selected ? AppTheme.bg : AppTheme.text)
+                        Circle()
+                            .fill(today && !selected ? AppTheme.ice : Color.clear)
+                            .frame(width: 4, height: 4)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(selected ? AppTheme.navy : AppTheme.card)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(AppTheme.cardBorder, lineWidth: selected ? 0 : 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button { shiftWeek(7) } label: {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.ice)
+                    .frame(width: 28, height: 44)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var visibleDays: [Date] {
+        (0..<7).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: weekStart) }
+    }
+
+    private func shiftWeek(_ days: Int) {
+        if let next = Calendar.current.date(byAdding: .day, value: days, to: weekStart) {
+            weekStart = next
+            selectedDay = next
+        }
+    }
+
+    private var agenda: some View {
+        HubCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(dayHeadline)
                         .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(store.unusedHubWidgets().isEmpty)
-            }
-        }
-    }
-
-    private var pairCamerasAndWeather: Bool {
-        sizeClass == .regular
-            && store.hubWidgets.contains(where: { $0.kind == .cameras })
-            && store.hubWidgets.contains(where: { $0.kind == .weather })
-    }
-
-    private var pairedTopWidgets: [HubWidget] {
-        store.hubWidgets.filter { $0.kind == .cameras || $0.kind == .weather }
-            .sorted { lhs, rhs in
-                if lhs.kind == .cameras { return true }
-                if rhs.kind == .cameras { return false }
-                return false
-            }
-    }
-
-    private var remainingWidgets: [HubWidget] {
-        store.hubWidgets.filter { $0.kind != .cameras && $0.kind != .weather }
-    }
-
-    @ViewBuilder
-    private func widgetBody(_ widget: HubWidget) -> some View {
-        switch widget.kind {
-        case .cameras:
-            CamerasPlaceholderCard()
-                .frame(maxHeight: .infinity)
-        case .weather:
-            AppleWeatherCard(
-                placeLabel: store.weatherPlace?.label ?? "Set location",
-                now: weather.now,
-                hours: weather.hours,
-                days: weather.days,
-                isLoading: weather.isLoading,
-                errorMessage: weather.errorMessage,
-                onChangePlace: { showPlaceSheet = true }
-            )
-            .frame(maxHeight: .infinity)
-        case .snapshot:
-            householdStats
-        }
-    }
-
-    private func widgetChrome<Content: View>(_ widget: HubWidget, index: Int, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if isCustomizing {
-                HStack(spacing: 8) {
-                    Image(systemName: widget.kind.symbol)
-                    Text(widget.kind.title)
-                        .font(.subheadline.weight(.semibold))
                     Spacer()
-                    Button {
-                        store.moveHubWidget(id: widget.id, by: -1)
-                    } label: {
-                        Image(systemName: "chevron.up")
-                    }
-                    .disabled(index == 0)
-                    Button {
-                        store.moveHubWidget(id: widget.id, by: 1)
-                    } label: {
-                        Image(systemName: "chevron.down")
-                    }
-                    .disabled(index == store.hubWidgets.count - 1)
-                    Button(role: .destructive) {
-                        store.removeHubWidget(widget.id)
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                    }
+                    Text("\(dayItems.count)")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(AppTheme.textTertiary)
                 }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ice)
-                .padding(.horizontal, 4)
+
+                if dayItems.isEmpty {
+                    Text(emptyDayCopy)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 0) {
+                            ForEach(dayItems) { item in
+                                dayRow(item)
+                                if item.id != dayItems.last?.id {
+                                    Divider().overlay(AppTheme.cardBorder)
+                                }
+                            }
+                        }
+                    }
+                    .frame(minHeight: 140, maxHeight: 280)
+                }
             }
-            content()
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    private var dayHeadline: String {
+        if Calendar.current.isDateInToday(selectedDay) { return "Today" }
+        if Calendar.current.isDateInTomorrow(selectedDay) { return "Tomorrow" }
+        return selectedDay.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
+
+    private var emptyDayCopy: String {
+        switch profile {
+        case .family:
+            return "Nothing on the family calendar for this day."
+        case .member(let id):
+            let name = store.member(id: id)?.name ?? "They"
+            return "\(name) is free this day."
         }
     }
 
-    private var householdStats: some View {
+    private var dayFilter: DayFilter {
+        switch profile {
+        case .family: return .family
+        case .member(let id): return .member(id)
+        }
+    }
+
+    private var focusedMemberID: UUID? {
+        if case .member(let id) = profile { return id }
+        return nil
+    }
+
+    private var dayItems: [HubDayItem] {
+        var items: [HubDayItem] = []
+        let cal = Calendar.current
+        for event in store.events(on: selectedDay, filter: dayFilter) {
+            items.append(.event(event))
+        }
+        for reminder in store.reminders where !reminder.isCompleted {
+            guard matchesProfile(reminder.memberID) else { continue }
+            if let due = reminder.dueAt, cal.isDate(due, inSameDayAs: selectedDay) {
+                items.append(.reminder(reminder))
+            }
+        }
+        for todo in store.todos where !todo.isCompleted {
+            guard matchesProfile(todo.memberID) else { continue }
+            if let due = todo.dueAt, cal.isDate(due, inSameDayAs: selectedDay) {
+                items.append(.todo(todo))
+            }
+        }
+        for assignment in store.openAssignments(for: focusedMemberID) {
+            if cal.isDate(assignment.dueOn, inSameDayAs: selectedDay) {
+                let title = store.chore(id: assignment.choreID)?.title ?? "Chore"
+                items.append(.chore(assignment, title: title))
+            }
+        }
+        return items.sorted { $0.sortDate < $1.sortDate }
+    }
+
+    private func matchesProfile(_ memberID: UUID?) -> Bool {
+        switch profile {
+        case .family: return true
+        case .member(let id): return memberID == nil || memberID == id
+        }
+    }
+
+    private func dayRow(_ item: HubDayItem) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(item.timeLabel)
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(AppTheme.ice)
+                .frame(width: 64, alignment: .leading)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(item.title).font(.subheadline.weight(.semibold))
+                    Text(item.kindLabel)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(AppTheme.textTertiary)
+                }
+                if !item.detail.isEmpty {
+                    Text(item.detail)
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+            }
+            Spacer(minLength: 0)
+            if let member = item.memberID.flatMap(store.member(id:)) {
+                MemberDot(member: member, size: 8)
+            }
+        }
+        .padding(.vertical, 10)
+    }
+
+    private var callouts: some View {
         HStack(spacing: 10) {
-            householdStat("Open chores", "\(store.openAssignments().count)", "checkmark.circle")
-            householdStat("Reminders", "\(store.reminders.filter { !$0.isCompleted }.count)", "bell")
-            householdStat("To-dos", "\(store.todos.filter { !$0.isCompleted }.count)", "square.and.pencil")
+            callout("Open chores", "\(focusedChores.count)", "checkmark.circle")
+            callout("Reminders", "\(focusedReminders.count)", "bell")
+            callout("To-dos", "\(focusedTodos.count)", "square.and.pencil")
         }
     }
 
-    private func householdStat(_ title: String, _ value: String, _ symbol: String) -> some View {
+    private var focusedChores: [ChoreAssignment] { store.openAssignments(for: focusedMemberID) }
+    private var focusedReminders: [ReminderItem] {
+        store.reminders.filter { !$0.isCompleted && matchesProfile($0.memberID) }
+    }
+    private var focusedTodos: [TodoItem] {
+        store.todos.filter { !$0.isCompleted && matchesProfile($0.memberID) }
+    }
+
+    private func callout(_ title: String, _ value: String, _ symbol: String) -> some View {
         HubCard {
             VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: symbol)
-                    .foregroundStyle(AppTheme.ice)
+                Image(systemName: symbol).foregroundStyle(AppTheme.ice)
                 Text(value)
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(AppTheme.text)
                 Text(title.uppercased())
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(0.8)
@@ -217,7 +292,7 @@ struct TodayView: View {
             HStack {
                 SectionLabel(title: "Family")
                 Spacer()
-                Text("Hold a card, then slide")
+                Text("Tap to focus · hold to move")
                     .font(.caption)
                     .foregroundStyle(AppTheme.textTertiary)
             }
@@ -230,12 +305,17 @@ struct TodayView: View {
             let width = cardWidth(in: geo.size.width)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
+                    FamilyFocusCard(selected: profile == .family)
+                        .frame(width: width, height: geo.size.height)
+                        .onTapGesture { profile = .family }
+
                     ForEach(store.members) { member in
-                        MemberHomeCard(member: member)
+                        MemberHomeCard(member: member, selected: profile == .member(member.id))
                             .frame(width: width, height: geo.size.height)
                             .offset(x: draggingID == member.id ? dragTranslation : 0)
                             .scaleEffect(draggingID == member.id ? 1.02 : 1)
                             .zIndex(draggingID == member.id ? 10 : 0)
+                            .onTapGesture { profile = .member(member.id) }
                             .highPriorityGesture(reorderGesture(for: member, cardWidth: width))
                     }
                 }
@@ -245,18 +325,15 @@ struct TodayView: View {
     }
 
     private func familyHeight(in total: CGFloat) -> CGFloat {
-        if sizeClass == .regular {
-            return max(300, min(400, total * 0.42))
-        }
-        return max(240, total * 0.36)
+        sizeClass == .regular ? max(220, min(280, total * 0.32)) : 220
     }
 
     private func cardWidth(in available: CGFloat) -> CGFloat {
-        let count = max(store.members.count, 1)
-        if sizeClass == .regular && count <= 4 {
+        let count = store.members.count + 1
+        if sizeClass == .regular && count <= 5 {
             return (available - CGFloat(count - 1) * 12) / CGFloat(count)
         }
-        return max(240, available - 40)
+        return max(200, available / 2.4)
     }
 
     private func reorderGesture(for member: FamilyMember, cardWidth: CGFloat) -> some Gesture {
@@ -287,134 +364,134 @@ struct TodayView: View {
     }
 }
 
-// MARK: - Cameras placeholder
+private struct HubDayItem: Identifiable {
+    enum Kind { case event, reminder, todo, chore }
+    var id: String
+    var kind: Kind
+    var title: String
+    var detail: String
+    var timeLabel: String
+    var sortDate: Date
+    var memberID: UUID?
 
-private struct CamerasPlaceholderCard: View {
-    private let cams = [
-        ("Front door", "door.left.hand.closed"),
-        ("Garage", "car.fill"),
-        ("Backyard", "leaf.fill"),
-        ("Driveway", "light.beacon.max.fill"),
-    ]
-
-    var body: some View {
-        HubCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Cameras")
-                        .font(.headline.weight(.semibold))
-                    Spacer()
-                    Text("STANDBY")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(1.2)
-                        .foregroundStyle(AppTheme.ice)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .overlay(
-                            Capsule().stroke(AppTheme.cardBorder, lineWidth: 1)
-                        )
-                }
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(cams, id: \.0) { name, symbol in
-                        VStack(alignment: .leading, spacing: 6) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(Color.black.opacity(0.55))
-                                Image(systemName: symbol)
-                                    .font(.title2)
-                                    .foregroundStyle(AppTheme.ice.opacity(0.7))
-                                VStack {
-                                    HStack {
-                                        Circle().fill(AppTheme.ice.opacity(0.35)).frame(width: 6, height: 6)
-                                        Spacer()
-                                    }
-                                    Spacer()
-                                }
-                                .padding(8)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            Text(name.uppercased())
-                                .font(.system(size: 10, weight: .semibold))
-                                .tracking(0.6)
-                                .foregroundStyle(AppTheme.textSecondary)
-                        }
-                        .frame(minHeight: 92)
-                    }
-                }
-                .frame(maxHeight: .infinity)
-            }
-            .frame(maxHeight: .infinity, alignment: .top)
+    var kindLabel: String {
+        switch kind {
+        case .event: return "Event"
+        case .reminder: return "Reminder"
+        case .todo: return "To-do"
+        case .chore: return "Chore"
         }
+    }
+
+    static func event(_ event: CalendarEvent) -> HubDayItem {
+        HubDayItem(
+            id: "e-\(event.id)",
+            kind: .event,
+            title: event.title,
+            detail: event.location,
+            timeLabel: event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened),
+            sortDate: event.startAt,
+            memberID: event.memberID
+        )
+    }
+
+    static func reminder(_ item: ReminderItem) -> HubDayItem {
+        HubDayItem(
+            id: "r-\(item.id)",
+            kind: .reminder,
+            title: item.title,
+            detail: "",
+            timeLabel: item.dueAt?.formatted(date: .omitted, time: .shortened) ?? "Due",
+            sortDate: item.dueAt ?? Date(),
+            memberID: item.memberID
+        )
+    }
+
+    static func todo(_ item: TodoItem) -> HubDayItem {
+        HubDayItem(
+            id: "t-\(item.id)",
+            kind: .todo,
+            title: item.title,
+            detail: item.notes,
+            timeLabel: item.dueAt?.formatted(date: .omitted, time: .shortened) ?? "Due",
+            sortDate: item.dueAt ?? Date(),
+            memberID: item.memberID
+        )
+    }
+
+    static func chore(_ assignment: ChoreAssignment, title: String) -> HubDayItem {
+        HubDayItem(
+            id: "c-\(assignment.id)",
+            kind: .chore,
+            title: title,
+            detail: "",
+            timeLabel: "Due",
+            sortDate: assignment.dueOn,
+            memberID: assignment.memberID
+        )
     }
 }
 
-// MARK: - Add widget
-
-private struct AddWidgetSheet: View {
+private struct FamilyFocusCard: View {
     @EnvironmentObject private var store: HubStore
-    @Environment(\.dismiss) private var dismiss
-    var onAdd: (HubWidgetKind) -> Void
+    let selected: Bool
 
     var body: some View {
-        NavigationStack {
-            List {
-                if store.unusedHubWidgets().isEmpty {
-                    Text("Every HUB tile is already on the screen. Remove one to add it back.")
-                        .foregroundStyle(AppTheme.textSecondary)
-                } else {
-                    ForEach(store.unusedHubWidgets()) { kind in
-                        Button {
-                            onAdd(kind)
-                            dismiss()
-                        } label: {
-                            Label {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(kind.title).font(.headline)
-                                    Text(kind.detail)
-                                        .font(.caption)
-                                        .foregroundStyle(AppTheme.textSecondary)
-                                }
-                            } icon: {
-                                Image(systemName: kind.symbol)
-                                    .foregroundStyle(AppTheme.ice)
-                            }
-                        }
+        HStack(spacing: 0) {
+            AppTheme.ice.frame(width: 5)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle().fill(AppTheme.navySoft)
+                        Image(systemName: "person.3.fill")
+                            .foregroundStyle(AppTheme.ice)
                     }
+                    .frame(width: 44, height: 44)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Family")
+                            .font(.system(size: 20, weight: .semibold))
+                        Text("Everyone")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    Spacer(minLength: 0)
                 }
+                Text("All calendars, events, and lists")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+                Spacer(minLength: 0)
             }
-            .navigationTitle("Add to HUB")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
-            }
+            .padding(14)
         }
-        .presentationDetents([.medium])
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(selected ? AppTheme.ice : AppTheme.cardBorder, lineWidth: selected ? 2 : 1)
+        )
     }
 }
-
-// MARK: - Compact person card
 
 private struct MemberHomeCard: View {
     @EnvironmentObject private var store: HubStore
     let member: FamilyMember
+    var selected = false
 
     private var chores: [ChoreAssignment] { store.openAssignments(for: member.id) }
     private var reminders: [ReminderItem] { store.openReminders(for: member.id) }
     private var todos: [TodoItem] { store.openTodos(for: member.id) }
-    private var events: [CalendarEvent] { Array(store.todayEvents(for: member.id).prefix(4)) }
     private var accent: Color { Color(hex: member.colorHex) }
 
     var body: some View {
         HStack(spacing: 0) {
             accent.frame(width: 5)
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    MemberAvatar(member: member, size: 44)
+                    MemberAvatar(member: member, size: 40)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(member.name)
-                            .font(.system(size: 20, weight: .semibold))
-                            .tracking(-0.2)
+                            .font(.system(size: 18, weight: .semibold))
                         Text(member.role.label)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
@@ -429,47 +506,30 @@ private struct MemberHomeCard: View {
                     personStat(reminders.count, "Remind")
                     personStat(todos.count, "To-dos")
                 }
-                if events.isEmpty {
-                    Text("Free today")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.textTertiary)
-                } else {
-                    ForEach(events) { event in
-                        HStack(spacing: 6) {
-                            Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
-                                .font(.caption2.weight(.semibold).monospacedDigit())
-                                .foregroundStyle(AppTheme.navy)
-                                .frame(width: 48, alignment: .leading)
-                            Text(event.title)
-                                .font(.caption.weight(.semibold))
-                                .lineLimit(1)
-                        }
-                    }
-                }
                 Spacer(minLength: 0)
             }
-            .padding(14)
+            .padding(12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                .stroke(selected ? accent : AppTheme.cardBorder, lineWidth: selected ? 2 : 1)
         )
     }
 
     private func personStat(_ value: Int, _ title: String) -> some View {
         VStack(spacing: 1) {
             Text("\(value)")
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
                 .foregroundStyle(AppTheme.ice)
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(AppTheme.navySoft)
@@ -482,89 +542,4 @@ private struct MemberHomeCard: View {
         TodayView()
     }
     .environmentObject(HubStore())
-}
-
-struct WeatherPlaceSheet: View {
-    @ObservedObject var weather: WeatherLoader
-    var onPick: (WeatherPlace) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var query = ""
-    @State private var locating = false
-    @State private var locateError: String?
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 10) {
-                    TextField("City or ZIP code", text: $query)
-                        .textFieldStyle(.roundedBorder)
-                        .textInputAutocapitalization(.words)
-                        .onSubmit { Task { await weather.search(query: query) } }
-                    Button("Search") {
-                        Task { await weather.search(query: query) }
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                }
-
-                Button {
-                    Task { await useCurrent() }
-                } label: {
-                    HStack {
-                        if locating { ProgressView() } else { Image(systemName: "location.fill") }
-                        Text("Use current location").font(.headline)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(PrimaryButtonStyle())
-
-                if let locateError {
-                    Text(locateError)
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
-
-                if weather.searchResults.isEmpty {
-                    Text("Search a city or ZIP. The place you pick is saved for the household.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.textSecondary)
-                } else {
-                    ForEach(weather.searchResults) { place in
-                        Button {
-                            onPick(place)
-                            dismiss()
-                        } label: {
-                            HStack {
-                                Text(place.label).font(.headline).foregroundStyle(AppTheme.text)
-                                Spacer()
-                                Image(systemName: "chevron.right").foregroundStyle(AppTheme.textTertiary)
-                            }
-                            .padding(12)
-                            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                Spacer()
-            }
-            .padding(20)
-            .background(AppTheme.bg.ignoresSafeArea())
-            .navigationTitle("Weather location")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-
-    private func useCurrent() async {
-        locating = true
-        locateError = nil
-        defer { locating = false }
-        do {
-            onPick(try await weather.placeFromCurrentLocation())
-            dismiss()
-        } catch {
-            locateError = error.localizedDescription
-        }
-    }
 }
