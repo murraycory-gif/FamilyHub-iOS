@@ -1,5 +1,24 @@
 import SwiftUI
 
+enum WeatherSky {
+    static func colors(code: Int, isDay: Bool) -> [Color] {
+        if !isDay {
+            return [Color(hex: "0B1026"), Color(hex: "1C2A4A")]
+        }
+        switch code {
+        case 0, 1: return [Color(hex: "2F80D4"), Color(hex: "6EB5E8")]
+        case 2: return [Color(hex: "4A86C4"), Color(hex: "86B2D4")]
+        case 3: return [Color(hex: "5A6E82"), Color(hex: "8A9AAB")]
+        case 45, 48: return [Color(hex: "6B7684"), Color(hex: "9AA4B0")]
+        case 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82:
+            return [Color(hex: "3E5368"), Color(hex: "6A7E92")]
+        case 71, 73, 75, 77, 85, 86: return [Color(hex: "7A8CA0"), Color(hex: "C0CCD8")]
+        case 95, 96, 99: return [Color(hex: "2A3344"), Color(hex: "4A5568")]
+        default: return [Color(hex: "2F80D4"), Color(hex: "6EB5E8")]
+        }
+    }
+}
+
 struct AppleWeatherCard: View {
     let placeLabel: String
     let now: WeatherNow?
