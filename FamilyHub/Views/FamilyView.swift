@@ -244,6 +244,7 @@ struct EditMemberSheet: View {
     @State private var symbol = "🌟"
     @State private var photoItem: PhotosPickerItem?
     @State private var photoData: Data?
+    @State private var cropPayload: PhotoCropPayload?
 
     private let colorColumns = [GridItem(.adaptive(minimum: 36), spacing: 10)]
     private let emojiColumns = [GridItem(.adaptive(minimum: 44), spacing: 8)]
@@ -281,10 +282,21 @@ struct EditMemberSheet: View {
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }
                 Task {
-                    if let data = try? await item.loadTransferable(type: Data.self) {
-                        photoData = data
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        cropPayload = PhotoCropPayload(image: image)
                     }
                 }
+            }
+            .fullScreenCover(item: $cropPayload) { payload in
+                PhotoCropper(
+                    image: payload.image,
+                    onCancel: { cropPayload = nil },
+                    onCrop: { data in
+                        photoData = data
+                        cropPayload = nil
+                    }
+                )
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -328,19 +340,27 @@ struct EditMemberSheet: View {
     }
 
     private var avatarPreview: some View {
-        ZStack {
+        Button {
             if let photoData, let image = UIImage(data: photoData) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Circle().fill(Color(hex: colorHex))
-                Text(symbol).font(.system(size: 34))
+                cropPayload = PhotoCropPayload(image: image)
             }
+        } label: {
+            ZStack {
+                if let photoData, let image = UIImage(data: photoData) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Circle().fill(Color(hex: colorHex))
+                    Text(symbol).font(.system(size: 34))
+                }
+            }
+            .frame(width: 72, height: 72)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(AppTheme.cardBorder, lineWidth: 1))
         }
-        .frame(width: 72, height: 72)
-        .clipShape(Circle())
-        .overlay(Circle().stroke(AppTheme.cardBorder, lineWidth: 1))
+        .buttonStyle(.plain)
+        .disabled(photoData == nil)
     }
 
     private var nameAndRole: some View {
@@ -373,6 +393,13 @@ struct EditMemberSheet: View {
                 }
                 .buttonStyle(.plain)
                 if photoData != nil {
+                    Button("Adjust") {
+                        if let photoData, let image = UIImage(data: photoData) {
+                            cropPayload = PhotoCropPayload(image: image)
+                        }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
                     Button("Use icon") {
                         photoData = nil
                         photoItem = nil

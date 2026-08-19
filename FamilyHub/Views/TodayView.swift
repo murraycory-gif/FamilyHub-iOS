@@ -14,9 +14,6 @@ struct TodayView: View {
     @State private var profile: HubProfile = .family
     @State private var selectedDay = Date()
     @State private var showMoreDates = false
-    @State private var draggingID: UUID?
-    @State private var dragTranslation: CGFloat = 0
-    @State private var dragOriginIndex: Int?
 
     var body: some View {
         GeometryReader { geo in
@@ -456,7 +453,7 @@ struct TodayView: View {
             HStack {
                 SectionLabel(title: "Family")
                 Spacer()
-                Text("Tap a person for their calendar · hold to move")
+                Text("Swipe for more · tap for calendar")
                     .font(.caption)
                     .foregroundStyle(AppTheme.textTertiary)
             }
@@ -466,7 +463,7 @@ struct TodayView: View {
 
     private var memberStrip: some View {
         GeometryReader { geo in
-            let width = cardWidth(in: geo.size.width)
+            let width = cardWidth(in: geo.size)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
                     FamilyFocusCard(selected: profile == .family, day: selectedDay) {
@@ -474,7 +471,7 @@ struct TodayView: View {
                     } onEvent: { event in
                         router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                     }
-                        .frame(width: width, height: geo.size.height)
+                    .frame(width: width, height: geo.size.height)
 
                     ForEach(store.members) { member in
                         MemberHomeCard(
@@ -487,51 +484,16 @@ struct TodayView: View {
                             }
                         )
                         .frame(width: width, height: geo.size.height)
-                        .offset(x: draggingID == member.id ? dragTranslation : 0)
-                        .scaleEffect(draggingID == member.id ? 1.02 : 1)
-                        .zIndex(draggingID == member.id ? 10 : 0)
-                        .simultaneousGesture(reorderGesture(for: member, cardWidth: width))
                     }
                 }
             }
-            .scrollDisabled(draggingID != nil)
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 
-    private func cardWidth(in available: CGFloat) -> CGFloat {
-        let count = store.members.count + 1
-        let spacing = CGFloat(count - 1) * 12
-        if count <= 5 {
-            return max(160, (available - spacing) / CGFloat(count))
-        }
-        return max(200, available / 2.6)
-    }
-
-    private func reorderGesture(for member: FamilyMember, cardWidth: CGFloat) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.22)
-            .sequenced(before: DragGesture(minimumDistance: 2))
-            .onChanged { value in
-                guard case .second(true, let drag) = value, let drag else { return }
-                if draggingID == nil {
-                    draggingID = member.id
-                    dragOriginIndex = store.members.firstIndex(where: { $0.id == member.id })
-                }
-                dragTranslation = drag.translation.width
-            }
-            .onEnded { _ in
-                if let origin = dragOriginIndex {
-                    let step = cardWidth + 12
-                    let shift = Int((dragTranslation / step).rounded())
-                    let target = min(max(origin + shift, 0), max(store.members.count - 1, 0))
-                    if target != origin {
-                        store.moveMemberLive(from: origin, to: target)
-                    }
-                    store.persistMembers()
-                }
-                draggingID = nil
-                dragTranslation = 0
-                dragOriginIndex = nil
-            }
+    private func cardWidth(in size: CGSize) -> CGFloat {
+        let visible: CGFloat = size.width >= size.height ? 4 : 3
+        return max(140, (size.width - 12 * (visible - 1)) / visible)
     }
 }
 

@@ -260,3 +260,146 @@ struct HideSystemSidebarToggle: UIViewRepresentable {
         }
     }
 }
+
+struct PhotoCropPayload: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
+struct PhotoCropper: View {
+    let image: UIImage
+    var onCancel: () -> Void
+    var onCrop: (Data) -> Void
+
+    @State private var scale: CGFloat = 1
+    @State private var pinchStart: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var dragStart: CGSize = .zero
+    @State private var hole: CGFloat = 280
+
+    var body: some View {
+        NavigationStack {
+            GeometryReader { geo in
+                let nextHole = min(geo.size.width, geo.size.height) * 0.58
+                VStack(spacing: 18) {
+                    ZStack {
+                        Color.black.opacity(0.92)
+                        imageView(hole: hole)
+                            .frame(width: hole, height: hole)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 3))
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .gesture(pan(hole: hole))
+                    .simultaneousGesture(pinch(hole: hole))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Drag to center · pinch or slide to zoom")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.85))
+                        Slider(value: Binding(
+                            get: { scale },
+                            set: { scale = $0; clamp(hole: hole) }
+                        ), in: 1...4)
+                        .tint(AppTheme.blue)
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 20)
+                }
+                .onAppear { hole = nextHole }
+                .onChange(of: nextHole) { _, value in hole = value }
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Move and scale")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Use photo") {
+                        if let data = render(hole: hole) { onCrop(data) }
+                    }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    private func imageView(hole: CGFloat) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .scaleEffect(scale)
+            .offset(offset)
+            .frame(width: hole, height: hole)
+    }
+
+    private func pan(hole: CGFloat) -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                offset = CGSize(
+                    width: dragStart.width + value.translation.width,
+                    height: dragStart.height + value.translation.height
+                )
+            }
+            .onEnded { _ in
+                clamp(hole: hole)
+                dragStart = offset
+            }
+    }
+
+    private func pinch(hole: CGFloat) -> some Gesture {
+        MagnificationGesture()
+            .onChanged { value in
+                scale = min(max(pinchStart * value, 1), 4)
+            }
+            .onEnded { _ in
+                pinchStart = scale
+                clamp(hole: hole)
+            }
+    }
+
+    private func clamp(hole: CGFloat) {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return }
+        let fit = max(hole / size.width, hole / size.height)
+        let current = fit * scale
+        let maxX = max((size.width * current - hole) / 2, 0)
+        let maxY = max((size.height * current - hole) / 2, 0)
+        offset.width = min(max(offset.width, -maxX), maxX)
+        offset.height = min(max(offset.height, -maxY), maxY)
+        dragStart = offset
+        pinchStart = scale
+    }
+
+    private func render(hole: CGFloat) -> Data? {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return nil }
+        let fit = max(hole / size.width, hole / size.height)
+        let current = fit * scale
+        let origin = CGPoint(
+            x: hole / 2 + offset.width - size.width * current / 2,
+            y: hole / 2 + offset.height - size.height * current / 2
+        )
+        let side = hole / current
+        let crop = CGRect(
+            x: (0 - origin.x) / current,
+            y: (0 - origin.y) / current,
+            width: side,
+            height: side
+        )
+        let output: CGFloat = 600
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: output, height: output))
+        let cropped = renderer.image { _ in
+            let draw = CGRect(
+                x: -crop.origin.x * (output / side),
+                y: -crop.origin.y * (output / side),
+                width: size.width * (output / side),
+                height: size.height * (output / side)
+            )
+            image.draw(in: draw)
+        }
+        return cropped.jpegData(compressionQuality: 0.86)
+    }
+}
