@@ -516,7 +516,7 @@ final class HubStore: ObservableObject {
     }
 
     func clearCheckedShopping() {
-        shoppingItems.removeAll(\.isChecked)
+        shoppingItems.removeAll { $0.isChecked }
         persist()
     }
 
