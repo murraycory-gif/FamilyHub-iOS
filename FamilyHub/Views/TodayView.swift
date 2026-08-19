@@ -30,11 +30,14 @@ struct TodayView: View {
                     header
                     HStack(alignment: .top, spacing: 12) {
                         agenda
-                            .frame(width: unit * 2, maxHeight: .infinity)
+                            .frame(width: unit * 2)
+                            .frame(maxHeight: .infinity)
                         weatherTile
-                            .frame(width: unit, maxHeight: .infinity)
+                            .frame(width: unit)
+                            .frame(maxHeight: .infinity)
                         shoppingTile
-                            .frame(width: unit, maxHeight: .infinity)
+                            .frame(width: unit)
+                            .frame(maxHeight: .infinity)
                     }
                     .frame(maxHeight: .infinity)
                     dinnerCard
