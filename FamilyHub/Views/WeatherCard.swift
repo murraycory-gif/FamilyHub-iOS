@@ -171,6 +171,336 @@ struct AppleWeatherCard: View {
     private var nowLow: Int { days.first?.low ?? now?.temp ?? 0 }
 }
 
+struct HubWeatherTile: View {
+    let placeLabel: String
+    let now: WeatherNow?
+    let day: WeatherDay?
+    let hours: [WeatherHour]
+    let isToday: Bool
+    let isLoading: Bool
+    var onOpen: () -> Void
+    var onChangePlace: () -> Void
+
+    private var temp: Int {
+        if isToday { return now?.temp ?? day?.high ?? 0 }
+        return day?.high ?? 0
+    }
+
+    private var condition: String {
+        if isToday { return now?.condition ?? WeatherIcon.condition(for: day?.code ?? 2) }
+        return WeatherIcon.condition(for: day?.code ?? 2)
+    }
+
+    private var symbol: String {
+        if isToday { return now?.symbolName ?? day?.symbolName ?? "cloud.sun.fill" }
+        return day?.symbolName ?? "cloud.sun.fill"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button(action: onChangePlace) {
+                HStack(spacing: 4) {
+                    Image(systemName: "location.fill")
+                        .font(.caption2)
+                    Text(shortPlace)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                }
+                .foregroundStyle(AppTheme.blue)
+            }
+            .buttonStyle(.plain)
+
+            if isLoading && now == nil && day == nil {
+                Spacer()
+                ProgressView().tint(AppTheme.blue)
+                Spacer()
+            } else {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(temp)°")
+                            .font(.system(size: 52, weight: .thin))
+                            .monospacedDigit()
+                            .foregroundStyle(AppTheme.text)
+                            .minimumScaleFactor(0.6)
+                            .lineLimit(1)
+                        Text(condition)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                            .lineLimit(1)
+                        Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
+                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(AppTheme.textTertiary)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: symbol)
+                        .font(.system(size: 34))
+                        .symbolRenderingMode(.multicolor)
+                        .symbolVariant(.fill)
+                }
+
+                if !hours.isEmpty {
+                    HStack(spacing: 0) {
+                        ForEach(Array(hours.prefix(5).enumerated()), id: \.element.id) { index, hour in
+                            VStack(spacing: 4) {
+                                Text(index == 0 && isToday ? "Now" : hour.at.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted))))
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(AppTheme.textTertiary)
+                                Image(systemName: hour.symbolName)
+                                    .font(.caption)
+                                    .symbolRenderingMode(.multicolor)
+                                Text("\(hour.temp)°")
+                                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                                    .foregroundStyle(AppTheme.text)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onTapGesture(perform: onOpen)
+    }
+
+    private var shortPlace: String {
+        placeLabel.split(separator: ",").first.map(String.init) ?? placeLabel
+    }
+}
+
+struct WeatherOutlookView: View {
+    @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var weather: WeatherLoader
+    @Environment(\.dismiss) private var dismiss
+    let day: Date
+    @State private var showPlace = false
+
+    private var selected: WeatherDay? { weather.forecastDay(on: day) }
+    private var hours: [WeatherHour] { weather.hoursOn(day) }
+    private var isToday: Bool { Calendar.current.isDateInToday(day) }
+    private var weekLow: Int { weather.days.map(\.low).min() ?? 0 }
+    private var weekHigh: Int { weather.days.map(\.high).max() ?? 100 }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    hero
+                    hourlyCard
+                    weekCard
+                }
+                .padding(20)
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .principal) {
+                    Button { showPlace = true } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "location.fill")
+                            Text(store.weatherPlace?.label ?? "Weather")
+                                .lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .font(.caption.weight(.bold))
+                        }
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.text)
+                    }
+                }
+            }
+            .sheet(isPresented: $showPlace) {
+                WeatherPlacePicker()
+                    .environmentObject(store)
+                    .environmentObject(weather)
+            }
+        }
+    }
+
+    private var hero: some View {
+        VStack(spacing: 6) {
+            Image(systemName: isToday ? (weather.now?.symbolName ?? "cloud.sun.fill") : (selected?.symbolName ?? "cloud.sun.fill"))
+                .font(.system(size: 44))
+                .symbolRenderingMode(.multicolor)
+            Text("\(isToday ? (weather.now?.temp ?? selected?.high ?? 0) : (selected?.high ?? 0))°")
+                .font(.system(size: 84, weight: .thin))
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.text)
+            Text(isToday ? (weather.now?.condition ?? "") : WeatherIcon.condition(for: selected?.code ?? 2))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            Text("H:\(selected?.high ?? 0)°   L:\(selected?.low ?? 0)°")
+                .font(.headline.monospacedDigit())
+                .foregroundStyle(AppTheme.text)
+            if isToday, let feels = weather.now?.feelsLike {
+                Text("Feels like \(feels)°")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    private var hourlyCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(isToday ? "Hourly" : day.formatted(.dateTime.weekday(.wide)))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.textTertiary)
+                .textCase(.uppercase)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(Array(hours.prefix(24).enumerated()), id: \.element.id) { index, hour in
+                        VStack(spacing: 8) {
+                            Text(index == 0 && isToday ? "Now" : hour.at.formatted(date: .omitted, time: .shortened).replacingOccurrences(of: ":00", with: ""))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Image(systemName: hour.symbolName)
+                                .font(.title3)
+                                .symbolRenderingMode(.multicolor)
+                            if hour.precip >= 20 {
+                                Text("\(hour.precip)%")
+                                    .font(.system(size: 10, weight: .bold).monospacedDigit())
+                                    .foregroundStyle(AppTheme.blue)
+                            }
+                            Text("\(hour.temp)°")
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(AppTheme.text)
+                        }
+                        .frame(width: 48)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+    }
+
+    private var weekCard: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("7-day forecast")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.textTertiary)
+                .textCase(.uppercase)
+                .padding(.bottom, 6)
+            ForEach(Array(weather.days.enumerated()), id: \.element.id) { index, item in
+                HStack(spacing: 8) {
+                    Text(index == 0 ? "Today" : item.weekday)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.text)
+                        .frame(width: 52, alignment: .leading)
+                    Image(systemName: item.symbolName)
+                        .symbolRenderingMode(.multicolor)
+                        .frame(width: 28)
+                    Text("\(item.low)°")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(AppTheme.textTertiary)
+                        .frame(width: 32, alignment: .trailing)
+                    TempRangeBar(low: item.low, high: item.high, weekLow: weekLow, weekHigh: weekHigh)
+                    Text("\(item.high)°")
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(AppTheme.text)
+                        .frame(width: 32, alignment: .trailing)
+                }
+                .padding(.vertical, 8)
+                if index < weather.days.count - 1 {
+                    Divider()
+                }
+            }
+        }
+        .padding(16)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+    }
+}
+
+struct WeatherPlacePicker: View {
+    @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var weather: WeatherLoader
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+    @State private var locating = false
+    @State private var locateError: String?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Button {
+                        Task { await useLocation() }
+                    } label: {
+                        HStack {
+                            Image(systemName: "location.fill").foregroundStyle(AppTheme.blue)
+                            Text(locating ? "Finding you…" : "Use current location")
+                            Spacer()
+                            if locating { ProgressView() }
+                        }
+                    }
+                    if let locateError {
+                        Text(locateError).foregroundStyle(AppTheme.chore)
+                    }
+                }
+                Section("City or ZIP") {
+                    TextField("Chicago or 60614", text: $query)
+                        .textInputAutocapitalization(.words)
+                        .onChange(of: query) { _, value in
+                            Task { await weather.search(query: value) }
+                        }
+                    ForEach(weather.searchResults) { place in
+                        Button {
+                            store.setWeatherPlace(place)
+                            Task { await weather.load(place: place) }
+                            dismiss()
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(place.label).foregroundStyle(AppTheme.text)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Weather location")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func useLocation() async {
+        locating = true
+        locateError = nil
+        defer { locating = false }
+        do {
+            let place = try await weather.placeFromCurrentLocation()
+            store.setWeatherPlace(place)
+            await weather.load(place: place)
+            dismiss()
+        } catch {
+            locateError = error.localizedDescription
+        }
+    }
+}
+
 private struct TempRangeBar: View {
     let low: Int
     let high: Int
@@ -183,11 +513,11 @@ private struct TempRangeBar: View {
             let start = CGFloat(low - weekLow) / span
             let end = CGFloat(high - weekLow) / span
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.18))
+                Capsule().fill(AppTheme.blueSoft)
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: "63D2FF"), Color(hex: "FFE08A")],
+                            colors: [AppTheme.blue, Color(hex: "F59E0B")],
                             startPoint: .leading,
                             endPoint: .trailing
                         )

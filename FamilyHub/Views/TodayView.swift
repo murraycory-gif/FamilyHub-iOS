@@ -14,14 +14,26 @@ struct TodayView: View {
     @State private var profile: HubProfile = .family
     @State private var selectedDay = Date()
     @State private var showMoreDates = false
+    @StateObject private var weather = WeatherLoader()
+    @State private var showWeatherOutlook = false
+    @State private var showWeatherPlace = false
 
     var body: some View {
         GeometryReader { geo in
             let familyH = max(geo.size.height * 0.40, sizeClass == .regular ? 300 : 250)
+            let rightW = min(max(geo.size.width * 0.26, 240), 310)
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 12) {
                     header
-                    agenda
+                    HStack(alignment: .top, spacing: 12) {
+                        agenda
+                        VStack(spacing: 12) {
+                            weatherTile
+                            comingSoonTile
+                        }
+                        .frame(width: rightW)
+                    }
+                    .frame(maxHeight: .infinity)
                     dinnerCard
                     callouts
                 }
@@ -57,6 +69,24 @@ struct TodayView: View {
                     }
             }
             .presentationDetents([.medium, .large])
+        }
+        .fullScreenCover(isPresented: $showWeatherOutlook) {
+            WeatherOutlookView(day: selectedDay)
+                .environmentObject(store)
+                .environmentObject(weather)
+        }
+        .sheet(isPresented: $showWeatherPlace) {
+            WeatherPlacePicker()
+                .environmentObject(store)
+                .environmentObject(weather)
+        }
+        .task {
+            await weather.load(place: store.weatherPlace ?? .chicago)
+        }
+        .onChange(of: store.weatherPlace?.id) { _, _ in
+            if let place = store.weatherPlace {
+                Task { await weather.load(place: place) }
+            }
         }
     }
 
@@ -259,6 +289,39 @@ struct TodayView: View {
         }
         .frame(maxHeight: .infinity)
         .simultaneousGesture(daySwipe)
+    }
+
+    private var weatherTile: some View {
+        HubWeatherTile(
+            placeLabel: store.weatherPlace?.label ?? "Chicago",
+            now: weather.now,
+            day: weather.forecastDay(on: selectedDay),
+            hours: weather.hoursOn(selectedDay),
+            isToday: Calendar.current.isDateInToday(selectedDay),
+            isLoading: weather.isLoading,
+            onOpen: { showWeatherOutlook = true },
+            onChangePlace: { showWeatherPlace = true }
+        )
+    }
+
+    private var comingSoonTile: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "square.dashed")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(AppTheme.blue)
+            Text("Coming soon")
+                .font(.headline)
+                .foregroundStyle(AppTheme.text)
+            Text("More for this space")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
     }
 
     private var dayHeadline: String {

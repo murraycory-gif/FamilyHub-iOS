@@ -12,6 +12,18 @@ final class WeatherLoader: ObservableObject {
 
     private let locator = LocationFinder()
 
+    func forecastDay(on date: Date) -> WeatherDay? {
+        let stamp = DateFormatter()
+        stamp.dateFormat = "yyyy-MM-dd"
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        let iso = stamp.string(from: date)
+        return days.first { $0.dateISO == iso }
+    }
+
+    func hoursOn(_ date: Date) -> [WeatherHour] {
+        hours.filter { Calendar.current.isDate($0.at, inSameDayAs: date) }
+    }
+
     func load(place: WeatherPlace) async {
         isLoading = true
         errorMessage = nil
@@ -185,7 +197,7 @@ private struct ForecastResponse: Decodable {
                 precip: hourly.precipitation_probability?[index] ?? 0
             )
         }
-        .prefix(12)
+        .prefix(168)
         .map { $0 }
 
         let days: [WeatherDay] = zip(daily.time.indices, daily.time).map { index, isoDay in
