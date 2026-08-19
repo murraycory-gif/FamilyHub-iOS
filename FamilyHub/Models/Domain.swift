@@ -297,6 +297,18 @@ struct HubSnapshot: Codable {
     var calendarSources: [CalendarSource]?
     var recipes: [Recipe]?
     var dinners: [DinnerPlan]?
+    var shoppingItems: [ShoppingItem]?
+}
+
+struct ShoppingItem: Identifiable, Codable, Hashable {
+    var id: UUID
+    var name: String
+    var isChecked: Bool
+    var createdAt: Date
+
+    static func make(name: String) -> ShoppingItem {
+        ShoppingItem(id: UUID(), name: name, isChecked: false, createdAt: Date())
+    }
 }
 
 struct Recipe: Identifiable, Codable, Hashable {

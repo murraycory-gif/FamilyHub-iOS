@@ -16,6 +16,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var calendarSources: [CalendarSource]
     @Published private(set) var recipes: [Recipe]
     @Published private(set) var dinners: [DinnerPlan]
+    @Published private(set) var shoppingItems: [ShoppingItem]
     @Published var errorMessage: String?
     @Published private(set) var familyPhotoData: Data?
     @Published private(set) var memberPhotos: [UUID: Data] = [:]
@@ -45,6 +46,7 @@ final class HubStore: ObservableObject {
         calendarSources = []
         recipes = []
         dinners = []
+        shoppingItems = []
         familyPhotoData = nil
         loadOrSeed()
         familyPhotoData = try? Data(contentsOf: familyPhotoURL)
@@ -493,6 +495,31 @@ final class HubStore: ObservableObject {
         persist()
     }
 
+    // MARK: Shopping
+
+    func addShoppingItem(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        shoppingItems.insert(.make(name: trimmed), at: 0)
+        persist()
+    }
+
+    func toggleShoppingItem(_ id: UUID) {
+        guard let idx = shoppingItems.firstIndex(where: { $0.id == id }) else { return }
+        shoppingItems[idx].isChecked.toggle()
+        persist()
+    }
+
+    func deleteShoppingItem(_ id: UUID) {
+        shoppingItems.removeAll { $0.id == id }
+        persist()
+    }
+
+    func clearCheckedShopping() {
+        shoppingItems.removeAll(\.isChecked)
+        persist()
+    }
+
     // MARK: Chores
 
     func addChore(_ chore: Chore) {
@@ -600,6 +627,7 @@ final class HubStore: ObservableObject {
         calendarSources = snapshot.calendarSources ?? []
         recipes = snapshot.recipes ?? SampleFamily.starterRecipes
         dinners = snapshot.dinners ?? []
+        shoppingItems = snapshot.shoppingItems ?? []
     }
 
     private func persist() {
@@ -616,7 +644,8 @@ final class HubStore: ObservableObject {
             hubWidgets: hubWidgets,
             calendarSources: calendarSources,
             recipes: recipes,
-            dinners: dinners
+            dinners: dinners,
+            shoppingItems: shoppingItems
         )
         do {
             let encoder = JSONEncoder()

@@ -17,21 +17,24 @@ struct TodayView: View {
     @StateObject private var weather = WeatherLoader()
     @State private var showWeatherOutlook = false
     @State private var showWeatherPlace = false
+    @State private var showAddShopping = false
+    @State private var shoppingDraft = ""
 
     var body: some View {
         GeometryReader { geo in
             let familyH = max(geo.size.height * 0.40, sizeClass == .regular ? 300 : 250)
-            let rightW = min(max(geo.size.width * 0.26, 240), 310)
+            let available = max(geo.size.width - 48, 600)
+            let unit = (available - 24) / 4
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 12) {
                     header
                     HStack(alignment: .top, spacing: 12) {
                         agenda
-                        VStack(spacing: 12) {
-                            weatherTile
-                            comingSoonTile
-                        }
-                        .frame(width: rightW)
+                            .frame(width: unit * 2, maxHeight: .infinity)
+                        weatherTile
+                            .frame(width: unit, maxHeight: .infinity)
+                        shoppingTile
+                            .frame(width: unit, maxHeight: .infinity)
                     }
                     .frame(maxHeight: .infinity)
                     dinnerCard
@@ -87,6 +90,14 @@ struct TodayView: View {
             if let place = store.weatherPlace {
                 Task { await weather.load(place: place) }
             }
+        }
+        .alert("Add to shopping list", isPresented: $showAddShopping) {
+            TextField("Item", text: $shoppingDraft)
+            Button("Add") {
+                store.addShoppingItem(shoppingDraft)
+                shoppingDraft = ""
+            }
+            Button("Cancel", role: .cancel) { shoppingDraft = "" }
         }
     }
 
@@ -304,19 +315,72 @@ struct TodayView: View {
         )
     }
 
-    private var comingSoonTile: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "square.dashed")
-                .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(AppTheme.blue)
-            Text("Coming soon")
-                .font(.headline)
-                .foregroundStyle(AppTheme.text)
-            Text("More for this space")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.textSecondary)
+    private var shoppingTile: some View {
+        let open = store.shoppingItems.filter { !$0.isChecked }
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Shopping")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.text)
+                Spacer()
+                Button {
+                    shoppingDraft = ""
+                    showAddShopping = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(AppTheme.blue, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add to shopping list")
+            }
+
+            Button {
+                router.open(.shopping)
+            } label: {
+                Group {
+                    if open.isEmpty {
+                        VStack(spacing: 6) {
+                            Spacer(minLength: 0)
+                            Image(systemName: "cart")
+                                .font(.title2)
+                                .foregroundStyle(AppTheme.blue)
+                            Text("Nothing to get")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Text("Tap to open the list")
+                                .font(.caption)
+                                .foregroundStyle(AppTheme.textTertiary)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        ScrollView(showsIndicators: false) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(open.prefix(8)) { item in
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "circle")
+                                            .foregroundStyle(AppTheme.blue)
+                                        Text(item.name)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(AppTheme.text)
+                                            .lineLimit(1)
+                                        Spacer(minLength: 0)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
