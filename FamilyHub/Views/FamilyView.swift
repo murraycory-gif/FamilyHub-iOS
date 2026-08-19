@@ -13,25 +13,28 @@ struct FamilyView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 20) {
                 householdCard
                 members
-                ledger
+                if !store.ledger.isEmpty {
+                    ledger
+                }
             }
             .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("Family")
+        .navigationTitle("")
         .onAppear { household = store.householdName }
+        .onDisappear { store.setHouseholdName(household) }
         .sheet(isPresented: $showAdd) { EditMemberSheet(member: nil) }
         .sheet(item: $editing) { member in
             EditMemberSheet(member: member)
         }
-        .alert("Pay / adjust", isPresented: Binding(
+        .alert("Pay \(payMember?.name ?? "")", isPresented: Binding(
             get: { payMember != nil },
             set: { if !$0 { payMember = nil } }
         )) {
-            TextField("Amount (e.g. 5 or -2)", text: $payAmount)
+            TextField("Amount", text: $payAmount)
                 .keyboardType(.decimalPad)
             TextField("Reason", text: $payReason)
             Button("Save") {
@@ -39,7 +42,7 @@ struct FamilyView: View {
                     store.addManualAllowance(
                         memberID: member.id,
                         amountCents: centsFrom(payAmount),
-                        reason: payReason.isEmpty ? "Adjustment" : payReason
+                        reason: payReason.isEmpty ? "Paid out" : payReason
                     )
                 }
                 payMember = nil
@@ -47,67 +50,49 @@ struct FamilyView: View {
             }
             Button("Cancel", role: .cancel) { payMember = nil }
         } message: {
-            Text("Positive amounts add to the balance. Negative subtracts.")
+            Text("Use a minus to take money out.")
         }
     }
 
     private var householdCard: some View {
-        HubCard {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(title: "Household")
-                TextField("Household name", text: $household)
-                    .font(.system(size: 24, weight: .semibold, design: .serif))
-                    .onSubmit { store.setHouseholdName(household) }
-                Button("Save name") { store.setHouseholdName(household) }
-                    .buttonStyle(SecondaryButtonStyle())
-            }
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel(title: "Household")
+            TextField("Family name", text: $household)
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(AppTheme.text)
+                .onSubmit { store.setHouseholdName(household) }
         }
+        .padding(.bottom, 4)
     }
 
     private var members: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center) {
                 SectionLabel(title: "Family")
                 Spacer()
-                Text("Drag to rearrange")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.textTertiary)
-                Button("Add") { showAdd = true }
-                    .buttonStyle(SecondaryButtonStyle())
-            }
-            ForEach(store.members) { member in
-                HubCard {
-                    HStack(spacing: 12) {
-                        Image(systemName: "line.3.horizontal")
-                            .foregroundStyle(AppTheme.textTertiary)
-                        MemberAvatar(member: member, size: 46)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(member.name).font(.headline)
-                            Text(member.role.label)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(AppTheme.textSecondary)
-                            if member.role == .child {
-                                MoneyText(cents: member.allowanceBalanceCents)
-                            }
-                        }
-                        Spacer()
-                        if member.role == .child {
-                            Button("Pay") {
-                                payMember = member
-                                payAmount = ""
-                                payReason = "Paid out"
-                            }
-                            .buttonStyle(SecondaryButtonStyle())
-                        }
-                        Button {
-                            editing = member
-                        } label: {
-                            Image(systemName: "pencil")
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(AppTheme.textSecondary)
-                    }
+                Button {
+                    showAdd = true
+                } label: {
+                    Label("Add", systemImage: "plus")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(AppTheme.blue, in: Capsule())
                 }
+                .buttonStyle(.plain)
+            }
+
+            ForEach(store.members) { member in
+                FamilyMemberRow(
+                    member: member,
+                    onEdit: { editing = member },
+                    onPay: {
+                        payMember = member
+                        payAmount = ""
+                        payReason = "Paid out"
+                    }
+                )
                 .onDrag {
                     draggingID = member.id
                     return NSItemProvider(object: member.id.uuidString as NSString)
@@ -122,40 +107,56 @@ struct FamilyView: View {
                     )
                 )
             }
+
+            Button {
+                showAdd = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(AppTheme.blue)
+                    Text("Add someone")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.text)
+                    Spacer()
+                }
+                .padding(18)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(AppTheme.blue.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, dash: [7, 6]))
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 
     private var ledger: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel(title: "Allowance ledger")
-            if store.ledger.isEmpty {
-                HubCard {
-                    EmptyHint(
-                        symbol: "dollarsign.circle",
-                        title: "No payments yet",
-                        detail: "Approve a finished chore and it shows up here."
-                    )
-                }
-            } else {
-                ForEach(store.ledger.prefix(20)) { entry in
-                    HubCard {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(entry.reason).font(.headline)
-                                Text(store.member(id: entry.memberID)?.name ?? "Family")
-                                    .font(.caption)
-                                    .foregroundStyle(AppTheme.textSecondary)
-                            }
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 3) {
-                                MoneyText(cents: entry.amountCents)
-                                Text(entry.createdAt.formatted(date: .abbreviated, time: .omitted))
-                                    .font(.caption2)
-                                    .foregroundStyle(AppTheme.textTertiary)
-                            }
-                        }
+            SectionLabel(title: "Allowance")
+            ForEach(store.ledger.prefix(20)) { entry in
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(entry.reason)
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.text)
+                        Text(store.member(id: entry.memberID)?.name ?? "Family")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 3) {
+                        MoneyText(cents: entry.amountCents)
+                        Text(entry.createdAt.formatted(date: .abbreviated, time: .omitted))
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.textTertiary)
                     }
                 }
+                .padding(16)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
             }
         }
     }
@@ -164,6 +165,71 @@ struct FamilyView: View {
         let cleaned = raw.replacingOccurrences(of: "$", with: "").trimmingCharacters(in: .whitespaces)
         guard let value = Double(cleaned) else { return 0 }
         return Int((value * 100).rounded())
+    }
+}
+
+private struct FamilyMemberRow: View {
+    let member: FamilyMember
+    var onEdit: () -> Void
+    var onPay: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Color(hex: member.colorHex)
+                .frame(width: 6)
+            Button(action: onEdit) {
+                HStack(spacing: 16) {
+                    MemberAvatar(member: member, size: 68)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(member.name)
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(AppTheme.text)
+                        HStack(spacing: 8) {
+                            Text(member.role.label)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.blue)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(AppTheme.blueSoft, in: Capsule())
+                            if member.role == .child {
+                                Text(Money.cents(member.allowanceBalanceCents))
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.textTertiary)
+                }
+                .padding(16)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if member.role == .child {
+                Button("Pay", action: onPay)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+                    .background(AppTheme.blue, in: Capsule())
+                    .padding(.trailing, 8)
+            }
+
+            Image(systemName: "line.3.horizontal")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.textTertiary)
+                .padding(.trailing, 16)
+                .accessibilityLabel("Hold to reorder")
+        }
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
     }
 }
 
@@ -283,7 +349,7 @@ struct EditMemberSheet: View {
                 .font(.title3)
                 .padding(14)
                 .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            HStack(spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
                 ForEach(MemberRole.allCases) { item in
                     FilterChip(title: item.label, color: AppTheme.blue, selected: role == item) {
                         role = item
