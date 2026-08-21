@@ -983,6 +983,7 @@ final class RecipeImageCache {
 
 struct RecipePhoto: View {
     let url: URL?
+    var searchName: String = ""
     @State private var image: UIImage?
 
     var body: some View {
@@ -990,32 +991,62 @@ struct RecipePhoto: View {
             AppTheme.blueSoft
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
-            } else if url != nil {
+            } else if url != nil || !searchName.isEmpty {
                 ProgressView()
             } else {
                 Image(systemName: "fork.knife").foregroundStyle(AppTheme.blue)
             }
         }
-        .task(id: url) { await load() }
+        .clipped()
+        .task(id: "\(url?.absoluteString ?? "")-\(searchName)") { await load() }
     }
 
     private func load() async {
-        guard let url else { return }
-        if let cached = RecipeImageCache.shared.image(for: url) {
-            image = cached
-            return
+        if let url {
+            if let cached = RecipeImageCache.shared.image(for: url) {
+                image = cached
+                return
+            }
+            if url.isFileURL, let data = try? Data(contentsOf: url), let loaded = UIImage(data: data) {
+                RecipeImageCache.shared.set(loaded, for: url)
+                image = loaded
+                return
+            }
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 20
+            if let (data, _) = try? await URLSession.shared.data(for: request),
+               let loaded = UIImage(data: data) {
+                RecipeImageCache.shared.set(loaded, for: url)
+                image = loaded
+                return
+            }
         }
-        if url.isFileURL, let data = try? Data(contentsOf: url), let loaded = UIImage(data: data) {
-            RecipeImageCache.shared.set(loaded, for: url)
+        guard !searchName.isEmpty else { return }
+        let query = searchName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? searchName
+        if let mealURL = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(query)"),
+           let (data, _) = try? await URLSession.shared.data(from: mealURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let meals = json["meals"] as? [[String: Any]],
+           let thumb = meals.first?["strMealThumb"] as? String,
+           let thumbURL = URL(string: thumb),
+           let (imgData, _) = try? await URLSession.shared.data(from: thumbURL),
+           let loaded = UIImage(data: imgData) {
             image = loaded
             return
         }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 20
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let loaded = UIImage(data: data) else { return }
-        RecipeImageCache.shared.set(loaded, for: url)
-        image = loaded
+        if let wiki = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(query.replacingOccurrences(of: " ", with: "_"))"),
+           var request = Optional(URLRequest(url: wiki)) {
+            request.setValue("HUB/1.0", forHTTPHeaderField: "User-Agent")
+            if let (data, _) = try? await URLSession.shared.data(for: request),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let thumb = json["thumbnail"] as? [String: Any],
+               let source = thumb["source"] as? String,
+               let thumbURL = URL(string: source),
+               let (imgData, _) = try? await URLSession.shared.data(from: thumbURL),
+               let loaded = UIImage(data: imgData) {
+                image = loaded
+            }
+        }
     }
 }
 

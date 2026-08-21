@@ -452,6 +452,102 @@ enum PlaceSnapshotCache {
     static func set(_ image: UIImage, for key: String) { images[key] = image }
 }
 
+struct PlaceHeroPhoto: View {
+    let name: String
+    var coordinate: CLLocationCoordinate2D?
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            AppTheme.blueSoft
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                ProgressView()
+            }
+        }
+        .clipped()
+        .task(id: name) { await load() }
+    }
+
+    private func load() async {
+        let key = "hero-\(name)-\(coordinate?.latitude ?? 0)"
+        if let cached = PlaceSnapshotCache.image(for: key) {
+            image = cached
+            return
+        }
+        if let coordinate {
+            let request = MKLookAroundSceneRequest(coordinate: coordinate)
+            if let scene = try? await request.scene {
+                let options = MKLookAroundSnapshotter.Options()
+                options.size = CGSize(width: 800, height: 500)
+                if let snap = try? await MKLookAroundSnapshotter(scene: scene, options: options).snapshot {
+                    PlaceSnapshotCache.set(snap.image, for: key)
+                    image = snap.image
+                    return
+                }
+            }
+        }
+        if let wiki = await wikipediaImage(for: name) {
+            PlaceSnapshotCache.set(wiki, for: key)
+            image = wiki
+            return
+        }
+        if let wiki = await wikipediaSearch(name) {
+            PlaceSnapshotCache.set(wiki, for: key)
+            image = wiki
+        }
+    }
+
+    private func wikipediaImage(for title: String) async -> UIImage? {
+        let slug = title.replacingOccurrences(of: " ", with: "_")
+            .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
+        guard let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(slug)") else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue("HUB/1.0 (family organizer)", forHTTPHeaderField: "User-Agent")
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let thumb = json["thumbnail"] as? [String: Any],
+              let source = thumb["source"] as? String,
+              let imageURL = URL(string: source),
+              let (imgData, _) = try? await URLSession.shared.data(from: imageURL)
+        else { return nil }
+        return UIImage(data: imgData)
+    }
+
+    private func wikipediaSearch(_ query: String) async -> UIImage? {
+        var components = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
+        components.queryItems = [
+            URLQueryItem(name: "action", value: "query"),
+            URLQueryItem(name: "generator", value: "search"),
+            URLQueryItem(name: "gsrsearch", value: "\(query) restaurant"),
+            URLQueryItem(name: "prop", value: "pageimages"),
+            URLQueryItem(name: "pithumbsize", value: "800"),
+            URLQueryItem(name: "format", value: "json")
+        ]
+        guard let url = components.url else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue("HUB/1.0 (family organizer)", forHTTPHeaderField: "User-Agent")
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let queryObj = json["query"] as? [String: Any],
+              let pages = queryObj["pages"] as? [String: [String: Any]]
+        else { return nil }
+        for page in pages.values {
+            if let thumb = page["thumbnail"] as? [String: Any],
+               let source = thumb["source"] as? String,
+               let imageURL = URL(string: source),
+               let (imgData, _) = try? await URLSession.shared.data(from: imageURL),
+               let image = UIImage(data: imgData) {
+                return image
+            }
+        }
+        return nil
+    }
+}
+
 struct HubTileBanner<Trailing: View>: View {
     let symbol: String
     let title: String

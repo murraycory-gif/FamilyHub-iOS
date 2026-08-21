@@ -26,6 +26,7 @@ struct TodayView: View {
     var body: some View {
         GeometryReader { geo in
             let familyH = max(geo.size.height * 0.46, sizeClass == .regular ? 340 : 280)
+            ZStack {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 14) {
                     header
@@ -55,86 +56,20 @@ struct TodayView: View {
                     .padding(.bottom, 18)
                     .frame(height: familyH)
             }
+            if showDayMenu || showProfileMenu {
+                ZStack {
+                    Color.black.opacity(0.38)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            showDayMenu = false
+                            showProfileMenu = false
+                        }
+                    filterPanel(width: min(560, geo.size.width - 72), height: min(660, geo.size.height - 80))
+                }
+            }
+            }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .sheet(isPresented: $showDayMenu) {
-            NavigationStack {
-                ScrollView {
-                    VStack(spacing: 8) {
-                        ForEach(upcomingDays, id: \.self) { day in
-                            Button {
-                                selectedDay = day
-                                showDayMenu = false
-                            } label: {
-                                filterChoiceRow(
-                                    title: menuDayLabel(day),
-                                    detail: day.formatted(.dateTime.month(.abbreviated).day().weekday(.wide)),
-                                    selected: Calendar.current.isDate(day, inSameDayAs: selectedDay)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        DatePicker("Day", selection: $selectedDay, displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .padding(.top, 8)
-                            .tint(AppTheme.blue)
-                    }
-                    .padding(20)
-                }
-                .background(AppTheme.bg.ignoresSafeArea())
-                .navigationTitle("Pick a day")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { showDayMenu = false }
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(AppTheme.blue)
-                    }
-                }
-            }
-            .presentationDetents([.medium, .large])
-        }
-        .sheet(isPresented: $showProfileMenu) {
-            NavigationStack {
-                ScrollView {
-                    VStack(spacing: 8) {
-                        Button {
-                            profile = .family
-                            showProfileMenu = false
-                        } label: {
-                            filterChoiceRow(title: "Whole family", detail: store.householdName, selected: profile == .family)
-                        }
-                        .buttonStyle(.plain)
-                        ForEach(store.members) { member in
-                            Button {
-                                profile = .member(member.id)
-                                showProfileMenu = false
-                            } label: {
-                                filterChoiceRow(
-                                    title: member.name,
-                                    detail: member.role.label,
-                                    selected: profile == .member(member.id),
-                                    color: Color(hex: member.colorHex)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(20)
-                }
-                .background(AppTheme.bg.ignoresSafeArea())
-                .navigationTitle("Who’s Hub")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { showProfileMenu = false }
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(AppTheme.blue)
-                    }
-                }
-            }
-            .presentationDetents([.medium, .large])
-        }
         .fullScreenCover(isPresented: $showDinner) {
             TonightDinnerView(day: selectedDay)
                 .environmentObject(store)
@@ -185,6 +120,82 @@ struct TodayView: View {
         if hour < 12 { return "Morning" }
         if hour < 17 { return "Afternoon" }
         return "Evening"
+    }
+
+    private func filterPanel(width: CGFloat, height: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            HubTileBanner(
+                symbol: showDayMenu ? "calendar" : "person.3.fill",
+                title: showDayMenu ? "Pick a day" : "Who’s Hub"
+            ) {
+                Button {
+                    showDayMenu = false
+                    showProfileMenu = false
+                } label: {
+                    Text("Done")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.white, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            ScrollView {
+                VStack(spacing: 8) {
+                    if showDayMenu {
+                        ForEach(upcomingDays, id: \.self) { day in
+                            Button {
+                                selectedDay = day
+                                showDayMenu = false
+                            } label: {
+                                filterChoiceRow(
+                                    title: menuDayLabel(day),
+                                    detail: day.formatted(.dateTime.month(.abbreviated).day().weekday(.wide)),
+                                    selected: Calendar.current.isDate(day, inSameDayAs: selectedDay)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        DatePicker("Day", selection: $selectedDay, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .padding(.top, 8)
+                            .tint(AppTheme.blue)
+                    } else {
+                        Button {
+                            profile = .family
+                            showProfileMenu = false
+                        } label: {
+                            filterChoiceRow(title: "Whole family", detail: store.householdName, selected: profile == .family)
+                        }
+                        .buttonStyle(.plain)
+                        ForEach(store.members) { member in
+                            Button {
+                                profile = .member(member.id)
+                                showProfileMenu = false
+                            } label: {
+                                filterChoiceRow(
+                                    title: member.name,
+                                    detail: member.role.label,
+                                    selected: profile == .member(member.id),
+                                    color: Color(hex: member.colorHex)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(20)
+            }
+        }
+        .frame(width: width, height: height)
+        .background(AppTheme.bg)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+        .shadow(color: .black.opacity(0.25), radius: 30, y: 12)
     }
 
     private var header: some View {
@@ -525,30 +536,27 @@ struct TodayView: View {
         return Button { showDinner = true } label: {
             VStack(spacing: 0) {
                 HubTileBanner(symbol: "fork.knife", title: "What's For Dinner")
-                VStack(spacing: 10) {
+                ZStack(alignment: .bottom) {
                     dinnerPhoto(plan: plan, recipe: recipe)
-                        .frame(width: 88, height: 88)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(AppTheme.blue, lineWidth: 2)
-                        )
-                    Text(dinnerEyebrow(plan))
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(AppTheme.blue)
-                    Text(title ?? "Nothing planned")
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(AppTheme.text)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
-                    Text(dinnerHint(plan, recipe: recipe))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
+                    LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(dinnerEyebrow(plan))
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.9))
+                        Text(title ?? "Nothing planned")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                        Text(dinnerHint(plan, recipe: recipe))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
                 }
-                .padding(14)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(AppTheme.blueSoft)
@@ -564,16 +572,23 @@ struct TodayView: View {
 
     @ViewBuilder
     private func dinnerPhoto(plan: DinnerPlan?, recipe: Recipe?) -> some View {
-        if let recipe, let url = URL(string: recipe.imageURL), recipe.imageURL.isEmpty == false {
-            RecipePhoto(url: url)
-        } else if let plan, let lat = plan.placeLatitude, let lon = plan.placeLongitude {
-            PlaceSnapshot(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+        if let recipe, !recipe.imageURL.isEmpty, let url = URL(string: recipe.imageURL) {
+            RecipePhoto(url: url, searchName: recipe.name)
+        } else if let recipe {
+            RecipePhoto(url: nil, searchName: recipe.name)
+        } else if let plan, plan.placeName != nil {
+            PlaceHeroPhoto(
+                name: plan.placeName ?? "",
+                coordinate: plan.placeLatitude.flatMap { lat in
+                    plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
+                }
+            )
         } else {
             ZStack {
-                AppTheme.blue
-                Image(systemName: plan?.placeName != nil ? "mappin.and.ellipse" : "fork.knife")
-                    .font(.title.weight(.bold))
-                    .foregroundStyle(.white)
+                AppTheme.blueSoft
+                Image(systemName: "fork.knife")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundStyle(AppTheme.blue)
             }
         }
     }
