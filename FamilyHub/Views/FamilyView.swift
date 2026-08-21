@@ -177,32 +177,45 @@ struct FamilyView: View {
     }
 
     private var ledger: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             SectionLabel(title: "Allowance")
-            ForEach(store.ledger.prefix(20)) { entry in
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(entry.reason)
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.text)
-                        Text(store.member(id: entry.memberID)?.name ?? "Family")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.textSecondary)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 14)], spacing: 14) {
+                ForEach(store.kids()) { kid in
+                    HStack(spacing: 14) {
+                        MemberAvatar(member: kid, size: 64)
+                            .overlay(Circle().stroke(Color(hex: kid.colorHex), lineWidth: 3))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(kid.name)
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.text)
+                            Text("Balance")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.textTertiary)
+                            Text(Money.cents(kid.allowanceBalanceCents))
+                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .foregroundStyle(AppTheme.blue)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 3) {
-                        MoneyText(cents: entry.amountCents)
-                        Text(entry.createdAt.formatted(date: .abbreviated, time: .omitted))
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.textTertiary)
-                    }
+                    .padding(16)
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(Color(hex: kid.colorHex), lineWidth: 3)
+                    )
+                    .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
                 }
-                .padding(16)
-                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(AppTheme.cardBorder, lineWidth: 1)
-                )
+            }
+
+            Text("Activity")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 14)], spacing: 14) {
+                ForEach(store.ledger.prefix(20)) { entry in
+                    AllowanceActivityCard(entry: entry)
+                }
             }
         }
     }
@@ -214,7 +227,47 @@ struct FamilyView: View {
     }
 }
 
-private struct FamilyMemberRow: View {
+private struct AllowanceActivityCard: View {
+    @EnvironmentObject private var store: HubStore
+    let entry: LedgerEntry
+
+    var body: some View {
+        let person = store.member(id: entry.memberID)
+        let accent = Color(hex: person?.colorHex ?? "2563EB")
+        return HStack(spacing: 14) {
+            if let person {
+                MemberAvatar(member: person, size: 56)
+                    .overlay(Circle().stroke(accent, lineWidth: 3))
+            } else {
+                Circle().fill(AppTheme.blueSoft).frame(width: 56, height: 56)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(entry.reason)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .lineLimit(2)
+                Text(person?.name ?? "Family")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
+                Text(entry.createdAt.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.textTertiary)
+            }
+            Spacer(minLength: 8)
+            Text(Money.cents(entry.amountCents))
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundStyle(entry.amountCents < 0 ? AppTheme.chore : AppTheme.blue)
+        }
+        .padding(16)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(accent, lineWidth: 3)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+    }
+}
     @EnvironmentObject private var store: HubStore
     let member: FamilyMember
     var onOpen: () -> Void
