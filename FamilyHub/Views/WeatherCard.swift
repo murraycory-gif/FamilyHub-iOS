@@ -570,12 +570,16 @@ struct WeatherOutlookView: View {
         return weather.hoursOn(focusedDay)
     }
     private var isToday: Bool { Calendar.current.isDateInToday(focusedDay) }
-    private var weekLow: Int { weather.days.map(\.low).min() ?? 0 }
-    private var weekHigh: Int { weather.days.map(\.high).max() ?? 100 }
+    private var weekLow: Int { upcomingDays.map(\.low).min() ?? 0 }
+    private var weekHigh: Int { upcomingDays.map(\.high).max() ?? 100 }
     private var skyIsDay: Bool { isToday ? (weather.now?.isDay ?? true) : true }
     private var skyCode: Int { isToday ? (weather.now?.code ?? selected?.code ?? 2) : (selected?.code ?? 2) }
     private var now: WeatherNow? { weather.now }
-    private var canGoBack: Bool { weather.forecastDay(on: shiftDate(-1)) != nil }
+    private var canGoBack: Bool {
+        let today = Calendar.current.startOfDay(for: Date())
+        return Calendar.current.startOfDay(for: focusedDay) > today
+            && weather.forecastDay(on: shiftDate(-1)) != nil
+    }
     private var canGoForward: Bool { weather.forecastDay(on: shiftDate(1)) != nil }
 
     private func shiftDate(_ delta: Int) -> Date {
@@ -777,12 +781,12 @@ struct WeatherOutlookView: View {
 
     private var dailyCard: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(weather.days.count)-day forecast")
+            Text("\(upcomingDays.count)-day forecast")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.textTertiary)
                 .textCase(.uppercase)
                 .padding(.bottom, 8)
-            ForEach(Array(weather.days.enumerated()), id: \.element.id) { index, item in
+            ForEach(Array(upcomingDays.enumerated()), id: \.element.id) { index, item in
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(dayLabel(index, iso: item.dateISO, weekday: item.weekday))
@@ -823,7 +827,7 @@ struct WeatherOutlookView: View {
                 )
                 .contentShape(Rectangle())
                 .onTapGesture { jumpTo(iso: item.dateISO) }
-                if index < weather.days.count - 1 {
+                if index < upcomingDays.count - 1 {
                     Divider()
                 }
             }
@@ -844,12 +848,20 @@ struct WeatherOutlookView: View {
         return date.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).replacingOccurrences(of: " ", with: "")
     }
 
+    private var upcomingDays: [WeatherDay] {
+        let stamp = DateFormatter()
+        stamp.dateFormat = "yyyy-MM-dd"
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        let today = stamp.string(from: Date())
+        return weather.days.filter { $0.dateISO >= today }
+    }
+
     private func dayLabel(_ index: Int, iso: String, weekday: String) -> String {
-        if index == 0 { return "Today" }
         let stamp = DateFormatter()
         stamp.dateFormat = "yyyy-MM-dd"
         stamp.locale = Locale(identifier: "en_US_POSIX")
         guard let date = stamp.date(from: iso) else { return weekday }
+        if Calendar.current.isDateInToday(date) { return "Today" }
         if Calendar.current.isDateInTomorrow(date) { return "Tomorrow" }
         return date.formatted(.dateTime.weekday(.wide))
     }
