@@ -32,6 +32,7 @@
 		A023 /* RecipeScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B023 /* RecipeScan.swift */; };
 		A024 /* HubLooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B024 /* HubLooksView.swift */; };
 		A025 /* PlaceImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = B025 /* PlaceImages.swift */; };
+		A026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B026 /* SettingsView.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A904 /* RubikWetPaint-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B904 /* RubikWetPaint-Regular.ttf */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
@@ -75,6 +76,7 @@
 		B023 /* RecipeScan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeScan.swift; sourceTree = "<group>"; };
 		B024 /* HubLooksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubLooksView.swift; sourceTree = "<group>"; };
 		B025 /* PlaceImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceImages.swift; sourceTree = "<group>"; };
+		B026 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B900 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B904 /* RubikWetPaint-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RubikWetPaint-Regular.ttf"; path = "Fonts/RubikWetPaint-Regular.ttf"; sourceTree = "<group>"; };
 		B901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -153,6 +155,7 @@
 				B012 /* ChoresView.swift */,
 				B013 /* ListsView.swift */,
 				B014 /* FamilyView.swift */,
+				B026 /* SettingsView.swift */,
 				B019 /* MealsView.swift */,
 				B023 /* RecipeScan.swift */,
 				B024 /* HubLooksView.swift */,
@@ -313,6 +316,7 @@
 				A023 /* RecipeScan.swift in Sources */,
 				A024 /* HubLooksView.swift in Sources */,
 				A025 /* PlaceImages.swift in Sources */,
+				A026 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

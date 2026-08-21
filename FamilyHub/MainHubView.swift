@@ -1,9 +1,13 @@
 import SwiftUI
 
 enum HubSection: String, CaseIterable, Identifiable, Hashable {
-    case today, calendar, chores, lists, shopping, meals, family, looks
+    case today, calendar, chores, lists, shopping, meals, settings, family, looks
 
     var id: String { rawValue }
+
+    static var menu: [HubSection] {
+        [.today, .calendar, .chores, .lists, .shopping, .meals, .settings]
+    }
 
     var title: String {
         switch self {
@@ -13,7 +17,8 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .lists: return "Lists"
         case .shopping: return "Shopping"
         case .meals: return "Meals"
-        case .family: return "Family"
+        case .settings: return "Settings"
+        case .family: return "HUB Profiles"
         case .looks: return "Looks"
         }
     }
@@ -26,6 +31,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .lists: return "list.bullet.rectangle"
         case .shopping: return "cart.fill"
         case .meals: return "fork.knife"
+        case .settings: return "gearshape.fill"
         case .family: return "person.3.fill"
         case .looks: return "square.grid.2x2.fill"
         }
@@ -84,7 +90,7 @@ struct MainHubView: View {
                 .background(HideSystemSidebarToggle())
             } else {
                 TabView(selection: tabSelection) {
-                    ForEach(HubSection.allCases) { item in
+                    ForEach(HubSection.menu) { item in
                         NavigationStack {
                             view(for: item)
                         }
@@ -112,7 +118,7 @@ struct MainHubView: View {
     }
 
     private var sidebar: some View {
-        List(HubSection.allCases, id: \.self, selection: $router.section) { item in
+        List(HubSection.menu, id: \.self, selection: $router.section) { item in
             Label(item.title, systemImage: item.symbol)
                 .tag(Optional(item))
         }
@@ -162,6 +168,7 @@ struct MainHubView: View {
         case .lists: ListsView().hubChrome(showBack: true)
         case .shopping: ShoppingListView().hubChrome(showBack: true)
         case .meals: MealsView().hubChrome(showBack: true)
+        case .settings: SettingsView().hubChrome(showBack: true)
         case .family: FamilyView().hubChrome(showBack: true)
         case .looks: HubLooksView().hubChrome(showBack: true)
         }
