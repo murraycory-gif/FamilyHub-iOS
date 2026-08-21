@@ -538,7 +538,12 @@ struct WeatherOutlookView: View {
     @State private var showPlace = false
 
     private var selected: WeatherDay? { weather.forecastDay(on: day) }
-    private var hours: [WeatherHour] { weather.hoursOn(day) }
+    private var hours: [WeatherHour] {
+        if Calendar.current.isDateInToday(day) {
+            return Array(weather.hours.prefix(24))
+        }
+        return weather.hoursOn(day)
+    }
     private var isToday: Bool { Calendar.current.isDateInToday(day) }
     private var weekLow: Int { weather.days.map(\.low).min() ?? 0 }
     private var weekHigh: Int { weather.days.map(\.high).max() ?? 100 }
@@ -655,37 +660,35 @@ struct WeatherOutlookView: View {
     }
 
     private var hourlyCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Hourly")
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Next 24 hours")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.textTertiary)
                 .textCase(.uppercase)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    ForEach(Array(hours.prefix(48).enumerated()), id: \.element.id) { index, hour in
-                        VStack(spacing: 8) {
-                            Text(index == 0 && isToday ? "Now" : hour.at.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).replacingOccurrences(of: " ", with: ""))
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(AppTheme.textSecondary)
+                HStack(spacing: 4) {
+                    ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
+                        VStack(spacing: 6) {
+                            Text(hourHeading(index: index, date: hour.at))
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(AppTheme.text)
                             Image(systemName: hour.symbolName)
-                                .font(.title3)
+                                .font(.title2)
                                 .symbolRenderingMode(.multicolor)
-                                .frame(height: 22)
-                            if hour.precip >= 20 {
-                                Text("\(hour.precip)%")
-                                    .font(.system(size: 10, weight: .bold).monospacedDigit())
-                                    .foregroundStyle(AppTheme.blue)
-                            }
+                                .frame(height: 26)
+                            Text(hour.precip > 0 ? "\(hour.precip)%" : " ")
+                                .font(.caption.weight(.bold).monospacedDigit())
+                                .foregroundStyle(hour.precip >= 20 ? AppTheme.blue : AppTheme.textTertiary)
                             Text("\(hour.temp)°")
-                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .font(.title3.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(AppTheme.text)
                         }
-                        .frame(width: 52)
+                        .frame(width: 64)
                     }
                 }
             }
         }
-        .padding(16)
+        .padding(18)
         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -694,51 +697,66 @@ struct WeatherOutlookView: View {
     }
 
     private var dailyCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             Text("\(weather.days.count)-day forecast")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.textTertiary)
                 .textCase(.uppercase)
-                .padding(.bottom, 6)
+                .padding(.bottom, 8)
             ForEach(Array(weather.days.enumerated()), id: \.element.id) { index, item in
-                HStack(spacing: 8) {
-                    Text(dayLabel(index, iso: item.dateISO, weekday: item.weekday))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.text)
-                        .frame(width: 72, alignment: .leading)
-                    Image(systemName: item.symbolName)
-                        .symbolRenderingMode(.multicolor)
-                        .frame(width: 28)
-                    if item.precip >= 20 {
-                        Text("\(item.precip)%")
-                            .font(.caption.weight(.bold).monospacedDigit())
-                            .foregroundStyle(AppTheme.blue)
-                            .frame(width: 36)
-                    } else {
-                        Color.clear.frame(width: 36)
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(dayLabel(index, iso: item.dateISO, weekday: item.weekday))
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(AppTheme.text)
+                        Text(dayDate(iso: item.dateISO, index: index))
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.textTertiary)
                     }
+                    .frame(width: 92, alignment: .leading)
+                    Image(systemName: item.symbolName)
+                        .font(.title2)
+                        .symbolRenderingMode(.multicolor)
+                        .frame(width: 36)
+                    HStack(spacing: 4) {
+                        Image(systemName: "drop.fill")
+                            .font(.caption2)
+                            .foregroundStyle(item.precip >= 20 ? AppTheme.blue : AppTheme.textTertiary.opacity(0.45))
+                        Text("\(item.precip)%")
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(item.precip >= 20 ? AppTheme.blue : AppTheme.textTertiary)
+                    }
+                    .frame(width: 58, alignment: .leading)
                     Text("\(item.low)°")
-                        .font(.subheadline.monospacedDigit())
+                        .font(.body.monospacedDigit())
                         .foregroundStyle(AppTheme.textTertiary)
-                        .frame(width: 32, alignment: .trailing)
-                    TempRangeBar(low: item.low, high: item.high, weekLow: weekLow, weekHigh: weekHigh)
+                        .frame(width: 40, alignment: .trailing)
+                    TempRangeBar(low: item.low, high: item.high, weekLow: weekLow, weekHigh: weekHigh, height: 8)
                     Text("\(item.high)°")
-                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .font(.body.weight(.bold).monospacedDigit())
                         .foregroundStyle(AppTheme.text)
-                        .frame(width: 32, alignment: .trailing)
+                        .frame(width: 40, alignment: .trailing)
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
                 if index < weather.days.count - 1 {
                     Divider()
                 }
             }
         }
-        .padding(16)
+        .padding(18)
         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
+    }
+
+    private func hourHeading(index: Int, date: Date) -> String {
+        if index == 0 && isToday { return "Now" }
+        if Calendar.current.component(.hour, from: date) == 0 {
+            return date.formatted(.dateTime.weekday(.abbreviated))
+        }
+        return date.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).replacingOccurrences(of: " ", with: "")
     }
 
     private func dayLabel(_ index: Int, iso: String, weekday: String) -> String {
@@ -748,8 +766,15 @@ struct WeatherOutlookView: View {
         stamp.locale = Locale(identifier: "en_US_POSIX")
         guard let date = stamp.date(from: iso) else { return weekday }
         if Calendar.current.isDateInTomorrow(date) { return "Tomorrow" }
-        if index < 7 { return weekday }
-        return date.formatted(.dateTime.weekday(.abbreviated).month(.defaultDigits).day())
+        return date.formatted(.dateTime.weekday(.wide))
+    }
+
+    private func dayDate(iso: String, index: Int) -> String {
+        let stamp = DateFormatter()
+        stamp.dateFormat = "yyyy-MM-dd"
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = stamp.date(from: iso) else { return "" }
+        return date.formatted(.dateTime.month(.abbreviated).day())
     }
 
     private func uvLabel(_ value: Int) -> String {
@@ -837,6 +862,7 @@ private struct TempRangeBar: View {
     let high: Int
     let weekLow: Int
     let weekHigh: Int
+    var height: CGFloat = 4
 
     var body: some View {
         GeometryReader { geo in
@@ -844,7 +870,7 @@ private struct TempRangeBar: View {
             let start = CGFloat(low - weekLow) / span
             let end = CGFloat(high - weekLow) / span
             ZStack(alignment: .leading) {
-                Capsule().fill(AppTheme.blueSoft)
+                Capsule().fill(Color.black.opacity(0.08))
                 Capsule()
                     .fill(
                         LinearGradient(
@@ -853,10 +879,10 @@ private struct TempRangeBar: View {
                             endPoint: .trailing
                         )
                     )
-                    .frame(width: max(8, (end - start) * geo.size.width))
+                    .frame(width: max(height * 2, (end - start) * geo.size.width))
                     .offset(x: start * geo.size.width)
             }
         }
-        .frame(height: 4)
+        .frame(height: height)
     }
 }
