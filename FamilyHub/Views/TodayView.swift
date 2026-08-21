@@ -264,20 +264,6 @@ struct TodayView: View {
         )
         .contentShape(Rectangle())
     }
-        HStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.body.weight(.bold))
-            Text(title)
-                .font(.headline.weight(.bold))
-                .lineLimit(1)
-            Image(systemName: "chevron.down")
-                .font(.caption.weight(.bold))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(AppTheme.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
 
     @ViewBuilder
     private var profileAvatar: some View {
