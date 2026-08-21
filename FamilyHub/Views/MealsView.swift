@@ -333,14 +333,16 @@ struct MealChoiceSheet: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("What’s for dinner")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(AppTheme.blue)
-                        Text(dayTitle)
-                            .font(.system(size: 36, weight: .bold))
+                    HStack(spacing: 10) {
+                        Text("What's For")
                             .foregroundStyle(AppTheme.text)
+                        Text("Dinner")
+                            .foregroundStyle(AppTheme.blue)
                     }
+                    .font(.system(size: 36, weight: .bold))
+                    Text(dayTitle)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
                     if let title = store.dinnerTitle(on: day) {
                         HStack(spacing: 14) {
                             Image(systemName: "checkmark.seal.fill")
@@ -363,30 +365,42 @@ struct MealChoiceSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
-                        DinnerChoiceCard(
-                            title: "Eat out",
-                            detail: "Restaurants near you",
-                            symbol: "takeoutbag.and.cup.and.straw.fill",
-                            photo: URL(string: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80")
-                        ) { path.append(.eatOut) }
-                        DinnerChoiceCard(
-                            title: "Family recipes",
-                            detail: "Your kitchen, your people",
-                            symbol: "book.closed.fill",
-                            photo: URL(string: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=1200&q=80")
-                        ) { path.append(.family) }
-                        DinnerChoiceCard(
-                            title: "Recipes",
-                            detail: "A huge American cookbook",
-                            symbol: "fork.knife.circle.fill",
-                            photo: URL(string: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80")
-                        ) { path.append(.recipes) }
-                        DinnerChoiceCard(
-                            title: "Enter a meal",
-                            detail: "Type it yourself",
-                            symbol: "square.and.pencil",
-                            photo: URL(string: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=1200&q=80")
-                        ) { path.append(.manual) }
+                        NavigationLink(value: MealPath.eatOut) {
+                            DinnerChoiceCard(
+                                title: "Eat out",
+                                detail: "Restaurants near you",
+                                symbol: "bag.fill",
+                                photo: URL(string: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=60")
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink(value: MealPath.family) {
+                            DinnerChoiceCard(
+                                title: "Family recipes",
+                                detail: "Scan a card or type one in",
+                                symbol: "book.closed.fill",
+                                photo: URL(string: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=60")
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink(value: MealPath.recipes) {
+                            DinnerChoiceCard(
+                                title: "Recipes",
+                                detail: "A huge American cookbook",
+                                symbol: "fork.knife.circle.fill",
+                                photo: URL(string: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=60")
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink(value: MealPath.manual) {
+                            DinnerChoiceCard(
+                                title: "Enter a meal",
+                                detail: "Type it yourself",
+                                symbol: "square.and.pencil",
+                                photo: URL(string: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=800&q=60")
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(20)
@@ -422,46 +436,44 @@ private struct DinnerChoiceCard: View {
     let detail: String
     let symbol: String
     let photo: URL?
-    var action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 0) {
-                RecipePhoto(url: photo)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 148)
-                    .clipped()
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 10) {
-                        Image(systemName: symbol)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 34, height: 34)
-                            .background(AppTheme.blue, in: Circle())
-                        Text(title)
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundStyle(AppTheme.text)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                    }
-                    Text(detail)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .lineLimit(2)
+        VStack(alignment: .leading, spacing: 0) {
+            RecipePhoto(url: photo)
+                .frame(maxWidth: .infinity)
+                .frame(height: 148)
+                .clipped()
+                .allowsHitTesting(false)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
+                    Image(systemName: symbol)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(AppTheme.blue, in: Circle())
+                    Text(title)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(AppTheme.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AppTheme.card)
+                Text(detail)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .lineLimit(2)
             }
-            .frame(maxWidth: .infinity, minHeight: 248, maxHeight: 248)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(AppTheme.blue, lineWidth: 3)
-            )
-            .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppTheme.card)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, minHeight: 248, maxHeight: 248)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+        .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
     }
 }
 
@@ -481,8 +493,13 @@ private struct EatOutPicker: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Eat out")
-                    .font(.system(size: 28, weight: .bold))
+                HStack(spacing: 10) {
+                    Text("Eat")
+                        .foregroundStyle(AppTheme.text)
+                    Text("Out")
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .font(.system(size: 36, weight: .bold))
                 Text("Search like Maps. Near \(places.areaName).")
                     .foregroundStyle(AppTheme.textSecondary)
                 HStack {
@@ -628,21 +645,27 @@ private struct FamilyRecipePicker: View {
     let day: Date
     var onDone: () -> Void
     @State private var showAdd = false
+    @State private var showScan = false
     @State private var opened: Recipe?
 
     private var familyRecipes: [Recipe] {
-        store.recipes.filter { $0.kind == .family || $0.kind == .cooked || $0.catalogID.isEmpty }
+        store.recipes.filter { $0.kind == .family }
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("Family recipes")
-                        .font(.system(size: 28, weight: .bold))
+                HStack(alignment: .center) {
+                    HStack(spacing: 10) {
+                        Text("Family")
+                            .foregroundStyle(AppTheme.text)
+                        Text("Recipes")
+                            .foregroundStyle(AppTheme.blue)
+                    }
+                    .font(.system(size: 36, weight: .bold))
                     Spacer()
-                    Button { showAdd = true } label: {
-                        Label("Add", systemImage: "plus")
+                    Button { showScan = true } label: {
+                        Label("Scan", systemImage: "doc.text.viewfinder")
                             .font(.headline)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 14)
@@ -650,15 +673,41 @@ private struct FamilyRecipePicker: View {
                             .background(AppTheme.blue, in: Capsule())
                     }
                     .buttonStyle(.plain)
+                    Button { showAdd = true } label: {
+                        Label("Add", systemImage: "plus")
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.blue)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(AppTheme.blueSoft, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-                Text("Your household recipes. Add one by typing it in.")
+                Text("Scan a recipe card or cookbook page. We’ll pull the name, ingredients, and steps.")
                     .foregroundStyle(AppTheme.textSecondary)
                 if familyRecipes.isEmpty {
-                    Text("No family recipes yet.")
-                        .foregroundStyle(AppTheme.textSecondary)
+                    Button { showScan = true } label: {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Image(systemName: "doc.text.viewfinder")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundStyle(AppTheme.blue)
+                            Text("Scan your first recipe")
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(AppTheme.text)
+                            Text("Photo a handwritten card, a printed page, or a cookbook.")
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
                         .padding(18)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(AppTheme.blue, lineWidth: 3)
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
                 ForEach(familyRecipes) { recipe in
                     Button { opened = recipe } label: {
@@ -675,6 +724,7 @@ private struct FamilyRecipePicker: View {
             FamilyRecipeDetail(recipe: recipe, day: day, onDone: onDone)
         }
         .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet() }
+        .fullScreenCover(isPresented: $showScan) { ScanRecipeSheet() }
     }
 }
 
@@ -753,8 +803,13 @@ private struct CatalogRecipePicker: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Recipes")
-                    .font(.system(size: 28, weight: .bold))
+                HStack(spacing: 10) {
+                    Text("All")
+                        .foregroundStyle(AppTheme.text)
+                    Text("Recipes")
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .font(.system(size: 36, weight: .bold))
                 Text("American dinners load instantly. Search or tap a style.")
                     .foregroundStyle(AppTheme.textSecondary)
                 HStack {
@@ -926,6 +981,11 @@ struct RecipePhoto: View {
             image = cached
             return
         }
+        if url.isFileURL, let data = try? Data(contentsOf: url), let loaded = UIImage(data: data) {
+            RecipeImageCache.shared.set(loaded, for: url)
+            image = loaded
+            return
+        }
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
         guard let (data, _) = try? await URLSession.shared.data(for: request),
@@ -1082,8 +1142,13 @@ private struct ManualMealSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Enter a meal")
-                    .font(.system(size: 28, weight: .bold))
+                HStack(spacing: 10) {
+                    Text("Enter")
+                        .foregroundStyle(AppTheme.text)
+                    Text("Meal")
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .font(.system(size: 36, weight: .bold))
                 TextField("What’s for dinner?", text: $name)
                     .font(.title3)
                     .padding(14)

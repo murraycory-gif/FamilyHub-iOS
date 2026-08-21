@@ -29,6 +29,7 @@
 		A020 /* RecipeCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B020 /* RecipeCatalog.swift */; };
 		A021 /* PlacesSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = B021 /* PlacesSearch.swift */; };
 		A022 /* AmericanKitchen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B022 /* AmericanKitchen.swift */; };
+		A023 /* RecipeScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B023 /* RecipeScan.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A904 /* RubikWetPaint-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B904 /* RubikWetPaint-Regular.ttf */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
@@ -69,6 +70,7 @@
 		B020 /* RecipeCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeCatalog.swift; sourceTree = "<group>"; };
 		B021 /* PlacesSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesSearch.swift; sourceTree = "<group>"; };
 		B022 /* AmericanKitchen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmericanKitchen.swift; sourceTree = "<group>"; };
+		B023 /* RecipeScan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeScan.swift; sourceTree = "<group>"; };
 		B900 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B904 /* RubikWetPaint-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RubikWetPaint-Regular.ttf"; path = "Fonts/RubikWetPaint-Regular.ttf"; sourceTree = "<group>"; };
 		B901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -148,6 +150,7 @@
 				B013 /* ListsView.swift */,
 				B014 /* FamilyView.swift */,
 				B019 /* MealsView.swift */,
+				B023 /* RecipeScan.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -301,6 +304,7 @@
 				A020 /* RecipeCatalog.swift in Sources */,
 				A021 /* PlacesSearch.swift in Sources */,
 				A022 /* AmericanKitchen.swift in Sources */,
+				A023 /* RecipeScan.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

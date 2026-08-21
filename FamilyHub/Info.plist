@@ -37,8 +37,10 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>HUB scans recipe cards and cookbook pages so you can save family recipes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>HUB uses a photo for the family card on the home screen.</string>
+	<string>HUB uses photos for family cards and to scan recipes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>HUB uses your location to find takeout and restaurants near you.</string>
 	<key>NSCalendarsUsageDescription</key>
