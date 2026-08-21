@@ -987,18 +987,24 @@ struct RecipePhoto: View {
     @State private var image: UIImage?
 
     var body: some View {
-        ZStack {
-            AppTheme.blueSoft
-            if let image {
-                Image(uiImage: image).resizable().scaledToFill()
-            } else if url != nil || !searchName.isEmpty {
-                ProgressView()
-            } else {
-                Image(systemName: "fork.knife").foregroundStyle(AppTheme.blue)
+        Color.clear
+            .overlay {
+                ZStack {
+                    AppTheme.blueSoft
+                    if let image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else if url != nil || !searchName.isEmpty {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "fork.knife").foregroundStyle(AppTheme.blue)
+                    }
+                }
             }
-        }
-        .clipped()
-        .task(id: "\(url?.absoluteString ?? "")-\(searchName)") { await load() }
+            .clipped()
+            .contentShape(Rectangle())
+            .task(id: "\(url?.absoluteString ?? "")-\(searchName)") { await load() }
     }
 
     private func load() async {

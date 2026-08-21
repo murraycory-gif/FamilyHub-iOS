@@ -538,6 +538,7 @@ struct TodayView: View {
                 HubTileBanner(symbol: "fork.knife", title: "What's For Dinner")
                 ZStack(alignment: .bottom) {
                     dinnerPhoto(plan: plan, recipe: recipe)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(dinnerEyebrow(plan))
@@ -559,6 +560,7 @@ struct TodayView: View {
                 .clipped()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
             .background(AppTheme.blueSoft)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(
