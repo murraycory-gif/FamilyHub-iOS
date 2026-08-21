@@ -47,14 +47,13 @@ struct AreaSuggestion: Identifiable, Hashable {
     }
 }
 
-@MainActor
 final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDelegate {
     @Published var suggestions: [AreaSuggestion] = []
     private let completer = MKLocalSearchCompleter()
 
     override init() {
         super.init()
-        completer.resultTypes = [.pointOfInterest, .query]
+        completer.resultTypes = .pointOfInterest
         completer.delegate = self
     }
 
@@ -78,9 +77,10 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
     }
 
     func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        suggestions = completer.results.prefix(8).map {
+        let mapped = completer.results.prefix(8).map {
             AreaSuggestion(title: $0.title, subtitle: $0.subtitle)
         }
+        DispatchQueue.main.async { self.suggestions = mapped }
     }
 
     func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {}
@@ -210,18 +210,20 @@ final class PlacesSearch: ObservableObject {
             "breakfast", "sandwiches", "barbecue", "wings", "seafood", "diner", "cafe"
         ]
         let extraPOI = (try? await searchPOIs(around: location)) ?? []
-        let extraNamed: [NearbyPlace] = await {
-            var batch: [NearbyPlace] = []
-            for query in queries {
-                batch.append(contentsOf: (try? await searchNamed(query, around: location)) ?? [])
-            }
-            return batch
-        }()
-        for item in extraPOI + extraNamed {
+        for item in extraPOI {
             let key = item.id
             let fuzzy = item.name.lowercased() + String(format: "-%.3f-%.3f", item.coordinate.latitude, item.coordinate.longitude)
             guard seen.insert(key).inserted, seen.insert(fuzzy).inserted else { continue }
             result.append(item)
+        }
+        for query in queries {
+            let named = (try? await searchNamed(query, around: location)) ?? []
+            for item in named {
+                let key = item.id
+                let fuzzy = item.name.lowercased() + String(format: "-%.3f-%.3f", item.coordinate.latitude, item.coordinate.longitude)
+                guard seen.insert(key).inserted, seen.insert(fuzzy).inserted else { continue }
+                result.append(item)
+            }
         }
         places = result.sorted { ($0.distance ?? .greatestFiniteMagnitude) < ($1.distance ?? .greatestFiniteMagnitude) }
         if places.isEmpty {
@@ -397,7 +399,7 @@ private struct OSMElement: Decodable {
             category: cuisine.isEmpty ? amenity.replacingOccurrences(of: "_", with: " ") : cuisine,
             address: address,
             phone: phone,
-            url: website.flatMap(URL.init(string:)),
+            url: website.flatMap { URL(string: $0) },
             coordinate: coord,
             distance: distance,
             mode: takeout ? .takeout : .sitdown
