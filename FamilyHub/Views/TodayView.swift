@@ -713,7 +713,7 @@ private struct FamilyFocusCard: View {
     var body: some View {
         VStack(spacing: 0) {
             posterBanner(
-                image: store.familyPhotoData.flatMap(UIImage.init(data:)),
+                image: store.familyPhotoData.flatMap { UIImage(data: $0) },
                 colors: [AppTheme.navy, AppTheme.blue],
                 fallback: "person.3.fill",
                 name: "Family",
@@ -774,7 +774,7 @@ private struct MemberHomeCard: View {
     var body: some View {
         VStack(spacing: 0) {
             posterBanner(
-                image: store.photo(for: member).flatMap(UIImage.init(data:)),
+                image: store.photo(for: member).flatMap { UIImage(data: $0) },
                 colors: [accent, accent.opacity(0.55)],
                 fallback: nil,
                 emoji: member.displayEmoji,
@@ -866,7 +866,9 @@ private func posterBanner<Trailing: View>(
                         }
                         if !chips.isEmpty {
                             HStack(spacing: 6) {
-                                ForEach(chips, id: \.self) { posterChip($0) }
+                                ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in
+                                    posterChip(chip)
+                                }
                             }
                         }
                     }
