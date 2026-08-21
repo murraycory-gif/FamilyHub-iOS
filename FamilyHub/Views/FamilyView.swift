@@ -65,19 +65,46 @@ struct FamilyView: View {
     }
 
     private var householdCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SectionLabel(title: "Household")
-            TextField("Family name", text: $household)
-                .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(AppTheme.text)
-                .onSubmit { store.setHouseholdName(household) }
+        HStack(spacing: 18) {
+            ZStack {
+                if let data = store.familyPhotoData, let image = UIImage(data: data) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Circle().fill(AppTheme.blueSoft)
+                    Image(systemName: "person.3.fill")
+                        .font(.title)
+                        .foregroundStyle(AppTheme.blue)
+                }
+            }
+            .frame(width: 88, height: 88)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(AppTheme.blue, lineWidth: 4))
+            .shadow(color: AppTheme.blue.opacity(0.2), radius: 10, y: 4)
+
+            VStack(alignment: .leading, spacing: 6) {
+                SectionLabel(title: "Household")
+                TextField("Family name", text: $household)
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(AppTheme.text)
+                    .onSubmit { store.setHouseholdName(household) }
+            }
+            Spacer(minLength: 0)
         }
-        .padding(.bottom, 4)
+        .padding(20)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
     }
 
     private var members: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
                 SectionLabel(title: "Family")
                 Spacer()
                 Button {
@@ -93,50 +120,59 @@ struct FamilyView: View {
                 .buttonStyle(.plain)
             }
 
-            ForEach(store.members) { member in
-                FamilyMemberRow(
-                    member: member,
-                    onOpen: { profileMember = member },
-                    onPay: {
-                        payMember = member
-                        payAmount = ""
-                        payReason = "Paid out"
-                    }
-                )
-                .onDrag {
-                    draggingID = member.id
-                    return NSItemProvider(object: member.id.uuidString as NSString)
-                }
-                .onDrop(
-                    of: [.text],
-                    delegate: MemberReorderDelegate(
-                        targetID: member.id,
-                        draggingID: $draggingID,
-                        onMove: { store.moveMemberLive(id: $0, before: $1) },
-                        onFinished: { store.persistMembers() }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 16)], spacing: 16) {
+                ForEach(store.members) { member in
+                    FamilyMemberRow(
+                        member: member,
+                        onOpen: { profileMember = member },
+                        onPay: {
+                            payMember = member
+                            payAmount = ""
+                            payReason = "Paid out"
+                        }
                     )
-                )
-            }
-
-            Button {
-                showAdd = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(AppTheme.blue)
-                    Text("Add someone")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.text)
-                    Spacer()
+                    .onDrag {
+                        draggingID = member.id
+                        return NSItemProvider(object: member.id.uuidString as NSString)
+                    }
+                    .onDrop(
+                        of: [.text],
+                        delegate: MemberReorderDelegate(
+                            targetID: member.id,
+                            draggingID: $draggingID,
+                            onMove: { store.moveMemberLive(id: $0, before: $1) },
+                            onFinished: { store.persistMembers() }
+                        )
+                    )
                 }
-                .padding(18)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(AppTheme.blue.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, dash: [7, 6]))
-                )
+
+                Button {
+                    showAdd = true
+                } label: {
+                    VStack(spacing: 14) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(width: 108, height: 108)
+                            .overlay(Circle().stroke(AppTheme.blue.opacity(0.35), style: StrokeStyle(lineWidth: 2, dash: [6, 5])))
+                        Text("Add someone")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text("Parent, kid, or pet")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 240)
+                    .padding(20)
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(AppTheme.blue.opacity(0.35), style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -187,62 +223,69 @@ private struct FamilyMemberRow: View {
 
     var body: some View {
         Button(action: onOpen) {
-            VStack(spacing: 0) {
-                ZStack(alignment: .bottomLeading) {
-                    Group {
-                        if let data = store.photo(for: member), let image = UIImage(data: data) {
-                            Image(uiImage: image).resizable().scaledToFill()
-                        } else {
-                            LinearGradient(colors: [accent, accent.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                            Text(member.displayEmoji).font(.system(size: 42))
-                        }
-                    }
-                    LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(member.name)
-                                .font(.system(size: 26, weight: .bold))
-                                .foregroundStyle(.white)
-                            Text(member.role.label)
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(.white.opacity(0.85))
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.body.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
-                    .padding(16)
+            VStack(spacing: 14) {
+                ZStack(alignment: .topTrailing) {
+                    MemberAvatar(member: member, size: 108)
+                        .overlay(Circle().stroke(accent, lineWidth: 4))
+                        .shadow(color: accent.opacity(0.25), radius: 10, y: 4)
+                    Image(systemName: "line.3.horizontal")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AppTheme.textTertiary)
+                        .padding(6)
+                        .background(AppTheme.blueSoft, in: Circle())
+                        .offset(x: 8, y: -4)
+                        .accessibilityLabel("Hold to reorder")
                 }
-                .frame(height: 128)
-                .clipped()
+                VStack(spacing: 6) {
+                    Text(member.name)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(AppTheme.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text(member.role.label)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.blue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(AppTheme.blueSoft, in: Capsule())
+                    if member.role == .child {
+                        Text(Money.cents(member.allowanceBalanceCents))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+                HStack(spacing: 8) {
+                    Text("Profile")
+                        .font(.headline.weight(.semibold))
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(AppTheme.blue, in: Capsule())
             }
+            .padding(20)
+            .frame(maxWidth: .infinity, minHeight: 280)
             .background(AppTheme.card)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(accent, lineWidth: 4)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(accent, lineWidth: 3)
             )
+            .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .topTrailing) {
-            HStack(spacing: 8) {
-                if member.role == .child {
-                    Button("Pay", action: onPay)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(AppTheme.blue, in: Capsule())
-                }
-                Image(systemName: "line.3.horizontal")
-                    .font(.body.weight(.semibold))
+        .overlay(alignment: .topLeading) {
+            if member.role == .child {
+                Button("Pay", action: onPay)
+                    .font(.subheadline.weight(.bold))
                     .foregroundStyle(.white)
-                    .padding(8)
-                    .background(.black.opacity(0.35), in: Circle())
-                    .accessibilityLabel("Hold to reorder")
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(AppTheme.blue, in: Capsule())
+                    .padding(12)
             }
-            .padding(10)
         }
     }
 }
@@ -303,44 +346,43 @@ struct MemberProfileView: View {
     }
 
     private func banner(_ member: FamilyMember) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            Group {
-                if let data = store.photo(for: member), let image = UIImage(data: data) {
-                    Image(uiImage: image).resizable().scaledToFill()
-                } else {
-                    LinearGradient(colors: [accent, accent.opacity(0.5)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Text(member.displayEmoji).font(.system(size: 72))
-                }
+        HStack(spacing: 18) {
+            Button { showStudio = true } label: {
+                MemberAvatar(member: member, size: 108)
+                    .overlay(Circle().stroke(accent, lineWidth: 4))
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(6)
+                            .background(AppTheme.blue, in: Circle())
+                    }
             }
-            LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(member.name)
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(.white)
-                    Text(member.role.label)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white.opacity(0.85))
-                }
-                Spacer()
-                Button { showStudio = true } label: {
-                    Image(systemName: "camera.fill")
-                        .font(.body.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(12)
-                        .background(.white.opacity(0.22), in: Circle())
-                }
-                .buttonStyle(.plain)
+            .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(member.name)
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(AppTheme.text)
+                Text(member.role.label)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(AppTheme.blueSoft, in: Capsule())
+                Text("Tap photo to change banner")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textTertiary)
             }
-            .padding(18)
+            Spacer()
         }
-        .frame(height: 220)
+        .padding(20)
+        .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accent, lineWidth: 4)
+                .stroke(accent, lineWidth: 3)
         )
-        .shadow(color: accent.opacity(0.25), radius: 16, y: 8)
+        .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
     }
 
     private func stats(_ member: FamilyMember) -> some View {
