@@ -8,7 +8,8 @@ enum PlaceImages {
         let key = query(name: name, address: address).lowercased()
         if let cached = memory[key] { return cached }
         let image = await withTimeout(seconds: 4) {
-            await duckDuckGo(key) ?? await bing(key)
+            if let photo = await duckDuckGo(key) { return photo }
+            return await bing(key)
         }
         if let image { memory[key] = image }
         return image
