@@ -88,9 +88,14 @@ struct MealsView: View {
             if let recipe, let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
                 RecipePhoto(url: url)
             } else if let plan, let name = plan.placeName {
-                PlaceHeroPhoto(name: name, address: plan.placeAddress, coordinate: plan.placeLatitude.flatMap { lat in
-                    plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
-                })
+                PlaceHeroPhoto(
+                    name: name,
+                    address: plan.placeAddress,
+                    coordinate: plan.placeLatitude.flatMap { lat in
+                        plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
+                    },
+                    website: plan.placeURL.flatMap(URL.init(string:))
+                )
             } else {
                 ZStack {
                     AppTheme.blueSoft
@@ -249,7 +254,14 @@ struct TonightDinnerView: View {
 
     private func eatOutView(_ plan: DinnerPlan) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            PlaceHeroPhoto(name: plan.placeName ?? "Restaurant", address: plan.placeAddress)
+            PlaceHeroPhoto(
+                name: plan.placeName ?? "Restaurant",
+                address: plan.placeAddress,
+                coordinate: plan.placeLatitude.flatMap { lat in
+                    plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
+                },
+                website: plan.placeURL.flatMap(URL.init(string:))
+            )
                     .frame(maxWidth: .infinity)
                     .frame(height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -1111,7 +1123,12 @@ private struct PlaceInfoView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                PlaceHeroPhoto(name: place.name, address: place.address, coordinate: place.coordinate)
+                PlaceHeroPhoto(
+                    name: place.name,
+                    address: place.address,
+                    coordinate: place.coordinate,
+                    website: place.url
+                )
                     .frame(maxWidth: .infinity)
                     .frame(height: 240)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))

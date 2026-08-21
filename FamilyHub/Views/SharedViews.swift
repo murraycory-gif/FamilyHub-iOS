@@ -2,6 +2,17 @@ import MapKit
 import SwiftUI
 import UIKit
 
+private struct HubAccentKey: EnvironmentKey {
+    static let defaultValue: Color = AppTheme.blue
+}
+
+extension EnvironmentValues {
+    var hubAccent: Color {
+        get { self[HubAccentKey.self] }
+        set { self[HubAccentKey.self] = newValue }
+    }
+}
+
 struct HubCard<Content: View>: View {
     var fill: Color = AppTheme.card
     var stroke: Color = AppTheme.cardBorder
@@ -456,6 +467,8 @@ struct PlaceHeroPhoto: View {
     let name: String
     var address: String? = nil
     var coordinate: CLLocationCoordinate2D?
+    var website: URL? = nil
+    @Environment(\.hubAccent) private var accent
     @State private var image: UIImage?
 
     var body: some View {
@@ -463,7 +476,7 @@ struct PlaceHeroPhoto: View {
             .overlay {
                 ZStack {
                     LinearGradient(
-                        colors: [AppTheme.blue, AppTheme.blue.opacity(0.75)],
+                        colors: [accent, accent.opacity(0.75)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -492,8 +505,13 @@ struct PlaceHeroPhoto: View {
                 }
             }
             .clipped()
-            .task(id: name + (address ?? "")) {
-                image = await PlaceImages.photo(name: name, address: address)
+            .task(id: name + (address ?? "") + (website?.absoluteString ?? "")) {
+                image = await PlaceImages.photo(
+                    name: name,
+                    address: address,
+                    coordinate: coordinate,
+                    website: website
+                )
             }
     }
 }
@@ -516,6 +534,7 @@ struct HubPageTitle: View {
 struct HubPanel<Content: View>: View {
     let symbol: String
     let title: String
+    @Environment(\.hubAccent) private var accent
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -529,7 +548,7 @@ struct HubPanel<Content: View>: View {
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: 3)
+                .stroke(accent, lineWidth: 3)
         )
     }
 }
@@ -537,6 +556,7 @@ struct HubPanel<Content: View>: View {
 struct HubTileBanner<Trailing: View>: View {
     let symbol: String
     let title: String
+    @Environment(\.hubAccent) private var accent
     @ViewBuilder var trailing: Trailing
 
     init(symbol: String, title: String, @ViewBuilder trailing: () -> Trailing) {
@@ -560,7 +580,7 @@ struct HubTileBanner<Trailing: View>: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.blue)
+        .background(accent)
     }
 }
 

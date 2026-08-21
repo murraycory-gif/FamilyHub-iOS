@@ -1,40 +1,176 @@
 import Foundation
+import CoreLocation
 import UIKit
 
 enum PlaceImages {
     private static var memory: [String: UIImage] = [:]
+    private static let lock = NSLock()
 
-    static func photo(name: String, address: String?) async -> UIImage? {
+    static func photo(name: String, address: String?, coordinate: CLLocationCoordinate2D? = nil, website: URL? = nil) async -> UIImage? {
         let key = query(name: name, address: address).lowercased()
-        if let cached = memory[key] { return cached }
-        let image = await withTimeout(seconds: 4) {
-            if let photo = await duckDuckGo(key) { return photo }
-            return await bing(key)
-        }
-        if let image { memory[key] = image }
+        if let cached = cached(key) { return cached }
+        let image = await firstPhoto(name: name, address: address, coordinate: coordinate, website: website)
+        if let image { store(image, key: key) }
         return image
+    }
+
+    private static func firstPhoto(name: String, address: String?, coordinate: CLLocationCoordinate2D?, website: URL?) async -> UIImage? {
+        let q = query(name: name, address: address)
+        return await withTaskGroup(of: Shot.self) { group in
+            group.addTask { .from(await wikipedia(name, address)) }
+            group.addTask { .from(await commonsGeo(coordinate)) }
+            group.addTask { .from(await nominatim(q)) }
+            group.addTask { .from(await duckDuckGo(q)) }
+            group.addTask { .from(await bing(q)) }
+            group.addTask { .from(await openGraph(website)) }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(5))
+                return .timeout
+            }
+            while let shot = await group.next() {
+                switch shot {
+                case .photo(let image):
+                    group.cancelAll()
+                    return image
+                case .timeout:
+                    group.cancelAll()
+                    return nil
+                case .miss:
+                    continue
+                }
+            }
+            return nil
+        }
+    }
+
+    private enum Shot {
+        case photo(UIImage)
+        case miss
+        case timeout
+        static func from(_ image: UIImage?) -> Shot {
+            if let image { return .photo(image) }
+            return .miss
+        }
     }
 
     private static func query(name: String, address: String?) -> String {
         var parts = [name]
         if let address, !address.isEmpty {
             let bits = address.replacingOccurrences(of: ",", with: " ").split(separator: " ").map(String.init)
-            if bits.count >= 2 {
+            if let city = bits.last(where: { $0.rangeOfCharacter(from: .letters) != nil && $0.count > 2 && $0.rangeOfCharacter(from: .decimalDigits) == nil }) {
+                parts.append(city)
+            } else if bits.count >= 2 {
                 parts.append(bits.suffix(2).joined(separator: " "))
-            } else {
-                parts.append(address)
             }
         }
         return parts.joined(separator: " ")
     }
 
+    private static func wikipedia(_ name: String, _ address: String?) async -> UIImage? {
+        let titles = [name, query(name: name, address: address)]
+        for title in titles {
+            let slug = title.replacingOccurrences(of: " ", with: "_")
+                .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
+            if let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(slug)"),
+               let json = await json(url),
+               let thumb = json["thumbnail"] as? [String: Any],
+               let source = thumb["source"] as? String,
+               let image = await download(source) {
+                return image
+            }
+        }
+        var comps = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
+        comps.queryItems = [
+            URLQueryItem(name: "action", value: "query"),
+            URLQueryItem(name: "generator", value: "search"),
+            URLQueryItem(name: "gsrsearch", value: query(name: name, address: address)),
+            URLQueryItem(name: "prop", value: "pageimages"),
+            URLQueryItem(name: "pithumbsize", value: "800"),
+            URLQueryItem(name: "format", value: "json")
+        ]
+        guard let url = comps.url, let json = await json(url),
+              let queryObj = json["query"] as? [String: Any],
+              let pages = queryObj["pages"] as? [String: [String: Any]]
+        else { return nil }
+        for page in pages.values {
+            if let thumb = page["thumbnail"] as? [String: Any],
+               let source = thumb["source"] as? String,
+               let image = await download(source) {
+                return image
+            }
+        }
+        return nil
+    }
+
+    private static func commonsGeo(_ coordinate: CLLocationCoordinate2D?) async -> UIImage? {
+        guard let coordinate else { return nil }
+        var comps = URLComponents(string: "https://commons.wikimedia.org/w/api.php")!
+        comps.queryItems = [
+            URLQueryItem(name: "action", value: "query"),
+            URLQueryItem(name: "list", value: "geosearch"),
+            URLQueryItem(name: "gscoord", value: "\(coordinate.latitude)|\(coordinate.longitude)"),
+            URLQueryItem(name: "gsradius", value: "120"),
+            URLQueryItem(name: "gsnamespace", value: "6"),
+            URLQueryItem(name: "gslimit", value: "8"),
+            URLQueryItem(name: "format", value: "json")
+        ]
+        guard let url = comps.url, let json = await json(url),
+              let queryObj = json["query"] as? [String: Any],
+              let rows = queryObj["geosearch"] as? [[String: Any]]
+        else { return nil }
+        for row in rows {
+            guard let title = row["title"] as? String else { continue }
+            let file = title.replacingOccurrences(of: " ", with: "_")
+                .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
+            if let image = await download("https://commons.wikimedia.org/wiki/Special:FilePath/\(file)?width=800") {
+                return image
+            }
+        }
+        return nil
+    }
+
+    private static func nominatim(_ query: String) async -> UIImage? {
+        var comps = URLComponents(string: "https://nominatim.openstreetmap.org/search")!
+        comps.queryItems = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "format", value: "json"),
+            URLQueryItem(name: "extratags", value: "1"),
+            URLQueryItem(name: "limit", value: "4")
+        ]
+        guard let url = comps.url, let data = await data(url),
+              let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return nil }
+        for row in rows {
+            let extras = row["extratags"] as? [String: String] ?? [:]
+            if let imageURL = extras["image"], let image = await download(imageURL) { return image }
+            if let wiki = extras["wikipedia"] {
+                let title = wiki.replacingOccurrences(of: "en:", with: "")
+                if let image = await wikipedia(title, nil) { return image }
+            }
+            if let dataID = extras["wikidata"],
+               let fileURL = URL(string: "https://www.wikidata.org/wiki/Special:EntityData/\(dataID).json"),
+               let json = await json(fileURL),
+               let entities = json["entities"] as? [String: Any],
+               let entity = entities[dataID] as? [String: Any],
+               let claims = entity["claims"] as? [String: Any],
+               let p18 = claims["P18"] as? [[String: Any]],
+               let mainsnak = p18.first?["mainsnak"] as? [String: Any],
+               let datavalue = mainsnak["datavalue"] as? [String: Any],
+               let fileName = datavalue["value"] as? String {
+                let path = fileName.replacingOccurrences(of: " ", with: "_")
+                    .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? fileName
+                if let image = await download("https://commons.wikimedia.org/wiki/Special:FilePath/\(path)?width=800") {
+                    return image
+                }
+            }
+        }
+        return nil
+    }
+
     private static func duckDuckGo(_ query: String) async -> UIImage? {
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        guard let home = URL(string: "https://duckduckgo.com/?q=\(encoded)&iax=images&ia=images") else { return nil }
-        var homeReq = URLRequest(url: home)
-        homeReq.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        homeReq.timeoutInterval = 4
-        guard let (htmlData, _) = try? await URLSession.shared.data(for: homeReq),
+        guard let home = URL(string: "https://duckduckgo.com/?q=\(encoded)&iax=images&ia=images"),
+              let htmlData = await data(home),
               let html = String(data: htmlData, encoding: .utf8),
               let vqd = vqdToken(in: html)
         else { return nil }
@@ -47,16 +183,11 @@ enum PlaceImages {
             URLQueryItem(name: "f", value: ",,,"),
             URLQueryItem(name: "p", value: "1")
         ]
-        guard let url = comps.url else { return nil }
-        var request = URLRequest(url: url)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.setValue("https://duckduckgo.com/", forHTTPHeaderField: "Referer")
-        request.timeoutInterval = 4
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
+        guard let url = comps.url, let data = await data(url),
               let decoded = try? JSONDecoder().decode(DDG.self, from: data)
         else { return nil }
         for hit in decoded.results ?? [] {
-            if (hit.width ?? 400) < 220 { continue }
+            if (hit.width ?? 400) < 180 { continue }
             if let image = await download(hit.image) { return image }
         }
         return nil
@@ -64,34 +195,72 @@ enum PlaceImages {
 
     private static func bing(_ query: String) async -> UIImage? {
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        guard let url = URL(string: "https://www.bing.com/images/search?q=\(encoded)&form=HDRSC2") else { return nil }
-        var request = URLRequest(url: url)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 4
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let html = String(data: data, encoding: .utf8)
+        let urls = [
+            "https://www.bing.com/images/async?q=\(encoded)&first=1&count=10&mmasync=1",
+            "https://www.bing.com/images/search?q=\(encoded)&form=HDRSC2"
+        ]
+        for raw in urls {
+            guard let url = URL(string: raw), let data = await data(url),
+                  let html = String(data: data, encoding: .utf8)
+            else { continue }
+            let patterns = [
+                #"murl":"(https:[^&]+)""#,
+                #"murl":"(https:[^"]+)""#,
+                #"murl":"(https?:\\/\\/[^&]+)"#
+            ]
+            for pattern in patterns {
+                guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+                let range = NSRange(html.startIndex..., in: html)
+                for match in regex.matches(in: html, range: range).prefix(8) {
+                    guard let r = Range(match.range(at: 1), in: html) else { continue }
+                    let link = String(html[r])
+                        .replacingOccurrences(of: "\\/", with: "/")
+                        .replacingOccurrences(of: "&", with: "&")
+                    if let image = await download(link) { return image }
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func openGraph(_ website: URL?) async -> UIImage? {
+        guard let website, let htmlData = await data(website),
+              let html = String(data: htmlData, encoding: .utf8)
         else { return nil }
-        let pattern = #"murl":"(https:[^&]+)""#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
-        let range = NSRange(html.startIndex..., in: html)
-        for match in regex.matches(in: html, range: range).prefix(6) {
-            guard let r = Range(match.range(at: 1), in: html) else { continue }
-            let raw = String(html[r]).replacingOccurrences(of: "\\/", with: "/")
-            if let image = await download(raw) { return image }
+        let patterns = [
+            #"<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']"#,
+            #"<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']"#
+        ]
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+               let range = Range(match.range(at: 1), in: html) {
+                var link = String(html[range])
+                if link.hasPrefix("//") { link = "https:" + link }
+                if let image = await download(link) { return image }
+            }
         }
         return nil
     }
 
     private static func download(_ raw: String) async -> UIImage? {
-        guard let url = URL(string: raw) else { return nil }
+        let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: cleaned) else { return nil }
+        guard let data = await data(url), let image = UIImage(data: data), image.size.width > 60 else { return nil }
+        return image
+    }
+
+    private static func json(_ url: URL) async -> [String: Any]? {
+        guard let data = await data(url) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    private static func data(_ url: URL) async -> Data? {
         var request = URLRequest(url: url)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue("HUB/1.0 (family organizer)", forHTTPHeaderField: "Api-User-Agent")
         request.timeoutInterval = 4
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let image = UIImage(data: data),
-              image.size.width > 80
-        else { return nil }
-        return image
+        return try? await URLSession.shared.data(for: request).0
     }
 
     private static func vqdToken(in html: String) -> String? {
@@ -106,17 +275,29 @@ enum PlaceImages {
         return nil
     }
 
-    private static func withTimeout(seconds: Double, operation: @escaping () async -> UIImage?) async -> UIImage? {
-        await withTaskGroup(of: UIImage?.self) { group in
-            group.addTask { await operation() }
-            group.addTask {
-                try? await Task.sleep(for: .seconds(seconds))
-                return nil
-            }
-            let value = await group.next() ?? nil
-            group.cancelAll()
-            return value
+    private static func cached(_ key: String) -> UIImage? {
+        lock.lock(); defer { lock.unlock() }
+        if let image = memory[key] { return image }
+        if let url = diskURL(key), let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
+            memory[key] = image
+            return image
         }
+        return nil
+    }
+
+    private static func store(_ image: UIImage, key: String) {
+        lock.lock(); memory[key] = image; lock.unlock()
+        if let data = image.jpegData(compressionQuality: 0.82), let url = diskURL(key) {
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
+    private static func diskURL(_ key: String) -> URL? {
+        guard let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        let folder = dir.appendingPathComponent("PlacePhotos", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let safe = key.replacingOccurrences(of: "/", with: "-")
+        return folder.appendingPathComponent(safe + ".jpg")
     }
 
     private static let userAgent = "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"

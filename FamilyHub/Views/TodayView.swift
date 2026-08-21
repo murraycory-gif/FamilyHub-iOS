@@ -23,6 +23,16 @@ struct TodayView: View {
     @State private var shoppingDraft = ""
     @State private var showDinner = false
 
+    private var accent: Color {
+        switch profile {
+        case .family:
+            return AppTheme.blue
+        case .member(let id):
+            if let hex = store.member(id: id)?.colorHex { return Color(hex: hex) }
+            return AppTheme.blue
+        }
+    }
+
     var body: some View {
         GeometryReader { geo in
             let familyH = max(geo.size.height * 0.46, sizeClass == .regular ? 340 : 280)
@@ -69,6 +79,7 @@ struct TodayView: View {
             }
             }
         }
+        .environment(\.hubAccent, accent)
         .background(AppTheme.bg.ignoresSafeArea())
         .fullScreenCover(isPresented: $showDinner) {
             TonightDinnerView(day: selectedDay)
@@ -134,7 +145,7 @@ struct TodayView: View {
                 } label: {
                     Text("Done")
                         .font(.headline.weight(.bold))
-                        .foregroundStyle(AppTheme.blue)
+                        .foregroundStyle(accent)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(.white, in: Capsule())
@@ -193,7 +204,7 @@ struct TodayView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: 3)
+                .stroke(accent, lineWidth: 3)
         )
         .shadow(color: .black.opacity(0.25), radius: 30, y: 12)
     }
@@ -204,7 +215,7 @@ struct TodayView: View {
                 Text(greetingLead)
                     .foregroundStyle(AppTheme.text)
                 Text(greetingTail)
-                    .foregroundStyle(AppTheme.blue)
+                    .foregroundStyle(accent)
             }
             .font(.system(size: 34, weight: .bold))
             Spacer(minLength: 12)
@@ -240,7 +251,7 @@ struct TodayView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(AppTheme.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func filterChoiceRow(title: String, detail: String = "", selected: Bool, color: Color = AppTheme.blue) -> some View {
@@ -262,7 +273,7 @@ struct TodayView: View {
             if selected {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(AppTheme.blue)
+                    .foregroundStyle(accent)
             }
         }
         .padding(.horizontal, 16)
@@ -284,7 +295,7 @@ struct TodayView: View {
                 Circle().fill(AppTheme.blueSoft)
                 Image(systemName: "person.3.fill")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.blue)
+                    .foregroundStyle(accent)
             }
             .frame(width: 28, height: 28)
         case .member(let id):
@@ -396,7 +407,7 @@ struct TodayView: View {
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: 3)
+                .stroke(accent, lineWidth: 3)
         )
         .frame(maxHeight: .infinity)
         .simultaneousGesture(daySwipe)
@@ -425,8 +436,7 @@ struct TodayView: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(AppTheme.blue)
-                        .frame(width: 24, height: 24)
+                        .foregroundStyle(accent)
                         .background(.white, in: Circle())
                 }
                 .buttonStyle(.plain)
@@ -454,7 +464,7 @@ struct TodayView: View {
                                 ForEach(open.prefix(8)) { item in
                                     HStack(spacing: 8) {
                                         Image(systemName: "circle")
-                                            .foregroundStyle(AppTheme.blue)
+                                            .foregroundStyle(accent)
                                         Text(item.name)
                                             .font(.subheadline.weight(.semibold))
                                             .foregroundStyle(AppTheme.text)
@@ -477,7 +487,7 @@ struct TodayView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: 3)
+                .stroke(accent, lineWidth: 3)
         )
     }
 
@@ -498,7 +508,7 @@ struct TodayView: View {
                 if let item {
                     Text(item.timeLabel)
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(AppTheme.blue)
+                        .foregroundStyle(accent)
                     Text(item.title)
                         .font(.title3.weight(.bold))
                         .foregroundStyle(AppTheme.text)
@@ -509,7 +519,7 @@ struct TodayView: View {
                 } else {
                     Text("Free")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(AppTheme.blue)
+                        .foregroundStyle(accent)
                     Text(emptyDayCopy)
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
@@ -565,7 +575,7 @@ struct TodayView: View {
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(AppTheme.blue, lineWidth: 3)
+                    .stroke(accent, lineWidth: 3)
             )
         }
         .buttonStyle(.plain)
@@ -584,14 +594,15 @@ struct TodayView: View {
                 address: plan.placeAddress,
                 coordinate: plan.placeLatitude.flatMap { lat in
                     plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
-                }
+                },
+                website: plan.placeURL.flatMap(URL.init(string:))
             )
         } else {
             ZStack {
                 AppTheme.blueSoft
                 Image(systemName: "fork.knife")
                     .font(.system(size: 44, weight: .bold))
-                    .foregroundStyle(AppTheme.blue)
+                    .foregroundStyle(accent)
             }
         }
     }
@@ -695,7 +706,7 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.timeLabel)
                     .font(.headline.weight(.bold).monospacedDigit())
-                    .foregroundStyle(AppTheme.blue)
+                    .foregroundStyle(accent)
                 Text(item.title)
                     .font(.title3.weight(.bold))
                     .foregroundStyle(AppTheme.text)
@@ -853,7 +864,7 @@ struct TodayView: View {
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: 3)
+                .stroke(accent, lineWidth: 3)
         )
     }
 
@@ -963,6 +974,7 @@ private struct HubDayItem: Identifiable {
 
 private struct FamilyFocusCard: View {
     @EnvironmentObject private var store: HubStore
+    @Environment(\.hubAccent) private var accent
     let selected: Bool
     let day: Date
     var onSelect: () -> Void
@@ -974,23 +986,15 @@ private struct FamilyFocusCard: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            posterBanner(
+        VStack(alignment: .leading, spacing: 0) {
+            personHeader(
                 image: store.familyPhotoData.flatMap { UIImage(data: $0) },
-                colors: [AppTheme.navy, AppTheme.blue],
+                emoji: nil,
                 fallback: "person.3.fill",
                 name: "Family",
-                chips: ["\(events.count) \(events.count == 1 ? "event" : "events")"]
-            ) {
-                Button { showStudio = true } label: {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(8)
-                        .background(.white.opacity(0.24), in: Circle())
-                }
-                .buttonStyle(.plain)
-            }
+                eventCount: events.count,
+                ring: accent
+            ) { showStudio = true }
             .contentShape(Rectangle())
             .onTapGesture { onSelect() }
 
@@ -1000,10 +1004,11 @@ private struct FamilyFocusCard: View {
                 todos: store.todos.filter { !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false) }.count
             )
             .padding(.horizontal, 12)
-            .padding(.top, 10)
+            .padding(.top, 4)
 
-            posterEvents(events, onEvent: onEvent)
-                .padding(14)
+            EventScroll(events: events, onEvent: onEvent)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -1011,9 +1016,9 @@ private struct FamilyFocusCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: selected ? 5 : 4)
+                .stroke(accent, lineWidth: selected ? 5 : 3)
         )
-        .shadow(color: AppTheme.blue.opacity(selected ? 0.28 : 0.1), radius: selected ? 16 : 8, y: 6)
+        .shadow(color: accent.opacity(selected ? 0.28 : 0.1), radius: selected ? 16 : 8, y: 6)
         .sheet(isPresented: $showStudio) {
             BannerStudio(title: "Family", current: store.familyPhotoData) { data in
                 store.setFamilyPhoto(data)
@@ -1053,39 +1058,25 @@ private struct MemberHomeCard: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            posterBanner(
+        VStack(alignment: .leading, spacing: 0) {
+            personHeader(
                 image: store.photo(for: member).flatMap { UIImage(data: $0) },
-                colors: [accent, accent.opacity(0.55)],
-                fallback: nil,
                 emoji: member.displayEmoji,
+                fallback: nil,
                 name: firstName,
-                chips: {
-                    var items = ["\(events.count) \(events.count == 1 ? "event" : "events")"]
-                    if chores.count > 0 { items.append("\(chores.count) chores") }
-                    if reminders.count > 0 { items.append("\(reminders.count) remind") }
-                    if todos.count > 0 { items.append("\(todos.count) to-dos") }
-                    return items
-                }()
-            ) {
-                Button { showStudio = true } label: {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(8)
-                        .background(.white.opacity(0.24), in: Circle())
-                }
-                .buttonStyle(.plain)
-            }
+                eventCount: events.count,
+                ring: accent
+            ) { showStudio = true }
             .contentShape(Rectangle())
             .onTapGesture { onSelect() }
 
             DayStatusRow(chores: chores.count, reminders: reminders.count, todos: todos.count)
                 .padding(.horizontal, 12)
-                .padding(.top, 10)
+                .padding(.top, 4)
 
-            posterEvents(events, onEvent: onEvent)
-                .padding(14)
+            EventScroll(events: events, onEvent: onEvent)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -1204,59 +1195,101 @@ private func posterChip(_ text: String) -> some View {
 }
 
 @ViewBuilder
-private func posterEvents(_ events: [CalendarEvent], onEvent: @escaping (CalendarEvent) -> Void) -> some View {
-    if events.isEmpty {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Up next")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.textTertiary)
-                .textCase(.uppercase)
-            Text("Free this day")
-                .font(.title3.weight(.semibold))
+private func personHeader(
+    image: UIImage?,
+    emoji: String?,
+    fallback: String?,
+    name: String,
+    eventCount: Int,
+    ring: Color,
+    onCamera: @escaping () -> Void
+) -> some View {
+    HStack(spacing: 12) {
+        ZStack {
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else if let emoji {
+                Circle().fill(ring.opacity(0.18))
+                Text(emoji).font(.system(size: 28))
+            } else {
+                Circle().fill(ring.opacity(0.18))
+                Image(systemName: fallback ?? "person.fill")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(ring)
+            }
+        }
+        .frame(width: 58, height: 58)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(ring, lineWidth: 3))
+
+        VStack(alignment: .leading, spacing: 2) {
+            Text(name)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(eventCount == 1 ? "1 event" : "\(eventCount) events")
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.textSecondary)
         }
-    } else if let featured = events.first {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Up next")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.textTertiary)
-                .textCase(.uppercase)
-            Button {
-                onEvent(featured)
-            } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(featured.allDay ? "All day" : featured.startAt.formatted(date: .omitted, time: .shortened))
-                        .font(.subheadline.weight(.bold).monospacedDigit())
-                        .foregroundStyle(AppTheme.blue)
-                    Text(featured.title)
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(AppTheme.text)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+        Spacer(minLength: 0)
+        Button(action: onCamera) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(ring)
+                .frame(width: 34, height: 34)
+                .background(ring.opacity(0.14), in: Circle())
+        }
+        .buttonStyle(.plain)
+    }
+    .padding(.horizontal, 12)
+    .padding(.top, 12)
+    .padding(.bottom, 8)
+}
+
+private struct EventScroll: View {
+    @Environment(\.hubAccent) private var accent
+    let events: [CalendarEvent]
+    var onEvent: (CalendarEvent) -> Void
+
+    var body: some View {
+        if events.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Up next")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.textTertiary)
+                    .textCase(.uppercase)
+                Text("Free this day")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
             }
-            .buttonStyle(.plain)
-            ForEach(Array(events.dropFirst())) { event in
-                Button {
-                    onEvent(event)
-                } label: {
-                    HStack(alignment: .top, spacing: 8) {
-                        Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
-                            .font(.caption.weight(.bold).monospacedDigit())
-                            .foregroundStyle(AppTheme.blue)
-                            .frame(width: 58, alignment: .leading)
-                        Text(event.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.text)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Up next")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AppTheme.textTertiary)
+                        .textCase(.uppercase)
+                    ForEach(events) { event in
+                        Button { onEvent(event) } label: {
+                            HStack(alignment: .top, spacing: 8) {
+                                Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
+                                    .font(.subheadline.weight(.bold).monospacedDigit())
+                                    .foregroundStyle(accent)
+                                    .frame(width: 72, alignment: .leading)
+                                Text(event.title)
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(AppTheme.text)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -1271,6 +1304,7 @@ struct BannerLook: Identifiable {
 
 struct BannerStudio: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.hubAccent) private var accent
     let title: String
     let current: Data?
     var onSave: (Data?) -> Void
@@ -1343,7 +1377,7 @@ struct BannerStudio: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
-                        .foregroundStyle(AppTheme.blue)
+                        .foregroundStyle(accent)
                 }
                 ToolbarItem(placement: .principal) {
                     Text(title)
@@ -1355,7 +1389,7 @@ struct BannerStudio: View {
                         dismiss()
                     }
                     .fontWeight(.bold)
-                    .foregroundStyle(AppTheme.blue)
+                    .foregroundStyle(accent)
                 }
             }
             .onAppear { preview = current }
@@ -1431,7 +1465,7 @@ struct BannerStudio: View {
                 .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(AppTheme.blue, lineWidth: 3)
+                        .stroke(accent, lineWidth: 3)
                 )
             }
             .buttonStyle(.plain)

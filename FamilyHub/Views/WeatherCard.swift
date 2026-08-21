@@ -425,6 +425,7 @@ struct HubWeatherTile: View {
     let isLoading: Bool
     var onOpen: () -> Void
     var onChangePlace: () -> Void
+    @Environment(\.hubAccent) private var hubAccent
 
     private var temp: Int {
         if isToday { return now?.temp ?? day?.high ?? 0 }
@@ -513,7 +514,7 @@ struct HubWeatherTile: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: 3)
+                .stroke(hubAccent, lineWidth: 3)
         )
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onTapGesture(perform: onOpen)
