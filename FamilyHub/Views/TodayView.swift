@@ -87,7 +87,10 @@ struct TodayView: View {
                 .environmentObject(weather)
         }
         .task {
-            await weather.load(place: store.weatherPlace ?? .chicago)
+            while !Task.isCancelled {
+                await weather.load(place: store.weatherPlace ?? .chicago)
+                try? await Task.sleep(for: .seconds(10 * 60))
+            }
         }
         .onChange(of: store.weatherPlace?.id) { _, _ in
             if let place = store.weatherPlace {

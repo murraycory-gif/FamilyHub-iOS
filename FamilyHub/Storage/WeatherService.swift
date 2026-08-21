@@ -100,8 +100,8 @@ enum WeatherAPI {
             URLQueryItem(name: "latitude", value: String(place.latitude)),
             URLQueryItem(name: "longitude", value: String(place.longitude)),
             URLQueryItem(name: "current", value: "temperature_2m,apparent_temperature,weather_code,is_day"),
-            URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation_probability"),
-            URLQueryItem(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"),
+            URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation_probability,is_day"),
+            URLQueryItem(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset"),
             URLQueryItem(name: "temperature_unit", value: "fahrenheit"),
             URLQueryItem(name: "timezone", value: "auto"),
             URLQueryItem(name: "forecast_days", value: "7"),
@@ -153,6 +153,7 @@ private struct ForecastResponse: Decodable {
         var temperature_2m: [Double]
         var weather_code: [Int]
         var precipitation_probability: [Int]?
+        var is_day: [Int]?
     }
 
     struct Daily: Decodable {
@@ -161,6 +162,8 @@ private struct ForecastResponse: Decodable {
         var temperature_2m_max: [Double]
         var temperature_2m_min: [Double]
         var precipitation_probability_max: [Int]?
+        var sunrise: [String]?
+        var sunset: [String]?
     }
 
     func bundle() -> WeatherBundle {
@@ -179,22 +182,42 @@ private struct ForecastResponse: Decodable {
             iso.date(from: raw) ?? loose.date(from: raw) ?? Date()
         }
 
+        let sunriseDates = (daily.sunrise ?? []).map(parseHour)
+        let sunsetDates = (daily.sunset ?? []).map(parseHour)
+        let sunIsUp: Bool = {
+            if let rise = sunriseDates.first, let set = sunsetDates.first {
+                let nowDate = Date()
+                return nowDate >= rise && nowDate < set
+            }
+            return current.is_day == 1
+        }()
+
         let now = WeatherNow(
             temp: Int(current.temperature_2m.rounded()),
             feelsLike: Int(current.apparent_temperature.rounded()),
             code: current.weather_code,
-            isDay: current.is_day == 1
+            isDay: sunIsUp
         )
 
         let start = Date().addingTimeInterval(-30 * 60)
         let hours: [WeatherHour] = zip(hourly.time.indices, hourly.time).compactMap { index, raw in
             let at = parseHour(raw)
             guard at >= start else { return nil }
+            let hourIsDay: Bool
+            if let flag = hourly.is_day?[index] {
+                hourIsDay = flag == 1
+            } else if let rise = sunriseDates.first, let set = sunsetDates.first {
+                hourIsDay = at >= rise && at < set
+            } else {
+                let hour = Calendar.current.component(.hour, from: at)
+                hourIsDay = hour >= 6 && hour < 20
+            }
             return WeatherHour(
                 at: at,
                 temp: Int(hourly.temperature_2m[index].rounded()),
                 code: hourly.weather_code[index],
-                precip: hourly.precipitation_probability?[index] ?? 0
+                precip: hourly.precipitation_probability?[index] ?? 0,
+                isDay: hourIsDay
             )
         }
         .prefix(168)

@@ -585,7 +585,7 @@ struct WeatherDay: Identifiable, Hashable {
 
     var id: String { dateISO }
 
-    var symbolName: String { WeatherIcon.symbol(for: code) }
+    var symbolName: String { WeatherIcon.symbol(for: code, isDay: true) }
 }
 
 struct WeatherNow: Hashable {
@@ -594,8 +594,8 @@ struct WeatherNow: Hashable {
     var code: Int
     var isDay: Bool
 
-    var symbolName: String { WeatherIcon.symbol(for: code) }
-    var condition: String { WeatherIcon.condition(for: code) }
+    var symbolName: String { WeatherIcon.symbol(for: code, isDay: isDay) }
+    var condition: String { WeatherIcon.condition(for: code, isDay: isDay) }
 }
 
 struct WeatherHour: Identifiable, Hashable {
@@ -603,29 +603,31 @@ struct WeatherHour: Identifiable, Hashable {
     var temp: Int
     var code: Int
     var precip: Int
+    var isDay: Bool
 
     var id: TimeInterval { at.timeIntervalSince1970 }
-    var symbolName: String { WeatherIcon.symbol(for: code) }
+    var symbolName: String { WeatherIcon.symbol(for: code, isDay: isDay) }
 }
 
 enum WeatherIcon {
-    static func symbol(for code: Int) -> String {
+    static func symbol(for code: Int, isDay: Bool = true) -> String {
         switch code {
-        case 0: return "sun.max.fill"
-        case 1, 2: return "cloud.sun.fill"
+        case 0: return isDay ? "sun.max.fill" : "moon.stars.fill"
+        case 1, 2: return isDay ? "cloud.sun.fill" : "cloud.moon.fill"
         case 3: return "cloud.fill"
         case 45, 48: return "cloud.fog.fill"
-        case 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82: return "cloud.rain.fill"
+        case 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82:
+            return isDay ? "cloud.rain.fill" : "cloud.moon.rain.fill"
         case 71, 73, 75, 77, 85, 86: return "cloud.snow.fill"
         case 95, 96, 99: return "cloud.bolt.rain.fill"
-        default: return "cloud.sun.fill"
+        default: return isDay ? "cloud.sun.fill" : "cloud.moon.fill"
         }
     }
 
-    static func condition(for code: Int) -> String {
+    static func condition(for code: Int, isDay: Bool = true) -> String {
         switch code {
-        case 0: return "Clear"
-        case 1: return "Mostly Clear"
+        case 0: return isDay ? "Clear" : "Clear Night"
+        case 1: return isDay ? "Mostly Clear" : "Mostly Clear"
         case 2: return "Partly Cloudy"
         case 3: return "Cloudy"
         case 45, 48: return "Foggy"
@@ -636,7 +638,7 @@ enum WeatherIcon {
         case 75, 86: return "Heavy Snow"
         case 80, 81, 82: return "Showers"
         case 95, 96, 99: return "Thunderstorms"
-        default: return "Partly Cloudy"
+        default: return isDay ? "Partly Cloudy" : "Clear Night"
         }
     }
 }

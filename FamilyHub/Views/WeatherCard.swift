@@ -3,7 +3,12 @@ import SwiftUI
 enum WeatherSky {
     static func colors(code: Int, isDay: Bool) -> [Color] {
         if !isDay {
-            return [Color(hex: "0B1026"), Color(hex: "1C2A4A")]
+            switch code {
+            case 0, 1: return [Color(hex: "06101C"), Color(hex: "1A2A4E")]
+            case 2: return [Color(hex: "0C1428"), Color(hex: "243048")]
+            case 3, 45, 48: return [Color(hex: "121820"), Color(hex: "2A3340")]
+            default: return [Color(hex: "0A1018"), Color(hex: "1C2838")]
+            }
         }
         switch code {
         case 0, 1: return [Color(hex: "2F80D4"), Color(hex: "6EB5E8")]
@@ -196,6 +201,16 @@ struct HubWeatherTile: View {
         return day?.symbolName ?? "cloud.sun.fill"
     }
 
+    private var skyIsDay: Bool {
+        if isToday { return now?.isDay ?? false }
+        return true
+    }
+
+    private var skyCode: Int {
+        if isToday { return now?.code ?? day?.code ?? 2 }
+        return day?.code ?? 2
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button(action: onChangePlace) {
@@ -208,13 +223,13 @@ struct HubWeatherTile: View {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 8, weight: .bold))
                 }
-                .foregroundStyle(AppTheme.blue)
+                .foregroundStyle(.white.opacity(0.92))
             }
             .buttonStyle(.plain)
 
             if isLoading && now == nil && day == nil {
                 Spacer()
-                ProgressView().tint(AppTheme.blue)
+                ProgressView().tint(.white)
                 Spacer()
             } else {
                 HStack(alignment: .top) {
@@ -222,20 +237,20 @@ struct HubWeatherTile: View {
                         Text("\(temp)°")
                             .font(.system(size: 52, weight: .thin))
                             .monospacedDigit()
-                            .foregroundStyle(AppTheme.text)
+                            .foregroundStyle(.white)
                             .minimumScaleFactor(0.6)
                             .lineLimit(1)
                         Text(condition)
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
+                            .foregroundStyle(.white.opacity(0.92))
                             .lineLimit(1)
                         Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
                             .font(.caption.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(AppTheme.textTertiary)
+                            .foregroundStyle(.white.opacity(0.82))
                     }
                     Spacer(minLength: 4)
                     Image(systemName: symbol)
-                        .font(.system(size: 34))
+                        .font(.system(size: 36))
                         .symbolRenderingMode(.multicolor)
                         .symbolVariant(.fill)
                 }
@@ -244,15 +259,15 @@ struct HubWeatherTile: View {
                     HStack(spacing: 0) {
                         ForEach(Array(hours.prefix(5).enumerated()), id: \.element.id) { index, hour in
                             VStack(spacing: 4) {
-                                Text(index == 0 && isToday ? "Now" : hour.at.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted))))
+                                Text(index == 0 && isToday ? "Now" : hourLabel(hour.at))
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(AppTheme.textTertiary)
+                                    .foregroundStyle(.white.opacity(0.8))
                                 Image(systemName: hour.symbolName)
                                     .font(.caption)
                                     .symbolRenderingMode(.multicolor)
                                 Text("\(hour.temp)°")
                                     .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                                    .foregroundStyle(AppTheme.text)
+                                    .foregroundStyle(.white)
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -263,10 +278,17 @@ struct HubWeatherTile: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(
+            LinearGradient(
+                colors: WeatherSky.colors(code: skyCode, isDay: skyIsDay),
+                startPoint: .top,
+                endPoint: .bottom
+            ),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                .stroke(Color.white.opacity(0.16), lineWidth: 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onTapGesture(perform: onOpen)
@@ -274,6 +296,11 @@ struct HubWeatherTile: View {
 
     private var shortPlace: String {
         placeLabel.split(separator: ",").first.map(String.init) ?? placeLabel
+    }
+
+    private func hourLabel(_ date: Date) -> String {
+        date.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated)))
+            .replacingOccurrences(of: " ", with: "")
     }
 }
 
@@ -330,28 +357,38 @@ struct WeatherOutlookView: View {
     }
 
     private var hero: some View {
-        VStack(spacing: 6) {
+        let isDaySky = isToday ? (weather.now?.isDay ?? true) : true
+        let code = isToday ? (weather.now?.code ?? selected?.code ?? 2) : (selected?.code ?? 2)
+        return VStack(spacing: 6) {
             Image(systemName: isToday ? (weather.now?.symbolName ?? "cloud.sun.fill") : (selected?.symbolName ?? "cloud.sun.fill"))
                 .font(.system(size: 44))
                 .symbolRenderingMode(.multicolor)
             Text("\(isToday ? (weather.now?.temp ?? selected?.high ?? 0) : (selected?.high ?? 0))°")
                 .font(.system(size: 84, weight: .thin))
                 .monospacedDigit()
-                .foregroundStyle(AppTheme.text)
+                .foregroundStyle(.white)
             Text(isToday ? (weather.now?.condition ?? "") : WeatherIcon.condition(for: selected?.code ?? 2))
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.textSecondary)
+                .foregroundStyle(.white.opacity(0.92))
             Text("H:\(selected?.high ?? 0)°   L:\(selected?.low ?? 0)°")
                 .font(.headline.monospacedDigit())
-                .foregroundStyle(AppTheme.text)
+                .foregroundStyle(.white)
             if isToday, let feels = weather.now?.feelsLike {
                 Text("Feels like \(feels)°")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.textTertiary)
+                    .foregroundStyle(.white.opacity(0.8))
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, 24)
+        .background(
+            LinearGradient(
+                colors: WeatherSky.colors(code: code, isDay: isDaySky),
+                startPoint: .top,
+                endPoint: .bottom
+            ),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
     }
 
     private var hourlyCard: some View {

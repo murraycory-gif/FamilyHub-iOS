@@ -30,8 +30,10 @@ final class CalendarMathTests: XCTestCase {
 
     func testWeatherIconMapsClearAndStorm() {
         XCTAssertEqual(WeatherIcon.symbol(for: 0), "sun.max.fill")
+        XCTAssertEqual(WeatherIcon.symbol(for: 0, isDay: false), "moon.stars.fill")
         XCTAssertEqual(WeatherIcon.symbol(for: 95), "cloud.bolt.rain.fill")
         XCTAssertEqual(WeatherIcon.condition(for: 0), "Clear")
+        XCTAssertEqual(WeatherIcon.condition(for: 0, isDay: false), "Clear Night")
         XCTAssertEqual(WeatherIcon.condition(for: 3), "Cloudy")
     }
 
