@@ -213,7 +213,7 @@ struct FamilyView: View {
                 .foregroundStyle(AppTheme.text)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 14)], spacing: 14) {
-                ForEach(store.ledger.prefix(20)) { entry in
+                ForEach(Array(store.ledger.prefix(20))) { entry in
                     AllowanceActivityCard(entry: entry)
                 }
             }
@@ -268,6 +268,8 @@ private struct AllowanceActivityCard: View {
         .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
     }
 }
+
+private struct FamilyMemberRow: View {
     @EnvironmentObject private var store: HubStore
     let member: FamilyMember
     var onOpen: () -> Void
