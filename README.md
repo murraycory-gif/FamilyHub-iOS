@@ -18,18 +18,18 @@ cd FamilyHub-iOS
 chmod +x update.sh install-ipad.sh repair.sh
 ```
 
-Then, every time you sit down:
+Then, every time you sit down, **one command**:
 
-**Pull latest + open Xcode**
+```bash
+cd ~/Developer/FamilyHub-iOS && ./go.sh
+```
+
+That pulls the latest app and installs it on the iPad. Unlock the iPad, plug it in, tap Trust.
+
+**Open Xcode only** (no install):
 
 ```bash
 cd ~/Developer/FamilyHub-iOS && ./update.sh
-```
-
-**Build and put it on the iPad** (unlock the iPad, plug it in, Trust)
-
-```bash
-cd ~/Developer/FamilyHub-iOS && ./install-ipad.sh
 ```
 
 If the cable dropped after a successful build:
