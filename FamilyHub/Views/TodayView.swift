@@ -586,7 +586,7 @@ struct TodayView: View {
             HStack {
                 SectionLabel(title: "Family")
                 Spacer()
-                Text("Swipe for more · tap for calendar")
+                Text("Tap a person for their day · tap an event for calendar")
                     .font(.caption)
                     .foregroundStyle(AppTheme.textTertiary)
             }
@@ -600,7 +600,7 @@ struct TodayView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
                     FamilyFocusCard(selected: profile == .family, day: selectedDay) {
-                        router.openCalendar(filter: .family, day: selectedDay)
+                        profile = .family
                     } onEvent: { event in
                         router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                     }
@@ -611,7 +611,7 @@ struct TodayView: View {
                             member: member,
                             selected: profile == .member(member.id),
                             day: selectedDay,
-                            onOpen: { router.openCalendar(filter: .member(member.id), day: selectedDay) },
+                            onSelect: { profile = .member(member.id) },
                             onEvent: { event in
                                 router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
                             }
@@ -702,9 +702,9 @@ private struct FamilyFocusCard: View {
     @EnvironmentObject private var store: HubStore
     let selected: Bool
     let day: Date
-    var onOpenCalendar: () -> Void
+    var onSelect: () -> Void
     var onEvent: (CalendarEvent) -> Void
-    @State private var photoItem: PhotosPickerItem?
+    @State private var showStudio = false
 
     private var events: [CalendarEvent] {
         store.events(on: day, filter: .family)
@@ -712,39 +712,24 @@ private struct FamilyFocusCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ZStack(alignment: .bottomLeading) {
-                familyHero
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.72)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Family")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundStyle(.white)
-                            Text("Everyone")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.85))
-                        }
-                        Spacer()
-                        PhotosPicker(selection: $photoItem, matching: .images) {
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(8)
-                                .background(.white.opacity(0.22), in: Circle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    posterChip("\(events.count) \(events.count == 1 ? "event" : "events")")
+            posterBanner(
+                image: store.familyPhotoData.flatMap(UIImage.init(data:)),
+                colors: [AppTheme.navy, AppTheme.blue],
+                fallback: "person.3.fill",
+                name: "Family",
+                chips: ["\(events.count) \(events.count == 1 ? "event" : "events")"]
+            ) {
+                Button { showStudio = true } label: {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(8)
+                        .background(.white.opacity(0.24), in: Circle())
                 }
-                .padding(14)
+                .buttonStyle(.plain)
             }
-            .frame(height: 150)
-            .clipped()
+            .contentShape(Rectangle())
+            .onTapGesture { onSelect() }
 
             posterEvents(events, onEvent: onEvent)
                 .padding(14)
@@ -755,41 +740,14 @@ private struct FamilyFocusCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(selected ? AppTheme.blue : Color.black.opacity(0.06), lineWidth: selected ? 3 : 1)
+                .stroke(AppTheme.blue, lineWidth: selected ? 5 : 4)
         )
-        .shadow(color: .black.opacity(selected ? 0.16 : 0.08), radius: selected ? 18 : 10, y: 8)
-        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .onTapGesture { onOpenCalendar() }
-        .onChange(of: photoItem) { _, item in
-            guard let item else { return }
-            Task {
-                if let data = try? await item.loadTransferable(type: Data.self) {
-                    store.setFamilyPhoto(data)
-                }
+        .shadow(color: AppTheme.blue.opacity(selected ? 0.28 : 0.1), radius: selected ? 16 : 8, y: 6)
+        .sheet(isPresented: $showStudio) {
+            BannerStudio(title: "Family", current: store.familyPhotoData) { data in
+                store.setFamilyPhoto(data)
             }
         }
-    }
-
-    private var familyHero: some View {
-        Group {
-            if let data = store.familyPhotoData, let image = UIImage(data: data) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                ZStack {
-                    LinearGradient(
-                        colors: [AppTheme.navy, AppTheme.blue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    Image(systemName: "person.3.fill")
-                        .font(.system(size: 54))
-                        .foregroundStyle(.white.opacity(0.88))
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -798,8 +756,9 @@ private struct MemberHomeCard: View {
     let member: FamilyMember
     var selected = false
     let day: Date
-    var onOpen: () -> Void
+    var onSelect: () -> Void
     var onEvent: (CalendarEvent) -> Void
+    @State private var showStudio = false
 
     private var chores: [ChoreAssignment] { store.openAssignments(for: member.id) }
     private var reminders: [ReminderItem] { store.openReminders(for: member.id) }
@@ -808,47 +767,37 @@ private struct MemberHomeCard: View {
         store.events(on: day, filter: .member(member.id))
     }
     private var accent: Color { Color(hex: member.colorHex) }
+    private var firstName: String {
+        member.name.split(separator: " ").first.map(String.init) ?? member.name
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            ZStack(alignment: .bottomLeading) {
-                memberHero
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.74)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(member.name)
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                            Text(member.role.label)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.85))
-                        }
-                        Spacer()
-                        Image(systemName: "line.3.horizontal")
-                            .font(.body.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
-                    HStack(spacing: 6) {
-                        posterChip("\(events.count) \(events.count == 1 ? "event" : "events")")
-                        if chores.count > 0 { posterChip("\(chores.count) chores") }
-                        if reminders.count > 0 { posterChip("\(reminders.count) remind") }
-                        if todos.count > 0 { posterChip("\(todos.count) to-dos") }
-                    }
+            posterBanner(
+                image: store.photo(for: member).flatMap(UIImage.init(data:)),
+                colors: [accent, accent.opacity(0.55)],
+                fallback: nil,
+                emoji: member.displayEmoji,
+                name: firstName,
+                chips: {
+                    var items = ["\(events.count) \(events.count == 1 ? "event" : "events")"]
+                    if chores.count > 0 { items.append("\(chores.count) chores") }
+                    if reminders.count > 0 { items.append("\(reminders.count) remind") }
+                    if todos.count > 0 { items.append("\(todos.count) to-dos") }
+                    return items
+                }()
+            ) {
+                Button { showStudio = true } label: {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(8)
+                        .background(.white.opacity(0.24), in: Circle())
                 }
-                .padding(14)
+                .buttonStyle(.plain)
             }
-            .frame(height: 150)
-            .clipped()
-            .overlay(alignment: .top) {
-                accent.frame(height: 4)
-            }
+            .contentShape(Rectangle())
+            .onTapGesture { onSelect() }
 
             posterEvents(events, onEvent: onEvent)
                 .padding(14)
@@ -859,35 +808,73 @@ private struct MemberHomeCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(selected ? accent : Color.black.opacity(0.06), lineWidth: selected ? 3 : 1)
+                .stroke(accent, lineWidth: selected ? 5 : 4)
         )
-        .shadow(color: accent.opacity(selected ? 0.28 : 0.08), radius: selected ? 18 : 10, y: 8)
-        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .onTapGesture { onOpen() }
-    }
-
-    private var memberHero: some View {
-        Group {
-            if let data = store.photo(for: member), let image = UIImage(data: data) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                ZStack {
-                    LinearGradient(
-                        colors: [accent, accent.opacity(0.55)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    Text(member.displayEmoji)
-                        .font(.system(size: 64))
-                }
+        .shadow(color: accent.opacity(selected ? 0.3 : 0.12), radius: selected ? 16 : 8, y: 6)
+        .sheet(isPresented: $showStudio) {
+            BannerStudio(title: firstName, current: store.photo(for: member)) { data in
+                store.setMemberPhoto(member.id, data: data)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
+@ViewBuilder
+private func posterBanner<Trailing: View>(
+    image: UIImage?,
+    colors: [Color],
+    fallback: String? = nil,
+    emoji: String? = nil,
+    name: String,
+    chips: [String],
+    @ViewBuilder trailing: () -> Trailing
+) -> some View {
+    Color.clear
+        .frame(height: 158)
+        .background {
+            Group {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                    if let fallback {
+                        Image(systemName: fallback)
+                            .font(.system(size: 52))
+                            .foregroundStyle(.white.opacity(0.35))
+                    } else if let emoji {
+                        Text(emoji).font(.system(size: 58))
+                    }
+                }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            LinearGradient(colors: [.clear, .black.opacity(0.88)], startPoint: .top, endPoint: .bottom)
+                .frame(height: 100)
+                .overlay(alignment: .bottomLeading) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .top) {
+                            Text(name)
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundStyle(.white)
+                                .shadow(color: .black.opacity(0.45), radius: 6, y: 1)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Spacer(minLength: 8)
+                            trailing()
+                        }
+                        if !chips.isEmpty {
+                            HStack(spacing: 6) {
+                                ForEach(chips, id: \.self) { posterChip($0) }
+                            }
+                        }
+                    }
+                    .padding(12)
+                }
+        }
+        .clipped()
+}
 private func posterChip(_ text: String) -> some View {
     Text(text)
         .font(.system(size: 11, weight: .bold))
