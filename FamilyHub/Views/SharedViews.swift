@@ -454,6 +454,7 @@ enum PlaceSnapshotCache {
 
 struct PlaceHeroPhoto: View {
     let name: String
+    var address: String? = nil
     var coordinate: CLLocationCoordinate2D?
     @State private var image: UIImage?
     @State private var failed = false
@@ -468,206 +469,79 @@ struct PlaceHeroPhoto: View {
                             .resizable()
                             .scaledToFill()
                     } else if failed {
-                        VStack(spacing: 10) {
-                            Image(systemName: "fork.knife.circle.fill")
-                                .font(.system(size: 44, weight: .bold))
+                        VStack(spacing: 8) {
+                            Image(systemName: "storefront.fill")
+                                .font(.system(size: 40, weight: .bold))
                                 .foregroundStyle(AppTheme.blue)
                             Text(name)
                                 .font(.headline.weight(.bold))
                                 .foregroundStyle(AppTheme.text)
                                 .multilineTextAlignment(.center)
-                                .padding(.horizontal, 16)
+                            if let address, !address.isEmpty {
+                                Text(address)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 16)
+                            }
                         }
+                        .padding(16)
                     } else {
                         ProgressView()
                     }
                 }
             }
             .clipped()
-            .task(id: name) { await load() }
+            .task(id: "\(name)-\(coordinate?.latitude ?? 0)-\(coordinate?.longitude ?? 0)") { await load() }
     }
 
     private func load() async {
-        let key = "hero-\(name)-\(coordinate?.latitude ?? 0)"
+        let key = String(format: "hero-%.5f-%.5f-%@", coordinate?.latitude ?? 0, coordinate?.longitude ?? 0, name)
         if let cached = PlaceSnapshotCache.image(for: key) {
             image = cached
             return
         }
-        if let look = await lookAroundPhoto() {
+        if let look = await lookAroundHere() {
             PlaceSnapshotCache.set(look, for: key)
             image = look
-            return
-        }
-        let queries = nameQueries
-        for query in queries {
-            if let wiki = await wikipediaImage(for: query) {
-                PlaceSnapshotCache.set(wiki, for: key)
-                image = wiki
-                return
-            }
-            if let wiki = await wikipediaSearch(query) {
-                PlaceSnapshotCache.set(wiki, for: key)
-                image = wiki
-                return
-            }
-        }
-        if let osm = await nominatimImage() {
-            PlaceSnapshotCache.set(osm, for: key)
-            image = osm
-            return
-        }
-        if let ddg = await duckDuckGoImage() {
-            PlaceSnapshotCache.set(ddg, for: key)
-            image = ddg
             return
         }
         failed = true
     }
 
-    private var nameQueries: [String] {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let short = trimmed.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces) ?? trimmed
-        let brand = short.components(separatedBy: CharacterSet(charactersIn: "-–(")).first?.trimmingCharacters(in: .whitespaces) ?? short
-        return Array(NSOrderedSet(array: [trimmed, short, brand, "\(brand) restaurant"]) as! [String])
+    private func lookAroundHere() async -> UIImage? {
+        guard let coordinate else { return nil }
+        let here = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+
+        if let image = await snapshot(MKLookAroundSceneRequest(coordinate: coordinate)) {
+            return image
+        }
+
+        let search = MKLocalSearch.Request()
+        search.naturalLanguageQuery = name
+        search.resultTypes = [.pointOfInterest]
+        search.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 350, longitudinalMeters: 350)
+        guard let response = try? await MKLocalSearch(request: search).start() else { return nil }
+        let nearby = response.mapItems
+            .map { item -> (MKMapItem, CLLocationDistance) in
+                let loc = item.placemark.location ?? CLLocation(latitude: item.placemark.coordinate.latitude, longitude: item.placemark.coordinate.longitude)
+                return (item, loc.distance(from: here))
+            }
+            .filter { $0.1 < 400 }
+            .sorted { $0.1 < $1.1 }
+        for (item, _) in nearby {
+            if let image = await snapshot(MKLookAroundSceneRequest(mapItem: item)) {
+                return image
+            }
+        }
+        return nil
     }
 
-    private func lookAroundPhoto() async -> UIImage? {
-        var item: MKMapItem?
-        let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = name
-        request.resultTypes = [.pointOfInterest]
-        if let coordinate {
-            request.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 600, longitudinalMeters: 600)
-        }
-        if let response = try? await MKLocalSearch(request: request).start() {
-            item = response.mapItems.first
-        }
-        let sceneRequest: MKLookAroundSceneRequest
-        if let item {
-            sceneRequest = MKLookAroundSceneRequest(mapItem: item)
-        } else if let coordinate {
-            sceneRequest = MKLookAroundSceneRequest(coordinate: coordinate)
-        } else {
-            return nil
-        }
-        guard let scene = try? await sceneRequest.scene else { return nil }
+    private func snapshot(_ request: MKLookAroundSceneRequest) async -> UIImage? {
+        guard let scene = try? await request.scene else { return nil }
         let options = MKLookAroundSnapshotter.Options()
         options.size = CGSize(width: 800, height: 500)
         return try? await MKLookAroundSnapshotter(scene: scene, options: options).snapshot.image
-    }
-
-    private func wikipediaImage(for title: String) async -> UIImage? {
-        let slug = title.replacingOccurrences(of: " ", with: "_")
-            .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
-        guard let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(slug)") else { return nil }
-        var request = URLRequest(url: url)
-        request.setValue("HUB/1.0 (family organizer)", forHTTPHeaderField: "User-Agent")
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let thumb = json["thumbnail"] as? [String: Any],
-              let source = thumb["source"] as? String
-        else { return nil }
-        return await downloadImage(source)
-    }
-
-    private func wikipediaSearch(_ query: String) async -> UIImage? {
-        var components = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
-        components.queryItems = [
-            URLQueryItem(name: "action", value: "query"),
-            URLQueryItem(name: "generator", value: "search"),
-            URLQueryItem(name: "gsrsearch", value: "\(query) restaurant"),
-            URLQueryItem(name: "prop", value: "pageimages"),
-            URLQueryItem(name: "pithumbsize", value: "800"),
-            URLQueryItem(name: "format", value: "json")
-        ]
-        guard let url = components.url else { return nil }
-        var request = URLRequest(url: url)
-        request.setValue("HUB/1.0 (family organizer)", forHTTPHeaderField: "User-Agent")
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let queryObj = json["query"] as? [String: Any],
-              let pages = queryObj["pages"] as? [String: [String: Any]]
-        else { return nil }
-        for page in pages.values {
-            if let thumb = page["thumbnail"] as? [String: Any],
-               let source = thumb["source"] as? String,
-               let image = await downloadImage(source) {
-                return image
-            }
-        }
-        return nil
-    }
-
-    private func nominatimImage() async -> UIImage? {
-        var components = URLComponents(string: "https://nominatim.openstreetmap.org/search")!
-        components.queryItems = [
-            URLQueryItem(name: "q", value: name),
-            URLQueryItem(name: "format", value: "json"),
-            URLQueryItem(name: "extratags", value: "1"),
-            URLQueryItem(name: "limit", value: "3")
-        ]
-        guard let url = components.url else { return nil }
-        var request = URLRequest(url: url)
-        request.setValue("HUB/1.0 (family organizer)", forHTTPHeaderField: "User-Agent")
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
-        else { return nil }
-        for row in rows {
-            let extras = row["extratags"] as? [String: String]
-            if let imageURL = extras?["image"], let image = await downloadImage(imageURL) {
-                return image
-            }
-            if let wiki = extras?["wikipedia"] {
-                let title = wiki.replacingOccurrences(of: "en:", with: "")
-                if let image = await wikipediaImage(for: title) { return image }
-            }
-            if let dataID = extras?["wikidata"],
-               let fileURL = URL(string: "https://www.wikidata.org/wiki/Special:EntityData/\(dataID).json"),
-               let (data, _) = try? await URLSession.shared.data(from: fileURL),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let entities = json["entities"] as? [String: Any],
-               let entity = entities[dataID] as? [String: Any],
-               let claims = entity["claims"] as? [String: Any],
-               let p18 = claims["P18"] as? [[String: Any]],
-               let mainsnak = p18.first?["mainsnak"] as? [String: Any],
-               let datavalue = mainsnak["datavalue"] as? [String: Any],
-               let fileName = datavalue["value"] as? String {
-                let path = fileName.replacingOccurrences(of: " ", with: "_")
-                if let image = await downloadImage("https://commons.wikimedia.org/wiki/Special:FilePath/\(path)?width=800") {
-                    return image
-                }
-            }
-        }
-        return nil
-    }
-
-    private func duckDuckGoImage() async -> UIImage? {
-        var components = URLComponents(string: "https://api.duckduckgo.com/")!
-        components.queryItems = [
-            URLQueryItem(name: "q", value: "\(name) restaurant"),
-            URLQueryItem(name: "format", value: "json"),
-            URLQueryItem(name: "no_html", value: "1"),
-            URLQueryItem(name: "skip_disambig", value: "1")
-        ]
-        guard let url = components.url,
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return nil }
-        let candidates = [json["Image"] as? String, json["ImageURL"] as? String]
-        for raw in candidates {
-            guard var raw, !raw.isEmpty else { continue }
-            if raw.hasPrefix("//") { raw = "https:" + raw }
-            if let image = await downloadImage(raw) { return image }
-        }
-        return nil
-    }
-
-    private func downloadImage(_ raw: String) async -> UIImage? {
-        guard let url = URL(string: raw.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? raw) else { return nil }
-        var request = URLRequest(url: url)
-        request.setValue("HUB/1.0 (family organizer)", forHTTPHeaderField: "User-Agent")
-        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return nil }
-        return UIImage(data: data)
     }
 }
 

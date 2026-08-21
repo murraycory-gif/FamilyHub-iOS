@@ -581,6 +581,7 @@ struct TodayView: View {
         } else if let plan, plan.placeName != nil {
             PlaceHeroPhoto(
                 name: plan.placeName ?? "",
+                address: plan.placeAddress,
                 coordinate: plan.placeLatitude.flatMap { lat in
                     plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
                 }
