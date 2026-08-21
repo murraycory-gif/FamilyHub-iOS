@@ -23,31 +23,42 @@ struct TodayView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let familyH = max(geo.size.height * 0.40, sizeClass == .regular ? 300 : 250)
-            let available = max(geo.size.width - 48, 600)
-            let unit = (available - 24) / 4
+            let familyH = max(geo.size.height * 0.36, sizeClass == .regular ? 280 : 240)
             VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 14) {
                     header
-                    HStack(alignment: .top, spacing: 12) {
-                        agenda
-                            .frame(width: unit * 2)
-                            .frame(maxHeight: .infinity)
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         weatherTile
-                            .frame(width: unit)
-                            .frame(maxHeight: .infinity)
+                            .frame(minHeight: homeTileH, maxHeight: homeTileH)
+                        nextEventTile
+                            .frame(minHeight: homeTileH, maxHeight: homeTileH)
+                        dinnerHomeTile
+                            .frame(minHeight: homeTileH, maxHeight: homeTileH)
                         shoppingTile
-                            .frame(width: unit)
-                            .frame(maxHeight: .infinity)
+                            .frame(minHeight: homeTileH, maxHeight: homeTileH)
+                        homeStatTile(
+                            title: "Chores",
+                            value: "\(focusedChores.count)",
+                            symbol: "checkmark.circle.fill",
+                            color: AppTheme.chore,
+                            soft: AppTheme.choreSoft
+                        ) { router.open(.chores) }
+                        .frame(minHeight: homeTileH, maxHeight: homeTileH)
+                        homeStatTile(
+                            title: "Reminders",
+                            value: "\(focusedReminders.count)",
+                            detail: "\(focusedTodos.count) to-dos",
+                            symbol: "bell.fill",
+                            color: AppTheme.reminder,
+                            soft: AppTheme.reminderSoft
+                        ) { router.open(.lists, list: .reminders) }
+                        .frame(minHeight: homeTileH, maxHeight: homeTileH)
                     }
                     .frame(maxHeight: .infinity)
-                    dinnerCard
-                    callouts
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 2)
                 .padding(.bottom, 10)
-                .frame(maxHeight: .infinity, alignment: .top)
                 familySection
                     .padding(.horizontal, 24)
                     .frame(height: familyH)
@@ -112,16 +123,23 @@ struct TodayView: View {
         }
     }
 
+    private var homeTileH: CGFloat { sizeClass == .regular ? 168 : 148 }
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12 { return "Good morning" }
+        if hour < 17 { return "Good afternoon" }
+        return "Good evening"
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(profileSubtitle.uppercased())
-                .font(.caption.weight(.semibold))
-                .tracking(1.4)
-                .foregroundStyle(AppTheme.textTertiary)
-            Text(profileTitle)
-                .font(.system(size: 26, weight: .semibold))
-                .tracking(-0.3)
+            Text(greeting)
+                .font(.system(size: 34, weight: .bold))
                 .foregroundStyle(AppTheme.text)
+            Text(profileTitle)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.blue)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -397,6 +415,115 @@ struct TodayView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
+    }
+
+    private var nextEventTile: some View {
+        let item = dayItems.first
+        return Button {
+            if let item, item.kind == .event, let uuid = UUID(uuidString: String(item.id.dropFirst(2))) {
+                router.openCalendar(filter: dayFilter, day: selectedDay, eventID: uuid)
+            } else {
+                router.openCalendar(filter: dayFilter, day: selectedDay)
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(dayHeadline)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.text)
+                Spacer(minLength: 0)
+                if let item {
+                    Text(item.timeLabel)
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(AppTheme.blue)
+                    Text(item.title)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.text)
+                        .lineLimit(2)
+                    Text(assigneeName(for: item))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(assigneeColor(for: item))
+                } else {
+                    Text("Free")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(AppTheme.blue)
+                    Text(emptyDayCopy)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .lineLimit(3)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(AppTheme.cardBorder, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(daySwipe)
+    }
+
+    private var dinnerHomeTile: some View {
+        let plan = store.dinner(on: selectedDay)
+        return Button { showDinner = true } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Tonight")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.text)
+                Spacer(minLength: 0)
+                Text(dinnerEyebrow(plan))
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+                Text(store.dinnerTitle(on: selectedDay) ?? "Nothing planned")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .lineLimit(3)
+                Text(dinnerHint(plan, recipe: plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .lineLimit(2)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(AppTheme.blue, lineWidth: 3)
+            )
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(daySwipe)
+    }
+
+    private func homeStatTile(title: String, value: String, detail: String = "", symbol: String, color: Color, soft: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(color)
+                Spacer(minLength: 0)
+                Text(value)
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.text)
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(color)
+                if !detail.isEmpty {
+                    Text(detail)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(soft)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var dayHeadline: String {
