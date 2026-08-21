@@ -383,7 +383,8 @@ private struct OSMElement: Decodable {
             takeout = true
         }
         let street = [tags["addr:housenumber"], tags["addr:street"]].compactMap { $0 }.joined(separator: " ")
-        let address = [street, tags["addr:city"]].filter { $0.isEmpty == false }.joined(separator: " ")
+        let city = tags["addr:city"] ?? ""
+        let address = [street, city].filter { $0.isEmpty == false }.joined(separator: " ")
         let phone = tags["phone"] ?? tags["contact:phone"] ?? ""
         var website: URL?
         if let raw = tags["website"] ?? tags["contact:website"] {
