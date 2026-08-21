@@ -431,6 +431,7 @@ private struct EatOutPicker: View {
     var onDone: () -> Void
     @State private var areaQuery = ""
     @State private var opened: NearbyPlace?
+    @StateObject private var completer = AreaCompleter()
 
     var body: some View {
         ScrollView {
@@ -442,6 +443,7 @@ private struct EatOutPicker: View {
                 HStack(spacing: 8) {
                     Button {
                         areaQuery = ""
+                        completer.clear()
                         Task { await places.useHere() }
                     } label: {
                         Label("Here", systemImage: "location.fill")
@@ -456,10 +458,48 @@ private struct EatOutPicker: View {
                         Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
                         TextField("City or zip", text: $areaQuery)
                             .textFieldStyle(.plain)
-                            .onSubmit { Task { await places.searchArea(areaQuery) } }
+                            .onSubmit {
+                                completer.clear()
+                                Task { await places.searchArea(areaQuery) }
+                            }
+                            .onChange(of: areaQuery) { _, value in
+                                completer.update(value)
+                            }
                     }
                     .padding(10)
                     .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                if !completer.suggestions.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(completer.suggestions) { item in
+                            Button {
+                                areaQuery = item.query
+                                completer.clear()
+                                Task { await places.searchArea(item.query) }
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title)
+                                        .font(.headline)
+                                        .foregroundStyle(AppTheme.text)
+                                    if !item.subtitle.isEmpty {
+                                        Text(item.subtitle)
+                                            .font(.caption)
+                                            .foregroundStyle(AppTheme.textSecondary)
+                                    }
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(AppTheme.cardBorder, lineWidth: 1)
+                    )
                 }
                 if places.isLoading { ProgressView() }
                 if let message = places.message {

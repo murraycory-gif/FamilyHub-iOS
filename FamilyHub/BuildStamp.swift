@@ -1,3 +1,3 @@
 enum BuildStamp {
-    static let string = "HUB-0820.30"
+    static let string = "HUB-0820.31"
 }
