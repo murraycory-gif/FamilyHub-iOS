@@ -70,14 +70,13 @@ enum MealDB {
     static func featured() async throws -> [CatalogRecipe] {
         var seen = Set<String>()
         var result: [CatalogRecipe] = []
-        for letter in ["a", "b", "c", "s", "t"] {
-            let batch = try await get("search.php?f=\(letter)")
+        for letter in "abcdefghijklmnopqrstuvwxyz" {
+            let batch = (try? await get("search.php?f=\(letter)")) ?? []
             for meal in batch where seen.insert(meal.id).inserted {
                 result.append(meal)
             }
-            if result.count >= 24 { break }
         }
-        return Array(result.prefix(24))
+        return result
     }
 
     static func search(_ query: String) async throws -> [CatalogRecipe] {

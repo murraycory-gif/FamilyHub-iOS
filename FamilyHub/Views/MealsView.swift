@@ -1,256 +1,92 @@
 import MapKit
 import SwiftUI
 
-private enum MealsTab: String, CaseIterable, Identifiable {
-    case week, recipes, nearby
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .week: return "This week"
-        case .recipes: return "Recipes"
-        case .nearby: return "Nearby"
-        }
-    }
-}
-
 struct MealsView: View {
     @EnvironmentObject private var store: HubStore
-    @EnvironmentObject private var router: HubRouter
-    @StateObject private var catalog = RecipeCatalog()
-    @StateObject private var places = PlacesSearch()
-    @State private var tab: MealsTab = .week
-    @State private var showAdd = false
     @State private var pickDay: Date?
-    @State private var selectedCatalog: CatalogRecipe?
-    @State private var selectedPlace: NearbyPlace?
-    @State private var selectedSaved: Recipe?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack(spacing: 8) {
-                    ForEach(MealsTab.allCases) { item in
-                        FilterChip(title: item.title, color: AppTheme.blue, selected: tab == item) {
-                            tab = item
-                        }
-                    }
-                }
-
-                switch tab {
-                case .week: weekSection
-                case .recipes: recipesSection
-                case .nearby: nearbySection
-                }
+                title
+                weekGrid
             }
             .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                if tab == .recipes {
-                    HubIconButton(symbol: "plus", label: "Add recipe") { showAdd = true }
-                }
-            }
-        }
-        .sheet(isPresented: $showAdd) { AddRecipeSheet() }
-        .fullScreenCover(item: pickDayBinding) { day in
-            DinnerPlannerView(day: day.date)
-        }
-        .sheet(item: $selectedCatalog) { recipe in
-            CatalogRecipeSheet(recipe: recipe, day: router.mealsDay)
-        }
-        .sheet(item: $selectedPlace) { place in
-            PlaceDetailSheet(place: place, day: router.mealsDay)
-        }
-        .sheet(item: $selectedSaved) { recipe in
-            SavedRecipeSheet(recipe: recipe, day: router.mealsDay)
-        }
-        .task {
-            await catalog.load()
-        }
-        .onChange(of: tab) { _, next in
-            if next == .nearby, places.places.isEmpty {
-                Task { await places.load() }
-            }
+        .sheet(item: pickDayBinding) { day in
+            MealChoiceSheet(day: day.date)
         }
     }
 
-    private var weekSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionLabel(title: "Dinner this week")
+    private var title: some View {
+        HStack(spacing: 10) {
+            Text("Meal")
+                .foregroundStyle(AppTheme.text)
+            Text("Planning")
+                .foregroundStyle(AppTheme.blue)
+        }
+        .font(.system(size: 36, weight: .bold))
+    }
+
+    private var weekGrid: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
             ForEach(week, id: \.self) { day in
                 Button { pickDay = day } label: {
-                    HubCard {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(dayLabel(day))
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(AppTheme.textTertiary)
-                                Text(store.dinnerTitle(on: day) ?? "Nothing planned")
-                                    .font(.title3.weight(.semibold))
-                                    .foregroundStyle(store.dinnerTitle(on: day) == nil ? AppTheme.textSecondary : AppTheme.text)
-                                if let plan = store.dinner(on: day), let kind = plan.placeKind {
-                                    Text(kind == "takeout" ? "Takeout" : "Sit down")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(AppTheme.blue)
-                                }
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(AppTheme.textTertiary)
-                        }
-                    }
+                    dayCard(day)
                 }
                 .buttonStyle(.plain)
             }
         }
     }
 
-    private var recipesSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private func dayCard(_ day: Date) -> some View {
+        let title = store.dinnerTitle(on: day)
+        let plan = store.dinner(on: day)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(dayLabel(day))
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+                .textCase(.uppercase)
+            Text(title ?? "Nothing planned")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(title == nil ? AppTheme.textSecondary : AppTheme.text)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(kindLabel(plan))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.textTertiary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
             HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(AppTheme.textTertiary)
-                TextField("Search recipes", text: $catalog.query)
-                    .textFieldStyle(.plain)
-                    .onSubmit { Task { await catalog.search() } }
-                if catalog.isLoading { ProgressView() }
-            }
-            .padding(12)
-            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(catalog.categories, id: \.self) { item in
-                        FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
-                            catalog.category = item
-                            Task { await catalog.search() }
-                        }
-                    }
-                }
-            }
-
-            if !store.recipes.isEmpty {
-                SectionLabel(title: "Saved in HUB")
-                ForEach(store.recipes) { recipe in
-                    Button { selectedSaved = recipe } label: {
-                        recipeRow(name: recipe.name, detail: recipe.kind.label, imageURL: recipe.imageURL)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            SectionLabel(title: "Recipe library")
-            if let message = catalog.message {
-                Text(message).foregroundStyle(AppTheme.textSecondary)
-            }
-            ForEach(catalog.recipes) { recipe in
-                Button {
-                    Task {
-                        selectedCatalog = await catalog.detail(id: recipe.id) ?? recipe
-                    }
-                } label: {
-                    recipeRow(name: recipe.name, detail: [recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "), imageURL: recipe.thumb?.absoluteString ?? "")
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var nearbySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                ForEach(PlaceMode.allCases) { mode in
-                    FilterChip(title: mode.title, color: AppTheme.blue, selected: places.mode == mode) {
-                        Task { await places.setMode(mode) }
-                    }
-                }
-                Spacer()
-                if places.isLoading { ProgressView() }
-            }
-            Text(places.mode == .takeout ? "Takeout and quick pickup near you." : "Sit-down restaurants near you.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.textSecondary)
-
-            if let message = places.message {
-                Text(message).foregroundStyle(AppTheme.textSecondary)
-            }
-
-            ForEach(places.places) { place in
-                Button { selectedPlace = place } label: {
-                    HubCard {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: places.mode == .takeout ? "takeoutbag.and.cup.and.straw.fill" : "fork.knife")
-                                .foregroundStyle(AppTheme.blue)
-                                .frame(width: 28)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(place.name).font(.headline)
-                                if !place.address.isEmpty {
-                                    Text(place.address)
-                                        .font(.subheadline)
-                                        .foregroundStyle(AppTheme.textSecondary)
-                                }
-                                HStack(spacing: 8) {
-                                    if let distance = place.distanceLabel {
-                                        Text(distance).font(.caption.weight(.semibold))
-                                    }
-                                    if !place.phone.isEmpty {
-                                        Text(place.phone).font(.caption)
-                                    }
-                                }
-                                .foregroundStyle(AppTheme.textTertiary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(AppTheme.textTertiary)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private func recipeRow(name: String, detail: String, imageURL: String) -> some View {
-        HubCard {
-            HStack(spacing: 12) {
-                recipeThumb(imageURL)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(name).font(.headline).foregroundStyle(AppTheme.text)
-                    if !detail.isEmpty {
-                        Text(detail)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
-                    }
-                }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(AppTheme.textTertiary)
             }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 148, maxHeight: 148, alignment: .topLeading)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(title == nil ? AppTheme.cardBorder : AppTheme.blue, lineWidth: title == nil ? 1 : 3)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
     }
 
-    private func recipeThumb(_ urlString: String) -> some View {
-        Group {
-            if let url = URL(string: urlString), !urlString.isEmpty {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    AppTheme.blueSoft
-                }
-            } else {
-                ZStack {
-                    AppTheme.blueSoft
-                    Image(systemName: "fork.knife").foregroundStyle(AppTheme.blue)
-                }
-            }
+    private func kindLabel(_ plan: DinnerPlan?) -> String {
+        guard let plan else { return "Tap to plan" }
+        if plan.placeKind == "takeout" { return "Eat out · Takeout" }
+        if plan.placeName != nil { return "Eat out" }
+        if let id = plan.recipeID, let recipe = store.recipe(id: id) {
+            return recipe.kind.label
         }
-        .frame(width: 56, height: 56)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        if !plan.note.isEmpty { return "Custom meal" }
+        return "Planned"
     }
 
     private var week: [Date] {
@@ -277,297 +113,418 @@ private struct DatedDay: Identifiable {
     var id: TimeInterval { Calendar.current.startOfDay(for: date).timeIntervalSince1970 }
 }
 
-struct DinnerPlannerView: View {
+private struct MealChoiceSheet: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.dismiss) private var dismiss
     let day: Date
-
-    private enum Pane: String, CaseIterable, Identifiable {
-        case saved, recipes, nearby
-        var id: String { rawValue }
-        var title: String {
-            switch self {
-            case .saved: return "Saved"
-            case .recipes: return "Recipes"
-            case .nearby: return "Nearby"
-            }
-        }
-    }
-
-    private enum Draft: Equatable {
-        case none
-        case recipe(UUID)
-        case place(name: String, address: String, phone: String, url: String, kind: String)
-    }
-
-    @StateObject private var catalog = RecipeCatalog()
-    @StateObject private var places = PlacesSearch()
-    @State private var pane: Pane = .saved
-    @State private var draft: Draft = .none
-    @State private var showLeaveAlert = false
+    @State private var path: [MealPath] = []
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 8) {
-                    ForEach(Pane.allCases) { item in
-                        FilterChip(title: item.title, color: AppTheme.blue, selected: pane == item) {
-                            pane = item
-                            if item == .recipes { Task { await catalog.load() } }
-                            if item == .nearby { Task { await places.load() } }
+        NavigationStack(path: $path) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(dayTitle)
+                        .font(.system(size: 32, weight: .bold))
+                    if let title = store.dinnerTitle(on: day) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Tonight’s pick")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(AppTheme.blue)
+                                Text(title)
+                                    .font(.title3.weight(.bold))
+                            }
+                            Spacer()
+                            Button("Clear") { store.clearDinner(on: day) }
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(AppTheme.chore)
                         }
+                        .padding(16)
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(AppTheme.blue, lineWidth: 3)
+                        )
+                    }
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+                        choice("takeoutbag.and.cup.and.straw.fill", "Eat out", "Restaurants near you") { path.append(.eatOut) }
+                        choice("book.closed.fill", "Family recipes", "Yours, typed or saved") { path.append(.family) }
+                        choice("fork.knife.circle.fill", "Recipes", "Huge cookbook") { path.append(.recipes) }
+                        choice("square.and.pencil", "Enter a meal", "Type it yourself") { path.append(.manual) }
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.textSecondary)
-                    .padding(.horizontal, 20)
-
-                if case .recipe(let id) = draft, let recipe = store.recipe(id: id) {
-                    selectionBanner(recipe.name, "Recipe")
-                } else if case .place(let name, _, _, _, let kind) = draft {
-                    selectionBanner(name, kind == "takeout" ? "Takeout" : "Sit down")
-                }
-
-                ScrollView {
-                    Group {
-                        switch pane {
-                        case .saved: savedList
-                        case .recipes: recipesList
-                        case .nearby: nearbyList
-                        }
-                    }
-                    .padding(20)
-                }
+                .padding(20)
             }
             .background(AppTheme.bg.ignoresSafeArea())
-            .navigationTitle(dayTitle)
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { attemptClose() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save(); dismiss() }
-                        .fontWeight(.semibold)
+                    Button("Close") { dismiss() }.foregroundStyle(AppTheme.blue)
                 }
             }
-            .alert("Save dinner?", isPresented: $showLeaveAlert) {
-                Button("Save") { save(); dismiss() }
-                Button("Don't Save", role: .destructive) { dismiss() }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("You picked something for \(dayTitle.lowercased()) but haven’t saved it.")
+            .navigationDestination(for: MealPath.self) { item in
+                switch item {
+                case .eatOut: EatOutPicker(day: day) { dismiss() }
+                case .family: FamilyRecipePicker(day: day) { dismiss() }
+                case .recipes: CatalogRecipePicker(day: day) { dismiss() }
+                case .manual: ManualMealSheet(day: day) { dismiss() }
+                }
             }
         }
-        .interactiveDismissDisabled()
-        .task {
-            seedDraft()
-            await catalog.load()
-        }
-    }
-
-    private func seedDraft() {
-        if let plan = store.dinner(on: day) {
-            if let id = plan.recipeID {
-                draft = .recipe(id)
-            } else if let name = plan.placeName {
-                draft = .place(
-                    name: name,
-                    address: plan.placeAddress ?? "",
-                    phone: plan.placePhone ?? "",
-                    url: plan.placeURL ?? "",
-                    kind: plan.placeKind ?? "sitdown"
-                )
-            }
-        }
+        .presentationDetents([.large])
     }
 
     private var dayTitle: String {
         if Calendar.current.isDateInToday(day) { return "Tonight" }
         if Calendar.current.isDateInTomorrow(day) { return "Tomorrow" }
-        return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+        return day.formatted(.dateTime.weekday(.wide).month(.wide).day())
     }
 
-    private var subtitle: String {
-        switch pane {
-        case .saved: return "Meals you’ve saved in HUB."
-        case .recipes: return "Search the recipe library, then tap one for dinner."
-        case .nearby: return "Takeout or a sit-down place near you."
+    private func choice(_ symbol: String, _ title: String, _ detail: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                Image(systemName: symbol)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(AppTheme.blue)
+                Text(title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, minHeight: 160, maxHeight: 160, alignment: .topLeading)
+            .background(AppTheme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(AppTheme.blue, lineWidth: 3)
+            )
+            .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
         }
+        .buttonStyle(.plain)
     }
+}
 
-    private var isDirty: Bool {
-        switch draft {
-        case .none:
-            return false
-        case .recipe(let id):
-            return store.dinner(on: day)?.recipeID != id
-        case .place(let name, _, _, _, _):
-            return store.dinner(on: day)?.placeName != name
-        }
-    }
+private enum MealPath: Hashable {
+    case eatOut, family, recipes, manual
+}
 
-    private func attemptClose() {
-        if isDirty { showLeaveAlert = true } else { dismiss() }
-    }
+private struct EatOutPicker: View {
+    @EnvironmentObject private var store: HubStore
+    @StateObject private var places = PlacesSearch()
+    let day: Date
+    var onDone: () -> Void
 
-    private func save() {
-        switch draft {
-        case .none:
-            store.clearDinner(on: day)
-        case .recipe(let id):
-            store.setDinner(on: day, recipeID: id)
-        case .place(let name, let address, let phone, let url, let kind):
-            store.setDinnerPlace(on: day, name: name, address: address, phone: phone, url: url, kind: kind)
-        }
-    }
-
-    private func selectionBanner(_ title: String, _ kind: String) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Selected").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.blue)
-                Text(title).font(.headline)
-            }
-            Spacer()
-            Text(kind)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.blue)
-        }
-        .padding(14)
-        .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .padding(.horizontal, 20)
-    }
-
-    private var savedList: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button { draft = .none } label: {
-                plannerRow(title: "Nothing planned", detail: "Clear this night", selected: draft == .none)
-            }
-            .buttonStyle(.plain)
-
-            ForEach(store.recipes) { recipe in
-                Button { draft = .recipe(recipe.id) } label: {
-                    plannerRow(title: recipe.name, detail: recipe.kind.label, selected: draft == .recipe(recipe.id))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var recipesList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                TextField("Search chicken, tacos, pasta…", text: $catalog.query)
-                    .textFieldStyle(.plain)
-                    .onSubmit { Task { await catalog.search() } }
-                if catalog.isLoading { ProgressView() }
-            }
-            .padding(12)
-            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(catalog.categories, id: \.self) { item in
-                        FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
-                            catalog.category = item
-                            Task { await catalog.search() }
-                        }
-                    }
-                }
-            }
-
-            if let message = catalog.message {
-                Text(message).foregroundStyle(AppTheme.textSecondary)
-            }
-
-            ForEach(catalog.recipes) { recipe in
-                Button {
-                    if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && !recipe.id.isEmpty }) {
-                        draft = .recipe(existing.id)
-                    } else {
-                        let saved = recipe.asHubRecipe()
-                        store.addRecipe(saved)
-                        draft = .recipe(saved.id)
-                    }
-                } label: {
-                    plannerRow(
-                        title: recipe.name,
-                        detail: [recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "),
-                        selected: {
-                            if case .recipe(let id) = draft {
-                                return store.recipe(id: id)?.catalogID == recipe.id
-                            }
-                            return false
-                        }()
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var nearbyList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                ForEach(PlaceMode.allCases) { mode in
-                    FilterChip(title: mode.title, color: AppTheme.blue, selected: places.mode == mode) {
-                        Task { await places.setMode(mode) }
-                    }
-                }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Eat out")
+                    .font(.system(size: 28, weight: .bold))
+                Text("Takeout and sit-down near you.")
+                    .foregroundStyle(AppTheme.textSecondary)
                 if places.isLoading { ProgressView() }
-            }
-            if let message = places.message {
-                Text(message).foregroundStyle(AppTheme.textSecondary)
-            }
-            ForEach(places.places) { place in
-                Button {
-                    draft = .place(
-                        name: place.name,
-                        address: place.address,
-                        phone: place.phone,
-                        url: place.url?.absoluteString ?? "",
-                        kind: place.mode.rawValue
-                    )
-                } label: {
-                    plannerRow(
-                        title: place.name,
-                        detail: [place.distanceLabel, place.address].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "),
-                        selected: {
-                            if case .place(let name, _, _, _, _) = draft { return name == place.name }
-                            return false
-                        }()
-                    )
+                if let message = places.message {
+                    Text(message).foregroundStyle(AppTheme.textSecondary)
                 }
-                .buttonStyle(.plain)
+                ForEach(places.places) { place in
+                    Button {
+                        store.setDinnerPlace(
+                            on: day,
+                            name: place.name,
+                            address: place.address,
+                            phone: place.phone,
+                            url: place.url?.absoluteString ?? "",
+                            kind: place.mode.rawValue
+                        )
+                        onDone()
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: place.mode == .takeout ? "takeoutbag.and.cup.and.straw.fill" : "fork.knife")
+                                .font(.title2)
+                                .foregroundStyle(AppTheme.blue)
+                                .frame(width: 36)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(place.name)
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(AppTheme.text)
+                                Text(place.mode.title)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(AppTheme.blue)
+                                if !place.address.isEmpty {
+                                    Text(place.address)
+                                        .font(.subheadline)
+                                        .foregroundStyle(AppTheme.textSecondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .padding(20)
         }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await places.loadAll() }
+    }
+}
+
+private struct FamilyRecipePicker: View {
+    @EnvironmentObject private var store: HubStore
+    let day: Date
+    var onDone: () -> Void
+    @State private var showAdd = false
+
+    private var familyRecipes: [Recipe] {
+        store.recipes.filter { $0.kind == .family || $0.kind == .cooked || $0.catalogID.isEmpty }
     }
 
-    private func plannerRow(title: String, detail: String, selected: Bool) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.headline).foregroundStyle(AppTheme.text)
-                if !detail.isEmpty {
-                    Text(detail).font(.caption).foregroundStyle(AppTheme.textSecondary)
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Family recipes")
+                        .font(.system(size: 28, weight: .bold))
+                    Spacer()
+                    Button { showAdd = true } label: {
+                        Label("Add", systemImage: "plus")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(AppTheme.blue, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                Text("Your household recipes. Add one by typing it in.")
+                    .foregroundStyle(AppTheme.textSecondary)
+                if familyRecipes.isEmpty {
+                    Text("No family recipes yet.")
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .padding(18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                ForEach(familyRecipes) { recipe in
+                    Button {
+                        store.setDinner(on: day, recipeID: recipe.id)
+                        onDone()
+                    } label: {
+                        mealRow(title: recipe.name, detail: recipe.kind.label)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            Spacer()
-            if selected {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.blue)
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet() }
+    }
+}
+
+private struct CatalogRecipePicker: View {
+    @EnvironmentObject private var store: HubStore
+    @StateObject private var catalog = RecipeCatalog()
+    let day: Date
+    var onDone: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Recipes")
+                    .font(.system(size: 28, weight: .bold))
+                Text("Search a big cookbook. Tap one to set dinner.")
+                    .foregroundStyle(AppTheme.textSecondary)
+                HStack {
+                    Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+                    TextField("Chicken, tacos, pasta…", text: $catalog.query)
+                        .textFieldStyle(.plain)
+                        .onSubmit { Task { await catalog.search() } }
+                    if catalog.isLoading { ProgressView() }
+                }
+                .padding(14)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                if let message = catalog.message {
+                    Text(message).foregroundStyle(AppTheme.textSecondary)
+                }
+                ForEach(catalog.recipes) { recipe in
+                    Button {
+                        if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && !recipe.id.isEmpty }) {
+                            store.setDinner(on: day, recipeID: existing.id)
+                        } else {
+                            let saved = recipe.asHubRecipe()
+                            store.addRecipe(saved)
+                            store.setDinner(on: day, recipeID: saved.id)
+                        }
+                        onDone()
+                    } label: {
+                        HStack(spacing: 14) {
+                            AsyncImage(url: recipe.thumb) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                AppTheme.blueSoft
+                            }
+                            .frame(width: 64, height: 64)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(recipe.name)
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(AppTheme.text)
+                                    .lineLimit(2)
+                                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await catalog.load() }
+    }
+}
+
+private struct ManualMealSheet: View {
+    @EnvironmentObject private var store: HubStore
+    let day: Date
+    var onDone: () -> Void
+    @State private var name = ""
+    @State private var notes = ""
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Enter a meal")
+                    .font(.system(size: 28, weight: .bold))
+                TextField("What’s for dinner?", text: $name)
+                    .font(.title3)
+                    .padding(14)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                TextField("Notes (optional)", text: $notes, axis: .vertical)
+                    .lineLimit(3...6)
+                    .padding(14)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Button {
+                    store.setDinner(on: day, recipeID: nil, note: name.trimmingCharacters(in: .whitespaces))
+                    onDone()
+                } label: {
+                    Text("Set dinner")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct AddFamilyRecipeSheet: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var ingredients = ""
+    @State private var instructions = ""
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField("Recipe name", text: $name)
+                        .font(.title3)
+                        .padding(14)
+                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    TextField("Ingredients", text: $ingredients, axis: .vertical)
+                        .lineLimit(4...8)
+                        .padding(14)
+                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    TextField("Directions", text: $instructions, axis: .vertical)
+                        .lineLimit(4...10)
+                        .padding(14)
+                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .padding(20)
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("Family recipe")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        store.addRecipe(.make(
+                            name: name.trimmingCharacters(in: .whitespaces),
+                            kind: .family,
+                            ingredients: ingredients.split(separator: "\n").map(String.init),
+                            instructions: instructions
+                        ))
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .fontWeight(.bold)
+                }
             }
         }
-        .padding(14)
-        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(selected ? AppTheme.blue : Color.clear, lineWidth: 2)
-        )
     }
+}
+
+private func mealRow(title: String, detail: String) -> some View {
+    HStack {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.headline.weight(.bold)).foregroundStyle(AppTheme.text)
+            if !detail.isEmpty {
+                Text(detail).font(.caption.weight(.semibold)).foregroundStyle(AppTheme.textSecondary)
+            }
+        }
+        Spacer()
+        Image(systemName: "chevron.right")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(AppTheme.textTertiary)
+    }
+    .padding(16)
+    .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+    .background(AppTheme.card)
+    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    .overlay(
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .stroke(AppTheme.cardBorder, lineWidth: 1)
+    )
 }
 
 private struct AddRecipeSheet: View {

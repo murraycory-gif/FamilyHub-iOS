@@ -55,13 +55,20 @@ final class PlacesSearch: ObservableObject {
     private let locator = LocationFinder()
 
     func load() async {
+        await loadAll()
+    }
+
+    func loadAll() async {
         isLoading = true
         message = nil
         defer { isLoading = false }
         do {
             let location = try await locator.current()
             userLocation = location
-            places = try await search(mode: mode, around: location)
+            let takeout = try await search(mode: .takeout, around: location)
+            let sitdown = try await search(mode: .sitdown, around: location)
+            var seen = Set<String>()
+            places = (takeout + sitdown).filter { seen.insert($0.id).inserted }
             if places.isEmpty { message = "No places found nearby." }
         } catch {
             message = "Turn on location to find dinner near you."

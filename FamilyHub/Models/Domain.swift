@@ -436,6 +436,7 @@ struct Recipe: Identifiable, Codable, Hashable {
 }
 
 enum RecipeKind: String, Codable, CaseIterable, Identifiable {
+    case family
     case recipe
     case cooked
 
@@ -443,6 +444,7 @@ enum RecipeKind: String, Codable, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
+        case .family: return "Family recipe"
         case .recipe: return "Recipe"
         case .cooked: return "Already made"
         }
