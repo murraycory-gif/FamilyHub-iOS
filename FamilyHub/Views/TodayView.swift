@@ -945,13 +945,14 @@ private func posterEvents(_ events: [CalendarEvent], onEvent: @escaping (Calenda
     }
 }
 
-private struct BannerLook: Identifiable {
+struct BannerLook: Identifiable {
     let id: String
     let title: String
+    var group: String = "Scenes"
     var imageName: String { id }
 }
 
-private struct BannerStudio: View {
+struct BannerStudio: View {
     @Environment(\.dismiss) private var dismiss
     let title: String
     let current: Data?
@@ -962,30 +963,38 @@ private struct BannerStudio: View {
     @State private var preview: Data?
 
     private let looks: [BannerLook] = [
-        .init(id: "BannerDusk", title: "Dusk"),
-        .init(id: "BannerDawn", title: "Dawn"),
-        .init(id: "BannerOcean", title: "Ocean"),
-        .init(id: "BannerLagoon", title: "Lagoon"),
-        .init(id: "BannerForest", title: "Forest"),
-        .init(id: "BannerMeadow", title: "Meadow"),
-        .init(id: "BannerSunset", title: "Sunset"),
-        .init(id: "BannerCoral", title: "Coral"),
-        .init(id: "BannerEmber", title: "Ember"),
-        .init(id: "BannerCitrus", title: "Citrus"),
-        .init(id: "BannerGold", title: "Gold"),
-        .init(id: "BannerBlush", title: "Blush"),
-        .init(id: "BannerRose", title: "Rose"),
-        .init(id: "BannerGrape", title: "Grape"),
-        .init(id: "BannerDuskViolet", title: "Violet"),
-        .init(id: "BannerRoyal", title: "Royal"),
-        .init(id: "BannerAurora", title: "Aurora"),
-        .init(id: "BannerIce", title: "Ice"),
-        .init(id: "BannerMint", title: "Mint"),
-        .init(id: "BannerNight", title: "Night"),
-        .init(id: "BannerInk", title: "Ink"),
-        .init(id: "BannerStorm", title: "Storm"),
-        .init(id: "BannerSlate", title: "Slate"),
-        .init(id: "BannerCarbon", title: "Carbon"),
+        .init(id: "BannerDusk", title: "Dusk", group: "Scenes"),
+        .init(id: "BannerDawn", title: "Dawn", group: "Scenes"),
+        .init(id: "BannerOcean", title: "Ocean", group: "Scenes"),
+        .init(id: "BannerLagoon", title: "Lagoon", group: "Scenes"),
+        .init(id: "BannerForest", title: "Forest", group: "Scenes"),
+        .init(id: "BannerMeadow", title: "Meadow", group: "Scenes"),
+        .init(id: "BannerSunset", title: "Sunset", group: "Scenes"),
+        .init(id: "BannerNight", title: "Night", group: "Scenes"),
+        .init(id: "BannerAurora", title: "Aurora", group: "Scenes"),
+        .init(id: "BannerStorm", title: "Storm", group: "Scenes"),
+        .init(id: "BannerIce", title: "Ice", group: "Scenes"),
+        .init(id: "BannerPeony", title: "Peony", group: "Flowers"),
+        .init(id: "BannerRoses", title: "Roses", group: "Flowers"),
+        .init(id: "BannerDaisies", title: "Daisies", group: "Flowers"),
+        .init(id: "BannerWildflower", title: "Wildflower", group: "Flowers"),
+        .init(id: "BannerTropical", title: "Tropical", group: "Flowers"),
+        .init(id: "BannerBlush", title: "Blush", group: "Flowers"),
+        .init(id: "BannerRose", title: "Rose field", group: "Flowers"),
+        .init(id: "BannerSportsCar", title: "Sports car", group: "Wheels"),
+        .init(id: "BannerTruck", title: "Truck", group: "Wheels"),
+        .init(id: "BannerDirtBike", title: "Dirt bike", group: "Wheels"),
+        .init(id: "BannerBike", title: "Bike", group: "Wheels"),
+        .init(id: "BannerMoto", title: "Moto", group: "Wheels"),
+        .init(id: "BannerChevron", title: "Chevron", group: "Designs"),
+        .init(id: "BannerGeo", title: "Geo", group: "Designs"),
+        .init(id: "BannerDots", title: "Dots", group: "Designs"),
+        .init(id: "BannerStripe", title: "Stripe", group: "Designs"),
+        .init(id: "BannerWave", title: "Wave", group: "Designs"),
+        .init(id: "BannerRoyal", title: "Royal", group: "Designs"),
+        .init(id: "BannerCarbon", title: "Carbon", group: "Designs"),
+        .init(id: "BannerGold", title: "Gold", group: "Designs"),
+        .init(id: "BannerInk", title: "Ink", group: "Designs"),
     ]
 
     var body: some View {
@@ -993,15 +1002,18 @@ private struct BannerStudio: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     hero
-                    Text("Looks")
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(AppTheme.text)
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        ForEach(looks) { look in
-                            Button { applyLook(look) } label: {
-                                lookCard(look)
+                    uploadBar
+                    ForEach(["Scenes", "Flowers", "Wheels", "Designs"], id: \.self) { group in
+                        Text(group)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                            ForEach(looks.filter { $0.group == group }) { look in
+                                Button { applyLook(look) } label: {
+                                    lookCard(look)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -1069,21 +1081,65 @@ private struct BannerStudio: View {
                     .font(.system(size: 34, weight: .bold))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.4), radius: 8, y: 1)
-                HStack(spacing: 8) {
-                    PhotosPicker(selection: $photoItem, matching: .images) {
-                        labelChip("photo.on.rectangle", "Photo")
-                    }
-                    Button { openAdjust() } label: { labelChip("arrow.up.left.and.arrow.down.right", "Move") }
-                    if preview != nil {
-                        Button { preview = nil } label: { labelChip("xmark", "Clear") }
-                    }
-                }
             }
             .padding(16)
         }
         .frame(height: 210)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .shadow(color: .black.opacity(0.16), radius: 18, y: 8)
+    }
+
+    private var uploadBar: some View {
+        VStack(spacing: 10) {
+            PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                HStack(spacing: 14) {
+                    Image(systemName: "photo.badge.plus")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background(AppTheme.blue, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Upload your photo")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text("Then move and zoom so it fits the banner")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(AppTheme.textTertiary)
+                }
+                .padding(16)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(AppTheme.blue, lineWidth: 3)
+                )
+            }
+            .buttonStyle(.plain)
+            if preview != nil {
+                HStack(spacing: 10) {
+                    Button { openAdjust() } label: {
+                        Label("Move & zoom", systemImage: "arrow.up.left.and.arrow.down.right")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(AppTheme.blue, in: Capsule())
+                    }
+                    Button { preview = nil } label: {
+                        Label("Clear", systemImage: "xmark")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(AppTheme.text)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 14)
+                            .background(AppTheme.blueSoft, in: Capsule())
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private func lookCard(_ look: BannerLook) -> some View {
@@ -1127,7 +1183,7 @@ private struct BannerStudio: View {
     }
 }
 
-private struct BannerCropper: View {
+struct BannerCropper: View {
     let image: UIImage
     var onCancel: () -> Void
     var onCrop: (Data) -> Void

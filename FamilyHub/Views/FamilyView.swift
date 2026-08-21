@@ -10,6 +10,7 @@ struct FamilyView: View {
     @State private var payAmount = ""
     @State private var payReason = "Allowance payout"
     @State private var draggingID: UUID?
+    @State private var profileMember: FamilyMember?
 
     var body: some View {
         ScrollView {
@@ -29,6 +30,15 @@ struct FamilyView: View {
         .sheet(isPresented: $showAdd) { EditMemberSheet(member: nil) }
         .sheet(item: $editing) { member in
             EditMemberSheet(member: member)
+        }
+        .sheet(item: $profileMember) { member in
+            MemberProfileView(memberID: member.id, onEdit: {
+                profileMember = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    editing = store.member(id: member.id)
+                }
+            })
+            .environmentObject(store)
         }
         .alert("Pay \(payMember?.name ?? "")", isPresented: Binding(
             get: { payMember != nil },
@@ -86,7 +96,7 @@ struct FamilyView: View {
             ForEach(store.members) { member in
                 FamilyMemberRow(
                     member: member,
-                    onEdit: { editing = member },
+                    onOpen: { profileMember = member },
                     onPay: {
                         payMember = member
                         payAmount = ""
@@ -169,67 +179,225 @@ struct FamilyView: View {
 }
 
 private struct FamilyMemberRow: View {
+    @EnvironmentObject private var store: HubStore
     let member: FamilyMember
-    var onEdit: () -> Void
+    var onOpen: () -> Void
     var onPay: () -> Void
+    private var accent: Color { Color(hex: member.colorHex) }
 
     var body: some View {
-        HStack(spacing: 0) {
-            Color(hex: member.colorHex)
-                .frame(width: 6)
-            Button(action: onEdit) {
-                HStack(spacing: 16) {
-                    MemberAvatar(member: member, size: 68)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(member.name)
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(AppTheme.text)
-                        HStack(spacing: 8) {
-                            Text(member.role.label)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.blue)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(AppTheme.blueSoft, in: Capsule())
-                            if member.role == .child {
-                                Text(Money.cents(member.allowanceBalanceCents))
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(AppTheme.textSecondary)
-                            }
+        Button(action: onOpen) {
+            VStack(spacing: 0) {
+                ZStack(alignment: .bottomLeading) {
+                    Group {
+                        if let data = store.photo(for: member), let image = UIImage(data: data) {
+                            Image(uiImage: image).resizable().scaledToFill()
+                        } else {
+                            LinearGradient(colors: [accent, accent.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            Text(member.displayEmoji).font(.system(size: 42))
                         }
                     }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(AppTheme.textTertiary)
+                    LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(member.name)
+                                .font(.system(size: 26, weight: .bold))
+                                .foregroundStyle(.white)
+                            Text(member.role.label)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .padding(16)
                 }
-                .padding(16)
-                .contentShape(Rectangle())
+                .frame(height: 128)
+                .clipped()
             }
-            .buttonStyle(.plain)
-
-            if member.role == .child {
-                Button("Pay", action: onPay)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(AppTheme.blue, in: Capsule())
-                    .padding(.trailing, 8)
-            }
-
-            Image(systemName: "line.3.horizontal")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(AppTheme.textTertiary)
-                .padding(.trailing, 16)
-                .accessibilityLabel("Hold to reorder")
+            .background(AppTheme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(accent, lineWidth: 4)
+            )
         }
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .buttonStyle(.plain)
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 8) {
+                if member.role == .child {
+                    Button("Pay", action: onPay)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                Image(systemName: "line.3.horizontal")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(8)
+                    .background(.black.opacity(0.35), in: Circle())
+                    .accessibilityLabel("Hold to reorder")
+            }
+            .padding(10)
+        }
+    }
+}
+
+struct MemberProfileView: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.dismiss) private var dismiss
+    let memberID: UUID
+    var onEdit: () -> Void
+    @State private var showStudio = false
+
+    private var member: FamilyMember? { store.member(id: memberID) }
+    private var accent: Color { Color(hex: member?.colorHex ?? "2563EB") }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                if let member {
+                    VStack(alignment: .leading, spacing: 18) {
+                        banner(member)
+                        stats(member)
+                        today(member)
+                        Button(action: onEdit) {
+                            Label("Edit profile", systemImage: "pencil")
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(AppTheme.blue, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(20)
+                }
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }.foregroundStyle(AppTheme.blue)
+                }
+                ToolbarItem(placement: .principal) {
+                    Text(member?.name ?? "Profile")
+                        .font(.headline.weight(.bold))
+                }
+            }
+            .sheet(isPresented: $showStudio) {
+                BannerStudio(
+                    title: member?.name.split(separator: " ").first.map(String.init) ?? "Banner",
+                    current: member.flatMap { store.photo(for: $0) }
+                ) { data in
+                    store.setMemberPhoto(memberID, data: data)
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+
+    private func banner(_ member: FamilyMember) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            Group {
+                if let data = store.photo(for: member), let image = UIImage(data: data) {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    LinearGradient(colors: [accent, accent.opacity(0.5)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Text(member.displayEmoji).font(.system(size: 72))
+                }
+            }
+            LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(member.name)
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text(member.role.label)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+                Spacer()
+                Button { showStudio = true } label: {
+                    Image(systemName: "camera.fill")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(12)
+                        .background(.white.opacity(0.22), in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(18)
+        }
+        .frame(height: 220)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(accent, lineWidth: 4)
+        )
+        .shadow(color: accent.opacity(0.25), radius: 16, y: 8)
+    }
+
+    private func stats(_ member: FamilyMember) -> some View {
+        HStack(spacing: 10) {
+            stat("\(store.openAssignments(for: member.id).count)", "Chores", AppTheme.chore)
+            stat("\(store.openReminders(for: member.id).count)", "Reminders", AppTheme.reminder)
+            stat("\(store.openTodos(for: member.id).count)", "To-dos", AppTheme.todo)
+        }
+    }
+
+    private func stat(_ value: String, _ title: String, _ color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(AppTheme.text)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
+    }
+
+    private func today(_ member: FamilyMember) -> some View {
+        let events = store.events(on: Date(), filter: .member(member.id))
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Today")
+                .font(.title3.weight(.bold))
+            if events.isEmpty {
+                Text("Free this day")
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(events) { event in
+                        HStack(spacing: 10) {
+                            Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
+                                .font(.subheadline.weight(.bold).monospacedDigit())
+                                .foregroundStyle(AppTheme.blue)
+                                .frame(width: 72, alignment: .leading)
+                            Text(event.title)
+                                .font(.headline)
+                                .foregroundStyle(AppTheme.text)
+                        }
+                    }
+                }
+                .padding(16)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+        }
     }
 }
 
