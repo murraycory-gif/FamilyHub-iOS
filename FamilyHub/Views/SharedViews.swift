@@ -456,92 +456,35 @@ struct PlaceHeroPhoto: View {
     let name: String
     var address: String? = nil
     var coordinate: CLLocationCoordinate2D?
-    @State private var image: UIImage?
-    @State private var failed = false
 
     var body: some View {
         Color.clear
             .overlay {
                 ZStack {
-                    AppTheme.blueSoft
-                    if let image {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                    } else if failed {
-                        VStack(spacing: 8) {
-                            Image(systemName: "storefront.fill")
-                                .font(.system(size: 40, weight: .bold))
-                                .foregroundStyle(AppTheme.blue)
-                            Text(name)
-                                .font(.headline.weight(.bold))
-                                .foregroundStyle(AppTheme.text)
+                    LinearGradient(
+                        colors: [AppTheme.blue, AppTheme.blue.opacity(0.75)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    VStack(spacing: 10) {
+                        Image(systemName: "storefront.fill")
+                            .font(.system(size: 42, weight: .bold))
+                            .foregroundStyle(.white)
+                        Text(name)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                        if let address, !address.isEmpty {
+                            Text(address)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.88))
                                 .multilineTextAlignment(.center)
-                            if let address, !address.isEmpty {
-                                Text(address)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(AppTheme.textSecondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 16)
-                            }
                         }
-                        .padding(16)
-                    } else {
-                        ProgressView()
                     }
+                    .padding(16)
                 }
             }
             .clipped()
-            .task(id: "\(name)-\(coordinate?.latitude ?? 0)-\(coordinate?.longitude ?? 0)") { await load() }
-    }
-
-    private func load() async {
-        let key = String(format: "hero-%.5f-%.5f-%@", coordinate?.latitude ?? 0, coordinate?.longitude ?? 0, name)
-        if let cached = PlaceSnapshotCache.image(for: key) {
-            image = cached
-            return
-        }
-        if let look = await lookAroundHere() {
-            PlaceSnapshotCache.set(look, for: key)
-            image = look
-            return
-        }
-        failed = true
-    }
-
-    private func lookAroundHere() async -> UIImage? {
-        guard let coordinate else { return nil }
-        let here = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-
-        if let image = await snapshot(MKLookAroundSceneRequest(coordinate: coordinate)) {
-            return image
-        }
-
-        let search = MKLocalSearch.Request()
-        search.naturalLanguageQuery = name
-        search.resultTypes = [.pointOfInterest]
-        search.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 350, longitudinalMeters: 350)
-        guard let response = try? await MKLocalSearch(request: search).start() else { return nil }
-        let nearby = response.mapItems
-            .map { item -> (MKMapItem, CLLocationDistance) in
-                let loc = item.placemark.location ?? CLLocation(latitude: item.placemark.coordinate.latitude, longitude: item.placemark.coordinate.longitude)
-                return (item, loc.distance(from: here))
-            }
-            .filter { $0.1 < 400 }
-            .sorted { $0.1 < $1.1 }
-        for (item, _) in nearby {
-            if let image = await snapshot(MKLookAroundSceneRequest(mapItem: item)) {
-                return image
-            }
-        }
-        return nil
-    }
-
-    private func snapshot(_ request: MKLookAroundSceneRequest) async -> UIImage? {
-        guard let scene = try? await request.scene else { return nil }
-        let options = MKLookAroundSnapshotter.Options()
-        options.size = CGSize(width: 800, height: 500)
-        return try? await MKLookAroundSnapshotter(scene: scene, options: options).snapshot.image
     }
 }
 
