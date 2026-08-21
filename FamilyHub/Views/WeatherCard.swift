@@ -24,7 +24,7 @@ enum WeatherSky {
     }
 
     enum Kind {
-        case clearDay, clearNight, cloudyDay, cloudyNight, rain, thunder, snow, fog
+        case clearDay, clearNight, partlyDay, partlyNight, cloudyDay, cloudyNight, rain, thunder, snow, fog
 
         static func from(code: Int, isDay: Bool) -> Kind {
             switch code {
@@ -33,7 +33,8 @@ enum WeatherSky {
             case 71, 73, 75, 77, 85, 86: return .snow
             case 45, 48: return .fog
             case 3: return isDay ? .cloudyDay : .cloudyNight
-            case 2: return isDay ? .cloudyDay : .cloudyNight
+            case 2: return isDay ? .partlyDay : .partlyNight
+            case 1: return isDay ? .partlyDay : .partlyNight
             default: return isDay ? .clearDay : .clearNight
             }
         }
@@ -80,13 +81,18 @@ private struct AtmosphereLayers: View {
 
     @ViewBuilder
     private func overlays(size: CGSize) -> some View {
+        let mid = CGPoint(x: size.width * 0.50, y: size.height * 0.46)
         switch kind {
-        case .clearNight, .cloudyNight:
-            moon(in: size)
-        case .clearDay, .cloudyDay:
-            sun(in: size)
+        case .clearNight:
+            moon(at: mid, size: size, scale: 0.22)
+        case .partlyNight:
+            moon(at: mid, size: size, scale: 0.18)
+        case .clearDay:
+            sun(at: mid, size: size, scale: 0.34)
+        case .partlyDay:
+            sun(at: mid, size: size, scale: 0.22)
         case .thunder:
-            Color.white.opacity(lightningFlash ? 0.22 : 0)
+            Color.white.opacity(lightningFlash ? 0.18 : 0)
         default:
             EmptyView()
         }
@@ -101,21 +107,27 @@ private struct AtmosphereLayers: View {
             switch kind {
             case .clearNight:
                 drawStars(context, size: canvasSize, dim: false)
+            case .partlyNight:
+                drawStars(context, size: canvasSize, dim: false)
+                drawClouds(context, size: canvasSize, night: true, coverage: 0.55)
             case .cloudyNight:
                 drawStars(context, size: canvasSize, dim: true)
-                drawClouds(context, size: canvasSize, opacity: 0.18)
+                drawClouds(context, size: canvasSize, night: true, coverage: 1)
+            case .partlyDay:
+                drawClouds(context, size: canvasSize, night: false, coverage: 0.55)
             case .cloudyDay:
-                drawClouds(context, size: canvasSize, opacity: 0.32)
+                drawClouds(context, size: canvasSize, night: false, coverage: 1)
             case .rain:
-                drawClouds(context, size: canvasSize, opacity: 0.2)
-                drawRain(context, size: canvasSize, count: 28)
+                drawClouds(context, size: canvasSize, night: !isDay, coverage: 1)
+                drawRain(context, size: canvasSize, count: 42)
             case .thunder:
-                drawClouds(context, size: canvasSize, opacity: 0.28)
-                drawRain(context, size: canvasSize, count: 32)
+                drawClouds(context, size: canvasSize, night: true, coverage: 1)
+                drawRain(context, size: canvasSize, count: 48)
             case .snow:
+                drawClouds(context, size: canvasSize, night: !isDay, coverage: 0.7)
                 drawSnow(context, size: canvasSize)
             case .fog:
-                drawClouds(context, size: canvasSize, opacity: 0.4)
+                drawFog(context, size: canvasSize)
             case .clearDay:
                 break
             }
@@ -124,12 +136,12 @@ private struct AtmosphereLayers: View {
 
     private func drawStars(_ context: GraphicsContext, size: CGSize, dim: Bool) {
         for star in Self.stars {
-            let twinkle = 0.35 + 0.65 * (0.5 + 0.5 * sin(time * star.speed + star.phase))
+            let twinkle = 0.25 + 0.75 * (0.5 + 0.5 * sin(time * star.speed + star.phase))
             var ctx = context
-            ctx.opacity = twinkle * (dim ? 0.45 : 1)
+            ctx.opacity = twinkle * (dim ? 0.4 : 1)
             let rect = CGRect(
                 x: star.x * size.width,
-                y: star.y * size.height * 0.72,
+                y: star.y * size.height * 0.78,
                 width: star.size,
                 height: star.size
             )
@@ -139,72 +151,129 @@ private struct AtmosphereLayers: View {
 
     private func drawRain(_ context: GraphicsContext, size: CGSize, count: Int) {
         var ctx = context
-        ctx.opacity = 0.45
+        ctx.opacity = 0.38
+        ctx.translateBy(x: 6, y: 0)
+        ctx.rotate(by: .degrees(12))
         for i in 0..<count {
             let frac = CGFloat((i * 37) % 100) / 100
-            let speed = 220.0 + Double(i % 9) * 18
-            let travel = Double(size.height + 30)
-            let y = CGFloat((time * speed + Double(i) * 47).truncatingRemainder(dividingBy: travel)) - 15
-            let rect = CGRect(x: frac * size.width, y: y, width: 1.4, height: 11)
-            ctx.fill(Path(roundedRect: rect, cornerRadius: 1), with: .color(.white))
+            let speed = 280.0 + Double(i % 11) * 22
+            let travel = Double(size.height + 50)
+            let y = CGFloat((time * speed + Double(i) * 41).truncatingRemainder(dividingBy: travel)) - 20
+            let rect = CGRect(x: frac * size.width, y: y, width: 1.1, height: 14)
+            ctx.fill(Path(roundedRect: rect, cornerRadius: 0.6), with: .color(.white))
         }
     }
 
     private func drawSnow(_ context: GraphicsContext, size: CGSize) {
-        var ctx = context
-        ctx.opacity = 0.7
-        for i in 0..<22 {
+        for i in 0..<28 {
+            var ctx = context
+            ctx.opacity = 0.55 + Double(i % 4) * 0.1
             let frac = CGFloat((i * 41) % 100) / 100
-            let speed = 28.0 + Double(i % 7) * 6
-            let travel = Double(size.height + 20)
+            let speed = 18.0 + Double(i % 7) * 5
+            let travel = Double(size.height + 24)
             let y = CGFloat((time * speed + Double(i) * 33).truncatingRemainder(dividingBy: travel))
-            let wobble = CGFloat(sin(time * 1.4 + Double(i))) * 8
-            let rect = CGRect(x: frac * size.width + wobble, y: y, width: 3.2, height: 3.2)
-            ctx.fill(Path(ellipseIn: rect), with: .color(.white))
+            let wobble = CGFloat(sin(time * 0.9 + Double(i))) * 10
+            let s = CGFloat(2.2 + Double(i % 3))
+            ctx.fill(Path(ellipseIn: CGRect(x: frac * size.width + wobble, y: y, width: s, height: s)), with: .color(.white))
         }
     }
 
-    private func drawClouds(_ context: GraphicsContext, size: CGSize, opacity: Double) {
-        let drift = CGFloat(sin(time * 0.12)) * size.width * 0.06
+    private func drawFog(_ context: GraphicsContext, size: CGSize) {
         var ctx = context
-        ctx.opacity = opacity
-        ctx.fill(
-            Path(ellipseIn: CGRect(x: drift - size.width * 0.15, y: size.height * 0.08, width: size.width * 0.7, height: size.height * 0.22)),
-            with: .color(.white)
-        )
-        ctx.opacity = opacity * 0.8
-        ctx.fill(
-            Path(ellipseIn: CGRect(x: size.width * 0.28 - drift, y: size.height * 0.28, width: size.width * 0.55, height: size.height * 0.18)),
-            with: .color(.white)
-        )
+        ctx.addFilter(.blur(radius: 16))
+        ctx.opacity = 0.22
+        ctx.fill(Path(ellipseIn: CGRect(x: -20, y: size.height * 0.35, width: size.width + 40, height: size.height * 0.3)), with: .color(.white))
+        ctx.opacity = 0.16
+        ctx.fill(Path(ellipseIn: CGRect(x: -40, y: size.height * 0.55, width: size.width + 80, height: size.height * 0.28)), with: .color(.white))
     }
 
-    private func moon(in size: CGSize) -> some View {
-        let side = min(size.width, size.height) * 0.28
+    private func drawClouds(_ context: GraphicsContext, size: CGSize, night: Bool, coverage: CGFloat) {
+        let layers: [(y: CGFloat, scale: CGFloat, speed: Double, opacity: Double)] = [
+            (0.30, 0.95, 0.018, night ? 0.22 : 0.55),
+            (0.42, 0.78, 0.028, night ? 0.18 : 0.42),
+            (0.36, 0.62, 0.022, night ? 0.16 : 0.38),
+        ]
+        let count = coverage >= 1 ? layers.count : 2
+        for (index, layer) in layers.prefix(count).enumerated() {
+            let travel = size.width + 220
+            let x = CGFloat((time * layer.speed * Double(size.width) + Double(index) * 160).truncatingRemainder(dividingBy: Double(travel))) - 110
+            var ctx = context
+            ctx.addFilter(.blur(radius: 5))
+            let color = night ? Color(hex: "8A97AE") : Color.white
+            ctx.opacity = layer.opacity
+            fillCloud(&ctx, x: x, y: size.height * layer.y, scale: layer.scale * min(size.width / 280, 1.15), color: color)
+        }
+    }
+
+    private func fillCloud(_ ctx: inout GraphicsContext, x: CGFloat, y: CGFloat, scale: CGFloat, color: Color) {
+        let w: CGFloat = 168 * scale
+        let h: CGFloat = 72 * scale
+        let blobs: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+            (0.08, 0.38, 0.36, 0.52),
+            (0.28, 0.08, 0.42, 0.70),
+            (0.52, 0.00, 0.48, 0.78),
+            (0.74, 0.22, 0.34, 0.56),
+            (0.18, 0.42, 0.40, 0.50),
+            (0.44, 0.38, 0.46, 0.52),
+            (0.66, 0.40, 0.36, 0.48),
+        ]
+        for blob in blobs {
+            let rect = CGRect(
+                x: x + blob.0 * w,
+                y: y + blob.1 * h,
+                width: blob.2 * w,
+                height: blob.3 * h
+            )
+            ctx.fill(Path(ellipseIn: rect), with: .color(color))
+        }
+    }
+
+    private func moon(at point: CGPoint, size: CGSize, scale: CGFloat) -> some View {
+        let side = min(size.width, size.height) * scale
         return ZStack {
-            Circle().fill(Color.white.opacity(0.95))
             Circle()
-                .fill(WeatherSky.colors(code: 0, isDay: false)[0])
-                .offset(x: side * 0.28)
+                .fill(
+                    RadialGradient(
+                        colors: [Color.white, Color(hex: "E4EAF4"), Color(hex: "9AA6BA")],
+                        center: UnitPoint(x: 0.35, y: 0.32),
+                        startRadius: 2,
+                        endRadius: side / 2
+                    )
+                )
+            Circle()
+                .fill(Color(hex: "C5CDD8").opacity(0.25))
+                .frame(width: side * 0.22, height: side * 0.18)
+                .offset(x: -side * 0.12, y: side * 0.08)
+            Circle()
+                .fill(Color(hex: "C5CDD8").opacity(0.18))
+                .frame(width: side * 0.14, height: side * 0.14)
+                .offset(x: side * 0.14, y: -side * 0.06)
         }
         .frame(width: side, height: side)
-        .shadow(color: .white.opacity(0.35), radius: 18)
-        .position(x: size.width * 0.78, y: size.height * 0.28)
+        .shadow(color: .white.opacity(0.28), radius: 14)
+        .position(point)
     }
 
-    private func sun(in size: CGSize) -> some View {
-        let side = min(size.width, size.height) * 0.7
-        return Circle()
-            .fill(
-                RadialGradient(
-                    colors: [Color.white, Color(hex: "FFE08A").opacity(0.85), Color.clear],
-                    center: .center,
-                    startRadius: 4,
-                    endRadius: side * 0.5
+    private func sun(at point: CGPoint, size: CGSize, scale: CGFloat) -> some View {
+        let side = min(size.width, size.height) * scale
+        return ZStack {
+            Circle()
+                .fill(Color(hex: "FFE08A").opacity(0.35))
+                .frame(width: side * 1.8, height: side * 1.8)
+                .blur(radius: 18)
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.white, Color(hex: "FFE566"), Color(hex: "FFC44D").opacity(0.15)],
+                        center: .center,
+                        startRadius: 2,
+                        endRadius: side / 2
+                    )
                 )
-            )
-            .frame(width: side, height: side)
-            .position(x: size.width * 0.78, y: size.height * 0.22)
+                .frame(width: side, height: side)
+        }
+        .frame(width: side * 1.8, height: side * 1.8)
+        .position(point)
     }
 
     private struct SkyStar {
@@ -215,14 +284,14 @@ private struct AtmosphereLayers: View {
         var speed: Double
     }
 
-    private static let stars: [SkyStar] = (0..<56).map { i in
+    private static let stars: [SkyStar] = (0..<80).map { i in
         let n = Double(i)
         return SkyStar(
-            x: CGFloat((n * 0.618).truncatingRemainder(dividingBy: 1)),
-            y: CGFloat((n * 0.173 + 0.04).truncatingRemainder(dividingBy: 1)),
-            size: CGFloat(1.0 + Double(i % 4) * 0.6),
-            phase: n * 0.7,
-            speed: 0.8 + Double(i % 5) * 0.25
+            x: CGFloat((n * 0.618033).truncatingRemainder(dividingBy: 1)),
+            y: CGFloat((n * 0.139 + 0.03).truncatingRemainder(dividingBy: 1)),
+            size: CGFloat(0.7 + Double(i % 5) * 0.45),
+            phase: n * 0.63,
+            speed: 0.55 + Double(i % 6) * 0.22
         )
     }
 }
@@ -417,40 +486,37 @@ struct HubWeatherTile: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             WeatherAtmosphere(code: skyCode, isDay: skyIsDay)
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Button(action: onChangePlace) {
-                            HStack(spacing: 4) {
-                                Text(shortPlace)
-                                    .font(.headline)
-                                    .lineLimit(1)
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 9, weight: .bold))
-                            }
-                            .foregroundStyle(.white)
-                        }
-                        .buttonStyle(.plain)
-                        if isLoading && now == nil && day == nil {
-                            ProgressView().tint(.white)
-                        } else {
-                            Text(condition)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.white.opacity(0.9))
-                            Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
-                                .font(.subheadline.weight(.semibold).monospacedDigit())
-                                .foregroundStyle(.white.opacity(0.85))
-                        }
+            VStack(alignment: .leading, spacing: 6) {
+                Button(action: onChangePlace) {
+                    HStack(spacing: 4) {
+                        Text(shortPlace)
+                            .font(.headline)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .bold))
                     }
-                    Spacer(minLength: 4)
+                    .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                if isLoading && now == nil && day == nil {
+                    ProgressView().tint(.white)
+                } else {
+                    Text(condition)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.92))
+                    Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.88))
                     Text("\(temp)°")
-                        .font(.system(size: 56, weight: .thin))
+                        .font(.system(size: 58, weight: .thin))
                         .monospacedDigit()
                         .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
                         .minimumScaleFactor(0.5)
                         .lineLimit(1)
+                        .padding(.top, 2)
                 }
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
                 if !hours.isEmpty {
                     HStack(spacing: 0) {
                         ForEach(Array(hours.prefix(5).enumerated()), id: \.element.id) { index, hour in
@@ -469,9 +535,12 @@ struct HubWeatherTile: View {
                             .frame(maxWidth: .infinity)
                         }
                     }
+                    .padding(.bottom, 10)
                 }
             }
-            .padding(14)
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
