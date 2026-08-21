@@ -1,0 +1,12 @@
+{
+  "images": [
+    {
+      "filename": "BannerIce.png",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

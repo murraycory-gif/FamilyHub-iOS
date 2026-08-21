@@ -945,6 +945,12 @@ private func posterEvents(_ events: [CalendarEvent], onEvent: @escaping (Calenda
     }
 }
 
+private struct BannerLook: Identifiable {
+    let id: String
+    let title: String
+    var imageName: String { id }
+}
+
 private struct BannerStudio: View {
     @Environment(\.dismiss) private var dismiss
     let title: String
@@ -955,94 +961,72 @@ private struct BannerStudio: View {
     @State private var cropPayload: PhotoCropPayload?
     @State private var preview: Data?
 
-    private let presets: [(String, String, String)] = [
-        ("Navy", "0B1F3A", "2563EB"),
-        ("Azure", "0284C7", "7DD3FC"),
-        ("Sunset", "9A3412", "F97316"),
-        ("Blush", "9D174D", "F9A8D4"),
-        ("Forest", "064E3B", "34D399"),
-        ("Dusk", "312E81", "C4B5FD"),
-        ("Night", "020617", "1E3A5F"),
-        ("Gold", "92400E", "FBBF24"),
+    private let looks: [BannerLook] = [
+        .init(id: "BannerDusk", title: "Dusk"),
+        .init(id: "BannerDawn", title: "Dawn"),
+        .init(id: "BannerOcean", title: "Ocean"),
+        .init(id: "BannerLagoon", title: "Lagoon"),
+        .init(id: "BannerForest", title: "Forest"),
+        .init(id: "BannerMeadow", title: "Meadow"),
+        .init(id: "BannerSunset", title: "Sunset"),
+        .init(id: "BannerCoral", title: "Coral"),
+        .init(id: "BannerEmber", title: "Ember"),
+        .init(id: "BannerCitrus", title: "Citrus"),
+        .init(id: "BannerGold", title: "Gold"),
+        .init(id: "BannerBlush", title: "Blush"),
+        .init(id: "BannerRose", title: "Rose"),
+        .init(id: "BannerGrape", title: "Grape"),
+        .init(id: "BannerDuskViolet", title: "Violet"),
+        .init(id: "BannerRoyal", title: "Royal"),
+        .init(id: "BannerAurora", title: "Aurora"),
+        .init(id: "BannerIce", title: "Ice"),
+        .init(id: "BannerMint", title: "Mint"),
+        .init(id: "BannerNight", title: "Night"),
+        .init(id: "BannerInk", title: "Ink"),
+        .init(id: "BannerStorm", title: "Storm"),
+        .init(id: "BannerSlate", title: "Slate"),
+        .init(id: "BannerCarbon", title: "Carbon"),
     ]
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    ZStack(alignment: .bottomLeading) {
-                        if let preview, let image = UIImage(data: preview) {
-                            Image(uiImage: image).resizable().scaledToFill()
-                        } else {
-                            LinearGradient(colors: [AppTheme.navy, AppTheme.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        }
-                        LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
-                        Text(title)
-                            .font(.title.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(16)
-                    }
-                    .frame(height: 160)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-
-                    HStack(spacing: 10) {
-                        PhotosPicker(selection: $photoItem, matching: .images) {
-                            Label("Photo", systemImage: "photo.on.rectangle")
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
-                                .background(AppTheme.blueSoft, in: Capsule())
-                                .foregroundStyle(AppTheme.blue)
-                        }
-                        .buttonStyle(.plain)
-                        if preview != nil {
-                            Button("Adjust") {
-                                if let preview, let image = UIImage(data: preview) {
-                                    cropPayload = PhotoCropPayload(image: image)
-                                }
-                            }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.blue)
-                            Button("Clear") { preview = nil }
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.textSecondary)
-                        }
-                    }
-
-                    SectionLabel(title: "Banners")
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10)], spacing: 10) {
-                        ForEach(presets, id: \.0) { item in
-                            Button {
-                                preview = bannerJPEG(start: item.1, end: item.2)
-                            } label: {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(LinearGradient(colors: [Color(hex: item.1), Color(hex: item.2)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                    .frame(height: 78)
-                                    .overlay(alignment: .bottomLeading) {
-                                        Text(item.0)
-                                            .font(.caption.weight(.bold))
-                                            .foregroundStyle(.white)
-                                            .padding(8)
-                                    }
+                VStack(alignment: .leading, spacing: 22) {
+                    hero
+                    Text("Looks")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(AppTheme.text)
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                        ForEach(looks) { look in
+                            Button { applyLook(look) } label: {
+                                lookCard(look)
                             }
                             .buttonStyle(.plain)
                         }
                     }
                 }
                 .padding(20)
+                .padding(.bottom, 24)
             }
             .background(AppTheme.bg.ignoresSafeArea())
-            .navigationTitle("\(title) banner")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                        .foregroundStyle(AppTheme.blue)
+                }
+                ToolbarItem(placement: .principal) {
+                    Text(title)
+                        .font(.headline.weight(.bold))
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         onSave(preview)
                         dismiss()
                     }
-                    .fontWeight(.semibold)
+                    .fontWeight(.bold)
+                    .foregroundStyle(AppTheme.blue)
                 }
             }
             .onAppear { preview = current }
@@ -1056,7 +1040,7 @@ private struct BannerStudio: View {
                 }
             }
             .fullScreenCover(item: $cropPayload) { payload in
-                PhotoCropper(
+                BannerCropper(
                     image: payload.image,
                     onCancel: { cropPayload = nil },
                     onCrop: { data in
@@ -1066,31 +1050,210 @@ private struct BannerStudio: View {
                 )
             }
         }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 
-    private func bannerJPEG(start: String, end: String) -> Data? {
-        let size = CGSize(width: 1200, height: 675)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let image = renderer.image { ctx in
-            ctx.cgContext.setFillColor(ui(start).cgColor)
-            ctx.fill(CGRect(origin: .zero, size: size))
-            ctx.cgContext.setFillColor(ui(end).withAlphaComponent(0.85).cgColor)
-            ctx.fill(CGRect(x: 0, y: size.height * 0.35, width: size.width, height: size.height * 0.65))
+    private var hero: some View {
+        ZStack(alignment: .bottomLeading) {
+            Group {
+                if let preview, let image = UIImage(data: preview) {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    LinearGradient(colors: [AppTheme.navy, AppTheme.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            }
+            LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 12) {
+                Text(title)
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.4), radius: 8, y: 1)
+                HStack(spacing: 8) {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        labelChip("photo.on.rectangle", "Photo")
+                    }
+                    Button { openAdjust() } label: { labelChip("arrow.up.left.and.arrow.down.right", "Move") }
+                    if preview != nil {
+                        Button { preview = nil } label: { labelChip("xmark", "Clear") }
+                    }
+                }
+            }
+            .padding(16)
         }
-        return image.jpegData(compressionQuality: 0.9)
+        .frame(height: 210)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.16), radius: 18, y: 8)
     }
 
-    private func ui(_ hex: String) -> UIColor {
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        return UIColor(
-            red: CGFloat((int >> 16) & 0xFF) / 255,
-            green: CGFloat((int >> 8) & 0xFF) / 255,
-            blue: CGFloat(int & 0xFF) / 255,
-            alpha: 1
-        )
+    private func lookCard(_ look: BannerLook) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            Image(look.imageName)
+                .resizable()
+                .scaledToFill()
+            LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
+            Text(look.title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(12)
+        }
+        .frame(height: 118)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
+    }
+
+    private func labelChip(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+            Text(text)
+        }
+        .font(.caption.weight(.bold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(.white.opacity(0.22), in: Capsule())
+    }
+
+    private func applyLook(_ look: BannerLook) {
+        if let image = UIImage(named: look.imageName) {
+            preview = image.jpegData(compressionQuality: 0.92)
+        }
+    }
+
+    private func openAdjust() {
+        if let preview, let image = UIImage(data: preview) {
+            cropPayload = PhotoCropPayload(image: image)
+        }
     }
 }
+
+private struct BannerCropper: View {
+    let image: UIImage
+    var onCancel: () -> Void
+    var onCrop: (Data) -> Void
+
+    @State private var scale: CGFloat = 1
+    @State private var pinchStart: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var dragStart: CGSize = .zero
+    @State private var holeWidth: CGFloat = 720
+
+    private let aspect: CGFloat = 16.0 / 9.0
+
+    var body: some View {
+        NavigationStack {
+            GeometryReader { geo in
+                let width = min(geo.size.width - 32, 720)
+                let height = width / aspect
+                VStack(spacing: 18) {
+                    ZStack {
+                        Color.black.opacity(0.92)
+                        imageLayer(width: width, height: height)
+                            .frame(width: width, height: height)
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(.white.opacity(0.9), lineWidth: 3)
+                            )
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                offset = CGSize(
+                                    width: dragStart.width + value.translation.width,
+                                    height: dragStart.height + value.translation.height
+                                )
+                            }
+                            .onEnded { _ in
+                                clamp(width: width, height: height)
+                                dragStart = offset
+                            }
+                    )
+                    .simultaneousGesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                scale = min(max(pinchStart * value, 1), 4)
+                            }
+                            .onEnded { _ in
+                                pinchStart = scale
+                                clamp(width: width, height: height)
+                            }
+                    )
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Drag to place · pinch or slide to zoom")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.85))
+                        Slider(value: Binding(
+                            get: { scale },
+                            set: { scale = $0; clamp(width: width, height: height) }
+                        ), in: 1...4)
+                        .tint(AppTheme.blue)
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 20)
+                }
+                .onAppear { holeWidth = width }
+                .onChange(of: width) { _, value in holeWidth = value }
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Move banner")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onCancel) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Use photo") { if let data = render() { onCrop(data) } }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    private func imageLayer(width: CGFloat, height: CGFloat) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .scaleEffect(scale)
+            .offset(offset)
+            .frame(width: width, height: height)
+    }
+
+    private func clamp(width: CGFloat, height: CGFloat) {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return }
+        let fit = max(width / size.width, height / size.height)
+        let current = fit * scale
+        let maxX = max((size.width * current - width) / 2, 0)
+        let maxY = max((size.height * current - height) / 2, 0)
+        offset.width = min(max(offset.width, -maxX), maxX)
+        offset.height = min(max(offset.height, -maxY), maxY)
+        dragStart = offset
+        pinchStart = scale
+    }
+
+    private func render() -> Data? {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return nil }
+        let outW: CGFloat = 1200
+        let outH = outW / aspect
+        let k = outW / max(holeWidth, 1)
+        let fit = max(outW / size.width, outH / size.height)
+        let current = fit * scale
+        let drawW = size.width * current
+        let drawH = size.height * current
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: outW, height: outH))
+        let cropped = renderer.image { _ in
+            image.draw(in: CGRect(
+                x: (outW - drawW) / 2 + offset.width * k,
+                y: (outH - drawH) / 2 + offset.height * k,
+                width: drawW,
+                height: drawH
+            ))
+        }
+        return cropped.jpegData(compressionQuality: 0.9)
+    }
+}
+
 
 #Preview {
     NavigationStack {
