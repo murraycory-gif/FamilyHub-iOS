@@ -7,16 +7,16 @@ struct HubLook: Identifiable, Hashable {
     var asset: String
 
     static let all: [HubLook] = [
-        .init(id: 1, title: "Refined current", detail: "Same Hub you have now, tightened. Calendar, weather, shopping, dinner, then the family row.", asset: "HubLook01"),
-        .init(id: 2, title: "Magazine", detail: "Tonight’s dinner is a big photo on the left. Lists stack on the right. Family as circles.", asset: "HubLook02"),
-        .init(id: 3, title: "Bento", detail: "iOS widget tiles. Big Today, weather, shopping, dinner, then a family strip.", asset: "HubLook03"),
-        .init(id: 4, title: "Command center", detail: "A day timeline down the middle. Weather and shopping on the right. Family dock at the bottom.", asset: "HubLook04"),
-        .init(id: 5, title: "Member columns", detail: "Four tall lanes — Family, Cory, Sandra, Liam. Each person’s day lives in their column.", asset: "HubLook05"),
-        .init(id: 6, title: "Dinner first", detail: "Kitchen command. Huge What’s For Dinner on top, then the three cards, family along the bottom.", asset: "HubLook06"),
-        .init(id: 7, title: "Swiss minimal", detail: "Lots of air, big type, almost no boxes. Circle portraits. Quiet and readable across the room.", asset: "HubLook07"),
-        .init(id: 8, title: "Color block", detail: "Bold tiles and thick member colors. Playful, still adult.", asset: "HubLook08"),
-        .init(id: 9, title: "Day timeline", detail: "Today as a schedule from morning to night. Events sit on the hours.", asset: "HubLook09"),
-        .init(id: 10, title: "Dark luxury", detail: "Night wall panel. Navy glass, thin color outlines, dinner glow.", asset: "HubLook10")
+        .init(id: 1, title: "Skylight", detail: "Giant month on the wall. Color dots per person, meals sit on the day. Like a kitchen calendar display.", asset: "HubLook01"),
+        .init(id: 2, title: "Echo Show", detail: "Kitchen glance. Huge clock and weather, next event, dinner, family dock along the bottom.", asset: "HubLook02"),
+        .init(id: 3, title: "Cozi week", detail: "The #1 family organizer pattern. Color week on the left, meals and shopping on the right.", asset: "HubLook03"),
+        .init(id: 4, title: "TimeTree day", detail: "One shared day, top to bottom. Each event is a color bar tagged to a person.", asset: "HubLook04"),
+        .init(id: 5, title: "Things Today", detail: "Apple Design Award list. Giant Today heading, four beautiful rows: event, dinner, shop, home.", asset: "HubLook05"),
+        .init(id: 6, title: "Apple Home", detail: "Glass widgets over a family photo. Weather, next event, dinner, shopping as big tiles.", asset: "HubLook06"),
+        .init(id: 7, title: "Fantastical", detail: "Month on the left, agenda on the right. People as color ticks. Calendar-first families live here.", asset: "HubLook07"),
+        .init(id: 8, title: "Photo frame", detail: "iPad as a family picture frame. Big photo, thin control strip: time, weather, next, dinner, shop.", asset: "HubLook08"),
+        .init(id: 9, title: "At a Glance", detail: "Google Nest style. One huge next thing. Dinner, weather, shopping, people, counts around it.", asset: "HubLook09"),
+        .init(id: 10, title: "Fridge door", detail: "Samsung Family Hub. Polaroid photos of everyone, overlay cards for today, weather, shopping.", asset: "HubLook10")
     ]
 }
 
@@ -33,7 +33,7 @@ struct HubLooksView: View {
                     .foregroundStyle(AppTheme.blue)
             }
             .font(.system(size: 36, weight: .bold))
-            Text("Swipe the pictures. Tap Use this look when you want that layout built.")
+            Text("New set. Inspired by Skylight, Cozi, TimeTree, Echo Show, Things 3, Fantastical, and Apple Home. Swipe, then tap Use this look.")
                 .font(.title3)
                 .foregroundStyle(AppTheme.textSecondary)
 
