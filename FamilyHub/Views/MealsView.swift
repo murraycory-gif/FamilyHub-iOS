@@ -426,37 +426,40 @@ private struct DinnerChoiceCard: View {
 
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .bottomLeading) {
+            VStack(alignment: .leading, spacing: 0) {
                 RecipePhoto(url: photo)
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.25), .black.opacity(0.78)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                VStack(alignment: .leading, spacing: 8) {
-                    Image(systemName: symbol)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(10)
-                        .background(.white.opacity(0.22), in: Circle())
-                    Spacer(minLength: 0)
-                    Text(title)
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 148)
+                    .clipped()
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 10) {
+                        Image(systemName: symbol)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(AppTheme.blue, in: Circle())
+                        Text(title)
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundStyle(AppTheme.text)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
                     Text(detail)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.9))
+                        .foregroundStyle(AppTheme.textSecondary)
                         .lineLimit(2)
                 }
-                .padding(18)
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppTheme.card)
             }
-            .frame(maxWidth: .infinity, minHeight: 230, maxHeight: 230)
+            .frame(maxWidth: .infinity, minHeight: 248, maxHeight: 248)
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .stroke(AppTheme.blue, lineWidth: 3)
             )
-            .shadow(color: .black.opacity(0.16), radius: 16, y: 8)
+            .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
         }
         .buttonStyle(.plain)
     }
