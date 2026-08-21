@@ -92,6 +92,16 @@ final class PlacesSearch: ObservableObject {
 
     private let locator = LocationFinder()
     private let maxMeters: CLLocationDistance = 24140
+    private let foodCategories: Set<MKPointOfInterestCategory> = [
+        .restaurant, .cafe, .bakery, .brewery, .winery, .nightlife
+    ]
+    private let takeoutNames = [
+        "mcdonald", "burger king", "wendy", "taco bell", "kfc", "chick-fil-a", "chick fil a",
+        "subway", "dunkin", "starbucks", "popeyes", "arby", "sonic", "dairy queen",
+        "domino", "pizza hut", "little caesar", "papa john", "chipotle", "panda express",
+        "five guys", "jimmy john", "culver", "portillo", "white castle",
+        "raising cane", "jersey mike", "panera", "wingstop", "drive-thru", "drive thru"
+    ]
 
     func load() async { await useHere() }
     func loadAll() async { await useHere() }
@@ -150,15 +160,23 @@ final class PlacesSearch: ObservableObject {
     }
 
     private func fill(around location: CLLocation) async {
+        let queries = [
+            "restaurants", "fast food", "pizza", "coffee", "burgers",
+            "mexican food", "chinese food", "thai food", "italian restaurant",
+            "breakfast", "sandwiches", "barbecue", "wings", "seafood", "diner", "cafe"
+        ]
         var seen = Set<String>()
         var result: [NearbyPlace] = []
-        let poi = (try? await searchPOIs(around: location)) ?? []
-        let named = (try? await searchNamed("restaurants \(areaName)", around: location, mode: .sitdown)) ?? []
-        let takeout = (try? await searchNamed("takeout \(areaName)", around: location, mode: .takeout)) ?? []
-        for item in poi + named + takeout {
-            guard seen.insert(item.id).inserted else { continue }
-            guard (item.distance ?? 0) <= maxMeters else { continue }
-            result.append(item)
+        await withTaskGroup(of: [NearbyPlace].self) { group in
+            group.addTask { (try? await self.searchPOIs(around: location)) ?? [] }
+            for query in queries {
+                group.addTask { (try? await self.searchNamed(query, around: location)) ?? [] }
+            }
+            for await batch in group {
+                for item in batch where seen.insert(item.id).inserted {
+                    result.append(item)
+                }
+            }
         }
         places = result.sorted { ($0.distance ?? .greatestFiniteMagnitude) < ($1.distance ?? .greatestFiniteMagnitude) }
         if places.isEmpty {
@@ -167,42 +185,35 @@ final class PlacesSearch: ObservableObject {
     }
 
     private func searchPOIs(around location: CLLocation) async throws -> [NearbyPlace] {
-        let request = MKLocalPointsOfInterestRequest(center: location.coordinate, radius: 15000)
-        request.pointOfInterestFilter = MKPointOfInterestFilter(including: [.restaurant, .cafe, .bakery, .brewery])
+        let request = MKLocalPointsOfInterestRequest(center: location.coordinate, radius: 20000)
+        request.pointOfInterestFilter = MKPointOfInterestFilter(including: Array(foodCategories))
         let response = try await MKLocalSearch(request: request).start()
-        return response.mapItems.compactMap { item in
-            mapItem(item, around: location, mode: sitOrTakeout(item))
-        }
+        return response.mapItems.compactMap { mapItem($0, around: location) }
     }
 
-    private func searchNamed(_ query: String, around location: CLLocation, mode: PlaceMode) async throws -> [NearbyPlace] {
+    private func searchNamed(_ query: String, around location: CLLocation) async throws -> [NearbyPlace] {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
         request.resultTypes = .pointOfInterest
         request.region = MKCoordinateRegion(
             center: location.coordinate,
-            latitudinalMeters: 20000,
-            longitudinalMeters: 20000
+            latitudinalMeters: 24000,
+            longitudinalMeters: 24000
         )
         let response = try await MKLocalSearch(request: request).start()
-        return response.mapItems.compactMap { mapItem($0, around: location, mode: mode) }
+        return response.mapItems.compactMap { mapItem($0, around: location) }
     }
 
-    private func sitOrTakeout(_ item: MKMapItem) -> PlaceMode {
-        switch item.pointOfInterestCategory {
-        case .cafe, .bakery: return .takeout
-        default: return .sitdown
-        }
-    }
-
-    private func mapItem(_ item: MKMapItem, around location: CLLocation, mode: PlaceMode) -> NearbyPlace? {
+    private func mapItem(_ item: MKMapItem, around location: CLLocation) -> NearbyPlace? {
         guard let name = item.name, !name.isEmpty else { return nil }
+        guard isFood(item) else { return nil }
         let coord = item.placemark.coordinate
         guard CLLocationCoordinate2DIsValid(coord) else { return nil }
         let distance = location.distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
         guard distance <= maxMeters else { return nil }
+        let mode = sitOrTakeout(item)
         return NearbyPlace(
-            id: "\(name)-\(coord.latitude)-\(coord.longitude)",
+            id: "\(name.lowercased())-\(String(format: "%.4f", coord.latitude))-\(String(format: "%.4f", coord.longitude))",
             name: name,
             category: item.pointOfInterestCategory?.rawValue
                 .replacingOccurrences(of: "MKPOICategory", with: "")
@@ -218,5 +229,25 @@ final class PlacesSearch: ObservableObject {
             distance: distance,
             mode: mode
         )
+    }
+
+    private func isFood(_ item: MKMapItem) -> Bool {
+        let name = (item.name ?? "").lowercased()
+        if takeoutNames.contains(where: { name.contains($0) }) { return true }
+        if let category = item.pointOfInterestCategory {
+            return foodCategories.contains(category)
+        }
+        let blocked = ["park", "splash", "trail", "forest preserve", "library", "school", "church", "hospital", "clinic", "pharmacy"]
+        if blocked.contains(where: { name.contains($0) }) { return false }
+        return false
+    }
+
+    private func sitOrTakeout(_ item: MKMapItem) -> PlaceMode {
+        let name = (item.name ?? "").lowercased()
+        if takeoutNames.contains(where: { name.contains($0) }) { return .takeout }
+        switch item.pointOfInterestCategory {
+        case .cafe, .bakery: return .takeout
+        default: return .sitdown
+        }
     }
 }
