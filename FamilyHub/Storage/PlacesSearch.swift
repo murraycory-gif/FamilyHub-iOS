@@ -54,7 +54,7 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
 
     override init() {
         super.init()
-        completer.resultTypes = .address
+        completer.resultTypes = [.address, .pointOfInterest, .query]
         completer.delegate = self
     }
 
@@ -68,6 +68,14 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
     }
 
     func clear() { suggestions = [] }
+
+    func setRegion(_ location: CLLocation) {
+        completer.region = MKCoordinateRegion(
+            center: location.coordinate,
+            latitudinalMeters: 32000,
+            longitudinalMeters: 32000
+        )
+    }
 
     nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
         let mapped = completer.results.prefix(8).map {
@@ -89,6 +97,7 @@ final class PlacesSearch: ObservableObject {
     @Published var message: String?
     @Published var userLocation: CLLocation?
     @Published var areaName = "Current location"
+    private var searchCenter: CLLocation?
 
     private let locator = LocationFinder()
     private let maxMeters: CLLocationDistance = 24140
@@ -113,6 +122,7 @@ final class PlacesSearch: ObservableObject {
         do {
             let location = try await locator.current()
             userLocation = location
+            searchCenter = location
             if let mark = try? await CLGeocoder().reverseGeocodeLocation(location).first {
                 areaName = [mark.locality, mark.administrativeArea, mark.postalCode]
                     .compactMap { $0 }
@@ -148,15 +158,41 @@ final class PlacesSearch: ObservableObject {
                 .compactMap { $0 }
                 .joined(separator: ", ")
             if areaName.isEmpty { areaName = trimmed }
+            searchCenter = location
             await fill(around: location)
         } catch {
             message = "Could not find that city or zip."
         }
     }
 
-    func setMode(_ mode: PlaceMode) async {
-        self.mode = mode
-        await load()
+    func searchMaps(_ text: String) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let location = searchCenter ?? userLocation else {
+            if trimmed.isEmpty { await useHere() }
+            return
+        }
+        if trimmed.isEmpty {
+            await fill(around: location)
+            return
+        }
+        isLoading = true
+        message = nil
+        defer { isLoading = false }
+        do {
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = trimmed
+            request.region = MKCoordinateRegion(
+                center: location.coordinate,
+                latitudinalMeters: 32000,
+                longitudinalMeters: 32000
+            )
+            let response = try await MKLocalSearch(request: request).start()
+            let mapped = response.mapItems.compactMap { mapItem($0, around: location, mapsStyle: true) }
+            places = mapped.sorted { ($0.distance ?? .greatestFiniteMagnitude) < ($1.distance ?? .greatestFiniteMagnitude) }
+            if places.isEmpty { message = "No places matching “\(trimmed)” near \(areaName)." }
+        } catch {
+            message = "Could not search Maps right now."
+        }
     }
 
     private func fill(around location: CLLocation) async {
@@ -265,9 +301,15 @@ final class PlacesSearch: ObservableObject {
         return response.mapItems.compactMap { mapItem($0, around: location) }
     }
 
-    private func mapItem(_ item: MKMapItem, around location: CLLocation) -> NearbyPlace? {
+    private func mapItem(_ item: MKMapItem, around location: CLLocation, mapsStyle: Bool = false) -> NearbyPlace? {
         guard let name = item.name, !name.isEmpty else { return nil }
-        guard isFood(item) else { return nil }
+        if mapsStyle {
+            let lower = name.lowercased()
+            let blocked = ["splash pad", "forest preserve", "elementary school", "middle school", "high school"]
+            if blocked.contains(where: { lower.contains($0) }) { return nil }
+        } else {
+            guard isFood(item) else { return nil }
+        }
         let coord = item.placemark.coordinate
         guard CLLocationCoordinate2DIsValid(coord) else { return nil }
         let distance = location.distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))

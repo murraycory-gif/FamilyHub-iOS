@@ -438,8 +438,27 @@ private struct EatOutPicker: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Eat out")
                     .font(.system(size: 28, weight: .bold))
-                Text("Near \(places.areaName). Tap a place for the menu and details.")
+                Text("Search like Maps. Near \(places.areaName).")
                     .foregroundStyle(AppTheme.textSecondary)
+                HStack {
+                    Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+                    TextField("McDonald’s, pizza, tacos…", text: $areaQuery)
+                        .textFieldStyle(.plain)
+                        .onSubmit {
+                            completer.clear()
+                            Task { await places.searchMaps(areaQuery) }
+                        }
+                        .onChange(of: areaQuery) { _, value in
+                            completer.update(value)
+                            Task {
+                                try? await Task.sleep(for: .milliseconds(350))
+                                guard areaQuery == value else { return }
+                                await places.searchMaps(value)
+                            }
+                        }
+                }
+                .padding(14)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 HStack(spacing: 8) {
                     Button {
                         areaQuery = ""
@@ -454,42 +473,35 @@ private struct EatOutPicker: View {
                             .background(AppTheme.blue, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    HStack {
-                        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                        TextField("City or zip", text: $areaQuery)
-                            .textFieldStyle(.plain)
-                            .onSubmit {
-                                completer.clear()
-                                Task { await places.searchArea(areaQuery) }
-                            }
-                            .onChange(of: areaQuery) { _, value in
-                                completer.update(value)
-                            }
-                    }
-                    .padding(10)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    Text("Or a city / zip")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.textTertiary)
                 }
                 if !completer.suggestions.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(completer.suggestions) { item in
                             Button {
-                                areaQuery = item.query
+                                areaQuery = item.title
                                 completer.clear()
-                                Task { await places.searchArea(item.query) }
+                                Task { await places.searchMaps(item.query) }
                             } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.title)
-                                        .font(.headline)
-                                        .foregroundStyle(AppTheme.text)
-                                    if !item.subtitle.isEmpty {
-                                        Text(item.subtitle)
-                                            .font(.caption)
-                                            .foregroundStyle(AppTheme.textSecondary)
+                                HStack(spacing: 10) {
+                                    Image(systemName: "mappin.and.ellipse")
+                                        .foregroundStyle(AppTheme.blue)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(item.title)
+                                            .font(.headline)
+                                            .foregroundStyle(AppTheme.text)
+                                        if !item.subtitle.isEmpty {
+                                            Text(item.subtitle)
+                                                .font(.caption)
+                                                .foregroundStyle(AppTheme.textSecondary)
+                                        }
                                     }
+                                    Spacer()
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 10)
-                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(.plain)
                         }
@@ -555,7 +567,13 @@ private struct EatOutPicker: View {
         .navigationDestination(item: $opened) { place in
             PlaceInfoView(place: place, day: day, onDone: onDone)
         }
-        .task { await places.useHere() }
+        .task {
+            await places.useHere()
+            if let here = places.userLocation { completer.setRegion(here) }
+        }
+        .onChange(of: places.userLocation) { _, location in
+            if let location { completer.setRegion(location) }
+        }
     }
 }
 
