@@ -711,39 +711,55 @@ private struct FamilyFocusCard: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            AppTheme.blue.frame(width: 5)
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
-                    PhotosPicker(selection: $photoItem, matching: .images) {
-                        familyAvatar
+        VStack(spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                familyHero
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.72)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Family")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundStyle(.white)
+                            Text("Everyone")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                        Spacer()
+                        PhotosPicker(selection: $photoItem, matching: .images) {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(8)
+                                .background(.white.opacity(0.22), in: Circle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    .zIndex(2)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Family")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(AppTheme.text)
-                        Text("Everyone · tap photo to change")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
-                    }
-                    Spacer(minLength: 0)
+                    posterChip("\(events.count) \(events.count == 1 ? "event" : "events")")
                 }
-                dayEventList(events, onEvent: onEvent)
-                Spacer(minLength: 0)
+                .padding(14)
             }
-            .padding(14)
-            .contentShape(Rectangle())
-            .onTapGesture { onOpenCalendar() }
+            .frame(height: 150)
+            .clipped()
+
+            posterEvents(events, onEvent: onEvent)
+                .padding(14)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(selected ? AppTheme.blue : AppTheme.cardBorder, lineWidth: selected ? 2 : 1)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(selected ? AppTheme.blue : Color.black.opacity(0.06), lineWidth: selected ? 3 : 1)
         )
+        .shadow(color: .black.opacity(selected ? 0.16 : 0.08), radius: selected ? 18 : 10, y: 8)
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .onTapGesture { onOpenCalendar() }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             Task {
@@ -754,28 +770,26 @@ private struct FamilyFocusCard: View {
         }
     }
 
-    private var familyAvatar: some View {
-        ZStack {
+    private var familyHero: some View {
+        Group {
             if let data = store.familyPhotoData, let image = UIImage(data: data) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
             } else {
-                Circle().fill(AppTheme.navySoft)
-                Image(systemName: "person.3.fill")
-                    .foregroundStyle(AppTheme.blue)
+                ZStack {
+                    LinearGradient(
+                        colors: [AppTheme.navy, AppTheme.blue],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    Image(systemName: "person.3.fill")
+                        .font(.system(size: 54))
+                        .foregroundStyle(.white.opacity(0.88))
+                }
             }
         }
-        .frame(width: 44, height: 44)
-        .clipShape(Circle())
-        .overlay(Circle().stroke(AppTheme.cardBorder, lineWidth: 1))
-        .overlay(alignment: .bottomTrailing) {
-            Image(systemName: "camera.fill")
-                .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(.white)
-                .padding(3)
-                .background(AppTheme.blue, in: Circle())
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -796,92 +810,147 @@ private struct MemberHomeCard: View {
     private var accent: Color { Color(hex: member.colorHex) }
 
     var body: some View {
-        HStack(spacing: 0) {
-            accent.frame(width: 5)
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
-                    MemberAvatar(member: member, size: 40)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(member.name)
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(AppTheme.text)
-                        Text(member.role.label)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
+        VStack(spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                memberHero
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.74)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(member.name)
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Text(member.role.label)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                        Spacer()
+                        Image(systemName: "line.3.horizontal")
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.9))
                     }
-                    Spacer(minLength: 0)
-                    Image(systemName: "line.3.horizontal")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.textTertiary)
+                    HStack(spacing: 6) {
+                        posterChip("\(events.count) \(events.count == 1 ? "event" : "events")")
+                        if chores.count > 0 { posterChip("\(chores.count) chores") }
+                        if reminders.count > 0 { posterChip("\(reminders.count) remind") }
+                        if todos.count > 0 { posterChip("\(todos.count) to-dos") }
+                    }
                 }
-                HStack(spacing: 6) {
-                    personStat(chores.count, "Chores")
-                    personStat(reminders.count, "Remind")
-                    personStat(todos.count, "To-dos")
-                }
-                dayEventList(events, onEvent: onEvent)
-                Spacer(minLength: 0)
+                .padding(14)
             }
-            .padding(12)
-            .contentShape(Rectangle())
-            .onTapGesture { onOpen() }
+            .frame(height: 150)
+            .clipped()
+            .overlay(alignment: .top) {
+                accent.frame(height: 4)
+            }
+
+            posterEvents(events, onEvent: onEvent)
+                .padding(14)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(selected ? accent : AppTheme.cardBorder, lineWidth: selected ? 2 : 1)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(selected ? accent : Color.black.opacity(0.06), lineWidth: selected ? 3 : 1)
         )
+        .shadow(color: accent.opacity(selected ? 0.28 : 0.08), radius: selected ? 18 : 10, y: 8)
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .onTapGesture { onOpen() }
     }
 
-    private func personStat(_ value: Int, _ title: String) -> some View {
-        VStack(spacing: 1) {
-            Text("\(value)")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundStyle(AppTheme.blue)
-            Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(AppTheme.textSecondary)
+    private var memberHero: some View {
+        Group {
+            if let data = store.photo(for: member), let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                ZStack {
+                    LinearGradient(
+                        colors: [accent, accent.opacity(0.55)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    Text(member.displayEmoji)
+                        .font(.system(size: 64))
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(AppTheme.navySoft)
-        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
+private func posterChip(_ text: String) -> some View {
+    Text(text)
+        .font(.system(size: 11, weight: .bold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.white.opacity(0.22), in: Capsule())
+}
+
 @ViewBuilder
-private func dayEventList(_ events: [CalendarEvent], onEvent: @escaping (CalendarEvent) -> Void) -> some View {
+private func posterEvents(_ events: [CalendarEvent], onEvent: @escaping (CalendarEvent) -> Void) -> some View {
     if events.isEmpty {
-        Text("Free this day")
-            .font(.caption)
-            .foregroundStyle(AppTheme.textTertiary)
-    } else {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(events) { event in
-                    Button {
-                        onEvent(event)
-                    } label: {
-                        HStack(alignment: .top, spacing: 6) {
-                            Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
-                                .font(.caption.weight(.semibold).monospacedDigit())
-                                .foregroundStyle(AppTheme.blue)
-                                .frame(width: 58, alignment: .leading)
-                            Text(event.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.text)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Up next")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.textTertiary)
+                .textCase(.uppercase)
+            Text("Free this day")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+        }
+    } else if let featured = events.first {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Up next")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.textTertiary)
+                .textCase(.uppercase)
+            Button {
+                onEvent(featured)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(featured.allDay ? "All day" : featured.startAt.formatted(date: .omitted, time: .shortened))
+                        .font(.subheadline.weight(.bold).monospacedDigit())
+                        .foregroundStyle(AppTheme.blue)
+                    Text(featured.title)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.text)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            ForEach(Array(events.dropFirst())) { event in
+                Button {
+                    onEvent(event)
+                } label: {
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
+                            .font(.caption.weight(.bold).monospacedDigit())
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(width: 58, alignment: .leading)
+                        Text(event.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.text)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -894,3 +963,4 @@ private func dayEventList(_ events: [CalendarEvent], onEvent: @escaping (Calenda
     .environmentObject(HubStore())
     .environmentObject(HubRouter())
 }
+
