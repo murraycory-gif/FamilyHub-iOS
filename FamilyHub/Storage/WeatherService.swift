@@ -275,7 +275,7 @@ final class LocationFinder: NSObject, CLLocationManagerDelegate {
     }
 
     func current() async throws -> CLLocation {
-        if let cached = manager.location, abs(cached.timestamp.timeIntervalSinceNow) < 300 {
+        if let cached = manager.location, abs(cached.timestamp.timeIntervalSinceNow) < 1800 {
             return cached
         }
         return try await withCheckedThrowingContinuation { continuation in

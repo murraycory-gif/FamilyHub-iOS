@@ -99,6 +99,9 @@ final class PlacesSearch: ObservableObject {
     private var searchCenter: CLLocation?
     private let locator = LocationFinder()
     private let maxMeters: CLLocationDistance = 24140
+    private static var cacheLocation: CLLocation?
+    private static var cacheName = ""
+    private static var cachePlaces: [NearbyPlace] = []
     private let takeoutNames = [
         "mcdonald", "burger king", "wendy", "taco bell", "kfc", "chick-fil-a", "chick fil a",
         "subway", "dunkin", "starbucks", "popeyes", "arby", "sonic", "dairy queen",
@@ -118,20 +121,40 @@ final class PlacesSearch: ObservableObject {
             let location = try await locator.current()
             userLocation = location
             searchCenter = location
-            if let marks = try? await CLGeocoder().reverseGeocodeLocation(location),
-               let mark = marks.first {
-                areaName = [mark.locality, mark.administrativeArea, mark.postalCode]
-                    .compactMap { $0 }
-                    .joined(separator: ", ")
-            } else {
-                areaName = "Current location"
+            if let cachedAt = Self.cacheLocation,
+               cachedAt.distance(from: location) < 2500,
+               Self.cachePlaces.isEmpty == false {
+                places = Self.cachePlaces
+                areaName = Self.cacheName.isEmpty ? "Current location" : Self.cacheName
+                isLoading = false
+                Task { await refresh(around: location) }
+                return
             }
-            if areaName.isEmpty { areaName = "Current location" }
+            areaName = "Current location"
+            Task { await nameArea(location) }
             await fillQuick(around: location)
             isLoading = false
             Task { await fillMore(around: location) }
         } catch {
             message = "Turn on location, or type a city or zip."
+        }
+    }
+
+    private func refresh(around location: CLLocation) async {
+        Task { await nameArea(location) }
+        await fillQuick(around: location)
+        await fillMore(around: location)
+    }
+
+    private func nameArea(_ location: CLLocation) async {
+        guard let marks = try? await CLGeocoder().reverseGeocodeLocation(location),
+              let mark = marks.first else { return }
+        let name = [mark.locality, mark.administrativeArea, mark.postalCode]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+        if name.isEmpty == false {
+            areaName = name
+            Self.cacheName = name
         }
     }
 
@@ -210,6 +233,8 @@ final class PlacesSearch: ObservableObject {
             merge(named, into: &result, seen: &seen)
         }
         places = sortedPlaces(result)
+        Self.cacheLocation = location
+        Self.cachePlaces = places
         if places.isEmpty {
             message = "Looking for more places near \(areaName)…"
         }
@@ -223,10 +248,7 @@ final class PlacesSearch: ObservableObject {
         var result = places
         async let fast = searchNamed("fast food", around: location, requireFood: false)
         async let pizza = searchNamed("pizza", around: location, requireFood: false)
-        async let coffee = searchNamed("coffee", around: location, requireFood: false)
-        async let tacos = searchNamed("tacos", around: location, requireFood: false)
         async let poi = searchPOIs(around: location)
-        async let osm = searchOSM(around: location)
 
         if let batch = try? await fast {
             merge(batch, into: &result, seen: &seen)
@@ -236,22 +258,17 @@ final class PlacesSearch: ObservableObject {
             merge(batch, into: &result, seen: &seen)
             places = sortedPlaces(result)
         }
-        if let batch = try? await coffee {
-            merge(batch, into: &result, seen: &seen)
-            places = sortedPlaces(result)
-        }
-        if let batch = try? await tacos {
-            merge(batch, into: &result, seen: &seen)
-            places = sortedPlaces(result)
-        }
         if let batch = try? await poi {
             merge(batch, into: &result, seen: &seen)
             places = sortedPlaces(result)
         }
-        if let batch = try? await osm {
+        if places.count < 12, let batch = try? await searchOSM(around: location) {
             merge(batch, into: &result, seen: &seen)
             places = sortedPlaces(result)
         }
+        Self.cacheLocation = location
+        Self.cachePlaces = places
+        Self.cacheName = areaName
 
         if places.isEmpty {
             message = "No restaurants found near \(areaName)."
