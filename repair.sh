@@ -1,7 +1,11 @@
 #!/bin/sh
-# Pull HUB updates without wiping Xcode signing / your Apple team.
+# Recover a broken Xcode project and install the latest HUB on the iPad.
 set -eu
 cd "$(dirname "$0")"
+
+echo "Quit Xcode completely (Cmd+Q) if it is still open."
+killall Xcode 2>/dev/null || true
+sleep 1
 
 PBX="FamilyHub.xcodeproj/project.pbxproj"
 TEAM=""
@@ -12,16 +16,8 @@ fi
 git fetch origin
 git rebase --abort >/dev/null 2>&1 || true
 git merge --abort >/dev/null 2>&1 || true
-git cherry-pick --abort >/dev/null 2>&1 || true
-
-# A half-merged project.pbxproj makes Xcode say "Failed to load container".
-if git diff --name-only --diff-filter=U | grep -q . || grep -q '<<<<<<<' "$PBX" 2>/dev/null; then
-  echo "Local project file was stuck. Resetting to the latest app..."
-  git reset --hard origin/main
-elif ! git pull --rebase --autostash origin main; then
-  echo "Pull failed. Resetting to the latest app and keeping your signing..."
-  git reset --hard origin/main
-fi
+git reset --hard origin/main
+git clean -fd -e .DS_Store >/dev/null 2>&1 || true
 
 if [ -n "${TEAM:-}" ]; then
   python3 - "$PBX" "$TEAM" <<'PY'
@@ -41,12 +37,8 @@ print(f"Kept your Apple team: {team}")
 PY
 fi
 
-rm -rf \
-  FamilyHub.xcodeproj/xcuserdata \
-  FamilyHub.xcodeproj/project.xcworkspace/xcuserdata \
-  ~/Library/Developer/Xcode/DerivedData/FamilyHub-* 2>/dev/null || true
-
 echo ""
-echo "Quit Xcode first if it is still open."
-echo "Opening FamilyHub.xcodeproj..."
-open "$PWD/FamilyHub.xcodeproj"
+echo "Source stamp:"
+grep 'static let string' FamilyHub/BuildStamp.swift || true
+
+./install-ipad.sh

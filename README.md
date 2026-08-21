@@ -1,49 +1,59 @@
-# FamilyHub iOS
+# HUB iOS
 
 Native **SwiftUI** family hub for **iPad first**, iPhone next.
 
-Calendars (family + per person), upcoming, reminders, to-dos, and a chore board
-your sons can check off for allowance.
+Calendars, weather, shopping, meals, chores, reminders, and to-dos.
 
-Same workflow as EnviroMap: Xcode project in git, Fastlane for Mac builds.
+Same Mac terminal workflow as **Fulfillment Heartbeat**.
 
-## Open in Xcode
+## Daily commands (Mac Terminal)
+
+First time only:
 
 ```bash
+mkdir -p ~/Developer
 cd ~/Developer
 git clone https://github.com/murraycory-gif/FamilyHub-iOS.git
 cd FamilyHub-iOS
-open FamilyHub.xcodeproj
+chmod +x update.sh install-ipad.sh repair.sh
 ```
 
-1. Select the **FamilyHub** scheme and an **iPad** simulator (or your iPad).
-2. Signing & Capabilities → choose your Team (automatic signing).
-3. Run.
+Then, every time you sit down:
 
-Pull later updates:
+**Pull latest + open Xcode**
 
 ```bash
-cd ~/Developer/FamilyHub-iOS
-git pull
+cd ~/Developer/FamilyHub-iOS && ./update.sh
 ```
 
-## What’s in this foundation
+**Build and put it on the iPad** (unlock the iPad, plug it in, Trust)
 
-| Area | Status |
-|------|--------|
-| Household + members | Working (edit names, roles, colors) |
-| Family / person calendar | Working month view + add event |
-| Upcoming | Working (events + due chores + reminders) |
-| Reminders | Working check-off |
-| To-dos | Working check-off |
-| Chores + rewards | Assign → kid checks off → parent approves $ |
-| Allowance ledger | Working |
-| iCloud / Family Sharing | Later |
-| EventKit / Apple Calendar sync | Later |
-| Push notifications | Later |
+```bash
+cd ~/Developer/FamilyHub-iOS && ./install-ipad.sh
+```
 
-Data lives on-device as JSON in Application Support (`HubStore`), same idea as
-EnviroMap’s `SessionStore`. Easy to swap iCloud later.
+If the cable dropped after a successful build:
+
+```bash
+cd ~/Developer/FamilyHub-iOS && SKIP_BUILD=1 ./install-ipad.sh
+```
+
+**Xcode project is broken / pull failed**
+
+```bash
+cd ~/Developer/FamilyHub-iOS && ./repair.sh
+```
+
+That resets to GitHub `main`, keeps your Apple team, and installs on the iPad.
+
+Quit Xcode (Cmd+Q) before `./update.sh` or `./repair.sh`.
+
+## Signing (one time)
+
+1. `./update.sh` opens Xcode.
+2. Select the **FamilyHub** scheme and your iPad.
+3. Signing & Capabilities → Team (automatic signing).
+4. After that, `./install-ipad.sh` uses that team.
 
 ## Automated testing (Fastlane)
 
