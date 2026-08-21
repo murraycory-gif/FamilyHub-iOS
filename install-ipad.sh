@@ -2,6 +2,7 @@
 # Build, install, and open HUB on a connected iPad without Xcode's debugger.
 # SKIP_BUILD=1 reuses the last .app so a dropped cable is a 10-second retry.
 set -eu
+set -o pipefail
 cd "$(dirname "$0")"
 
 BUNDLE_ID="com.corymurray.FamilyHub"
@@ -14,6 +15,7 @@ echo "Unlock the iPad, keep it awake, and leave it on the Home Screen."
 if [ "${SKIP_BUILD:-0}" != "1" ]; then
   echo "Building for device..."
   rm -rf "$DERIVED"
+  BUILD_LOG="${TMPDIR:-/tmp}/familyhub-xcodebuild.log"
   if ! xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
@@ -21,12 +23,11 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
     -destination 'generic/platform=iOS' \
     -derivedDataPath "$DERIVED" \
     -allowProvisioningUpdates \
-    build
+    build 2>&1 | tee "$BUILD_LOG"
   then
     echo ""
     echo "---- compiler errors ----"
-    grep -E "error:" "$DERIVED/Logs/Build/"*.xcactivitylog >/dev/null 2>&1 || true
-    grep -R --include='*.log' -E "error:" "$DERIVED" 2>/dev/null | tail -40 || true
+    grep -E "error:" "$BUILD_LOG" | tail -50 || true
     exit 1
   fi
 fi
