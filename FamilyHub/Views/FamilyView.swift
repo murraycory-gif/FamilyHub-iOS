@@ -120,7 +120,7 @@ struct FamilyView: View {
                 .buttonStyle(.plain)
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 16)], spacing: 16) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 5), spacing: 16) {
                 ForEach(store.members) { member in
                     FamilyMemberRow(
                         member: member,
@@ -158,12 +158,22 @@ struct FamilyView: View {
                         Text("Add someone")
                             .font(.title3.weight(.bold))
                             .foregroundStyle(AppTheme.text)
-                        Text("Parent, kid, or pet")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        Text("Family or pet")
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.textSecondary)
+                            .lineLimit(1)
+                        Color.clear.frame(height: 20)
+                        Text("Add")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(AppTheme.blueSoft, in: Capsule())
                     }
-                    .frame(maxWidth: .infinity, minHeight: 240)
                     .padding(20)
+                    .frame(maxWidth: .infinity, minHeight: 318, maxHeight: 318)
                     .background(AppTheme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .overlay(
@@ -179,25 +189,30 @@ struct FamilyView: View {
     private var ledger: some View {
         VStack(alignment: .leading, spacing: 16) {
             SectionLabel(title: "Allowance")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 14)], spacing: 14) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
                 ForEach(store.kids()) { kid in
-                    HStack(spacing: 14) {
-                        MemberAvatar(member: kid, size: 64)
+                    HStack(spacing: 12) {
+                        MemberAvatar(member: kid, size: 56)
                             .overlay(Circle().stroke(Color(hex: kid.colorHex), lineWidth: 3))
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(kid.name)
                                 .font(.headline.weight(.bold))
                                 .foregroundStyle(AppTheme.text)
+                                .lineLimit(1)
                             Text("Balance")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(AppTheme.textTertiary)
                             Text(Money.cents(kid.allowanceBalanceCents))
-                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
                                 .foregroundStyle(AppTheme.blue)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                                .monospacedDigit()
                         }
                         Spacer(minLength: 0)
                     }
-                    .padding(16)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, minHeight: 96, maxHeight: 96)
                     .background(AppTheme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .overlay(
@@ -212,7 +227,7 @@ struct FamilyView: View {
                 .font(.title2.weight(.bold))
                 .foregroundStyle(AppTheme.text)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 14)], spacing: 14) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
                 ForEach(Array(store.ledger.prefix(20))) { entry in
                     AllowanceActivityCard(entry: entry)
                 }
@@ -234,31 +249,38 @@ private struct AllowanceActivityCard: View {
     var body: some View {
         let person = store.member(id: entry.memberID)
         let accent = Color(hex: person?.colorHex ?? "2563EB")
-        return HStack(spacing: 14) {
+        return HStack(spacing: 12) {
             if let person {
-                MemberAvatar(member: person, size: 56)
+                MemberAvatar(member: person, size: 52)
                     .overlay(Circle().stroke(accent, lineWidth: 3))
             } else {
-                Circle().fill(AppTheme.blueSoft).frame(width: 56, height: 56)
+                Circle().fill(AppTheme.blueSoft).frame(width: 52, height: 52)
             }
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(entry.reason)
-                    .font(.title3.weight(.bold))
+                    .font(.headline.weight(.bold))
                     .foregroundStyle(AppTheme.text)
-                    .lineLimit(2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text(person?.name ?? "Family")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.blue)
+                    .lineLimit(1)
                 Text(entry.createdAt.formatted(date: .abbreviated, time: .omitted))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.textTertiary)
+                    .lineLimit(1)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: 6)
             Text(Money.cents(entry.amountCents))
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(entry.amountCents < 0 ? AppTheme.chore : AppTheme.blue)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .monospacedDigit()
         }
-        .padding(16)
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 96, maxHeight: 96)
         .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
@@ -303,11 +325,10 @@ private struct FamilyMemberRow: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(AppTheme.blueSoft, in: Capsule())
-                    if member.role == .child {
-                        Text(Money.cents(member.allowanceBalanceCents))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
-                    }
+                    Text(member.role == .child ? Money.cents(member.allowanceBalanceCents) : " ")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .lineLimit(1)
                 }
                 HStack(spacing: 8) {
                     Text("Profile")
@@ -321,7 +342,7 @@ private struct FamilyMemberRow: View {
                 .background(AppTheme.blue, in: Capsule())
             }
             .padding(20)
-            .frame(maxWidth: .infinity, minHeight: 280)
+            .frame(maxWidth: .infinity, minHeight: 318, maxHeight: 318)
             .background(AppTheme.card)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(

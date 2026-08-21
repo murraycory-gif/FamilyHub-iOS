@@ -4,6 +4,12 @@ import Foundation
 
 enum MemberRole: String, Codable, CaseIterable, Identifiable {
     case parent
+    case grandma
+    case grandpa
+    case aunt
+    case uncle
+    case cousin
+    case friend
     case child
     case dog
     case cat
@@ -14,6 +20,12 @@ enum MemberRole: String, Codable, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .parent: return "Parent"
+        case .grandma: return "Grandma"
+        case .grandpa: return "Grandpa"
+        case .aunt: return "Aunt"
+        case .uncle: return "Uncle"
+        case .cousin: return "Cousin"
+        case .friend: return "Friend"
         case .child: return "Kid"
         case .dog: return "Dog"
         case .cat: return "Cat"
@@ -31,6 +43,12 @@ enum MemberRole: String, Codable, CaseIterable, Identifiable {
     var defaultEmoji: String {
         switch self {
         case .parent: return "😎"
+        case .grandma: return "👵"
+        case .grandpa: return "👴"
+        case .aunt: return "👩"
+        case .uncle: return "👨"
+        case .cousin: return "🧒"
+        case .friend: return "🤝"
         case .child: return "🌟"
         case .dog: return "🐶"
         case .cat: return "🐱"
