@@ -403,6 +403,7 @@ struct MemberProfileView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         banner(member)
                         stats(member)
+                        contact(member)
                         today(member)
                         Button(action: onEdit) {
                             Label("Edit profile", systemImage: "pencil")
@@ -507,6 +508,82 @@ struct MemberProfileView: View {
         )
     }
 
+    private func contact(_ member: FamilyMember) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Contact")
+                .font(.title3.weight(.bold))
+            VStack(spacing: 0) {
+                contactRow(symbol: "gift.fill", title: "Birthday", value: birthdayText(member), empty: "Add birthday")
+                Divider().padding(.leading, 54)
+                contactLink(symbol: "envelope.fill", title: "Email", value: member.email, url: mailURL(member.email))
+                Divider().padding(.leading, 54)
+                contactLink(symbol: "phone.fill", title: "Phone", value: member.phone, url: telURL(member.phone))
+            }
+            .padding(.vertical, 6)
+            .background(AppTheme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(AppTheme.cardBorder, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        }
+    }
+
+    private func contactRow(symbol: String, title: String, value: String, empty: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.headline)
+                .foregroundStyle(AppTheme.blue)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.textTertiary)
+                Text(value.isEmpty ? empty : value)
+                    .font(.headline)
+                    .foregroundStyle(value.isEmpty ? AppTheme.textTertiary : AppTheme.text)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func contactLink(symbol: String, title: String, value: String, url: URL?) -> some View {
+        Group {
+            if let url, !value.isEmpty {
+                Link(destination: url) {
+                    contactRow(symbol: symbol, title: title, value: value, empty: "")
+                }
+                .buttonStyle(.plain)
+            } else {
+                contactRow(symbol: symbol, title: title, value: "", empty: "Add \(title.lowercased())")
+            }
+        }
+    }
+
+    private func birthdayText(_ member: FamilyMember) -> String {
+        guard let birthday = member.birthday else { return "" }
+        let day = birthday.formatted(date: .long, time: .omitted)
+        if let age = member.ageYears {
+            return "\(day)  ·  \(age) years"
+        }
+        return day
+    }
+
+    private func mailURL(_ email: String) -> URL? {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.contains("@") else { return nil }
+        return URL(string: "mailto:\(trimmed)")
+    }
+
+    private func telURL(_ phone: String) -> URL? {
+        let digits = phone.filter(\.isNumber)
+        guard digits.count >= 7 else { return nil }
+        return URL(string: "tel:\(digits)")
+    }
+
     private func today(_ member: FamilyMember) -> some View {
         let events = store.events(on: Date(), filter: .member(member.id))
         return VStack(alignment: .leading, spacing: 10) {
@@ -551,6 +628,10 @@ struct EditMemberSheet: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var photoData: Data?
     @State private var cropPayload: PhotoCropPayload?
+    @State private var email = ""
+    @State private var phone = ""
+    @State private var birthday = Date()
+    @State private var hasBirthday = false
 
     private let colorColumns = [GridItem(.adaptive(minimum: 36), spacing: 10)]
     private let emojiColumns = [GridItem(.adaptive(minimum: 44), spacing: 8)]
@@ -561,6 +642,7 @@ struct EditMemberSheet: View {
                 VStack(alignment: .leading, spacing: 22) {
                     preview
                     nameAndRole
+                    contactSection
                     photoSection
                     colorSection
                     emojiSection
@@ -576,6 +658,12 @@ struct EditMemberSheet: View {
                     colorHex = member.colorHex
                     symbol = member.displayEmoji
                     photoData = store.photo(for: member)
+                    email = member.email
+                    phone = member.phone
+                    if let day = member.birthday {
+                        birthday = day
+                        hasBirthday = true
+                    }
                 } else {
                     symbol = role.defaultEmoji
                 }
@@ -614,10 +702,16 @@ struct EditMemberSheet: View {
                             existing.role = role
                             existing.colorHex = colorHex
                             existing.symbol = symbol
+                            existing.email = email.trimmingCharacters(in: .whitespaces)
+                            existing.phone = phone.trimmingCharacters(in: .whitespaces)
+                            existing.birthday = hasBirthday ? birthday : nil
                             store.updateMember(existing)
                             store.setMemberPhoto(existing.id, data: photoData)
                         } else {
-                            let created = FamilyMember.make(name: trimmed, role: role, colorHex: colorHex, symbol: symbol)
+                            var created = FamilyMember.make(name: trimmed, role: role, colorHex: colorHex, symbol: symbol)
+                            created.email = email.trimmingCharacters(in: .whitespaces)
+                            created.phone = phone.trimmingCharacters(in: .whitespaces)
+                            created.birthday = hasBirthday ? birthday : nil
                             store.addMember(created)
                             store.setMemberPhoto(created.id, data: photoData)
                         }
@@ -680,6 +774,35 @@ struct EditMemberSheet: View {
                     FilterChip(title: item.label, color: AppTheme.blue, selected: role == item) {
                         role = item
                     }
+                }
+            }
+        }
+    }
+
+    private var contactSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel(title: "Contact")
+            VStack(spacing: 10) {
+                TextField("Email", text: $email)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(14)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                TextField("Phone", text: $phone)
+                    .keyboardType(.phonePad)
+                    .padding(14)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                Toggle("Birthday", isOn: $hasBirthday)
+                    .font(.headline)
+                    .tint(AppTheme.blue)
+                    .padding(14)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                if hasBirthday {
+                    DatePicker("Birthday", selection: $birthday, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .padding(14)
+                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
         }

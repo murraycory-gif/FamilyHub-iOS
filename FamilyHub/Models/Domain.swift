@@ -110,6 +110,48 @@ struct FamilyMember: Identifiable, Codable, Hashable {
     var colorHex: String
     var symbol: String
     var allowanceBalanceCents: Int
+    var birthday: Date?
+    var email: String
+    var phone: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, role, colorHex, symbol, allowanceBalanceCents, birthday, email, phone
+    }
+
+    init(
+        id: UUID,
+        name: String,
+        role: MemberRole,
+        colorHex: String,
+        symbol: String,
+        allowanceBalanceCents: Int,
+        birthday: Date? = nil,
+        email: String = "",
+        phone: String = ""
+    ) {
+        self.id = id
+        self.name = name
+        self.role = role
+        self.colorHex = colorHex
+        self.symbol = symbol
+        self.allowanceBalanceCents = allowanceBalanceCents
+        self.birthday = birthday
+        self.email = email
+        self.phone = phone
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        role = try c.decode(MemberRole.self, forKey: .role)
+        colorHex = try c.decode(String.self, forKey: .colorHex)
+        symbol = try c.decode(String.self, forKey: .symbol)
+        allowanceBalanceCents = try c.decodeIfPresent(Int.self, forKey: .allowanceBalanceCents) ?? 0
+        birthday = try c.decodeIfPresent(Date.self, forKey: .birthday)
+        email = try c.decodeIfPresent(String.self, forKey: .email) ?? ""
+        phone = try c.decodeIfPresent(String.self, forKey: .phone) ?? ""
+    }
 
     static func make(name: String, role: MemberRole, colorHex: String, symbol: String) -> FamilyMember {
         FamilyMember(
@@ -124,6 +166,11 @@ struct FamilyMember: Identifiable, Codable, Hashable {
 
     var displayEmoji: String {
         PersonStyle.emoji(fromStored: symbol)
+    }
+
+    var ageYears: Int? {
+        guard let birthday else { return nil }
+        return Calendar.current.dateComponents([.year], from: birthday, to: Date()).year
     }
 }
 
