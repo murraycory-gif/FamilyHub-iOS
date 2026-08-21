@@ -121,22 +121,23 @@ struct TodayView: View {
 
     private var homeTileH: CGFloat { sizeClass == .regular ? 168 : 148 }
 
-    private var greeting: String {
+    private var greetingLead: String { "Good" }
+
+    private var greetingTail: String {
         let hour = Calendar.current.component(.hour, from: Date())
-        if hour < 12 { return "Good morning" }
-        if hour < 17 { return "Good afternoon" }
-        return "Good evening"
+        if hour < 12 { return "Morning" }
+        if hour < 17 { return "Afternoon" }
+        return "Evening"
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(greeting)
-                .font(.system(size: 34, weight: .bold))
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(greetingLead)
                 .foregroundStyle(AppTheme.text)
-            Text(profileTitle)
-                .font(.title3.weight(.semibold))
+            Text(greetingTail)
                 .foregroundStyle(AppTheme.blue)
         }
+        .font(.system(size: 34, weight: .bold))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -296,7 +297,12 @@ struct TodayView: View {
             HubTileBanner(
                 symbol: "calendar",
                 title: Calendar.current.isDateInToday(selectedDay) ? "On Today's Agenda" : "On the Agenda"
-            )
+            ) {
+                Text(profileTitle)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+            }
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(dayHeadline)
@@ -616,33 +622,33 @@ struct TodayView: View {
     }
 
     private func dayRow(_ item: HubDayItem) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text(item.timeLabel)
-                .font(.subheadline.weight(.semibold).monospacedDigit())
-                .foregroundStyle(AppTheme.blue)
-                .frame(width: 72, alignment: .leading)
+        HStack(alignment: .center, spacing: 12) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(assigneeColor(for: item))
+                .frame(width: 6)
+                .frame(maxHeight: .infinity)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(item.title).font(.body.weight(.semibold))
-                    Text(item.kindLabel)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.textTertiary)
-                }
+                Text(item.timeLabel)
+                    .font(.headline.weight(.bold).monospacedDigit())
+                    .foregroundStyle(AppTheme.blue)
+                Text(item.title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .fixedSize(horizontal: false, vertical: true)
                 if !item.detail.isEmpty {
                     Text(item.detail)
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
+                        .lineLimit(2)
                 }
             }
-            Spacer(minLength: 0)
-            if profile == .family {
-                Text(assigneeName(for: item))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(assigneeColor(for: item))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(assigneeColor(for: item).opacity(0.14), in: Capsule())
-            }
+            Spacer(minLength: 8)
+            Text(assigneeName(for: item))
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(assigneeColor(for: item))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(assigneeColor(for: item).opacity(0.16), in: Capsule())
         }
         .padding(.vertical, 8)
     }
@@ -773,16 +779,17 @@ struct TodayView: View {
     }
 
     private var familySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                SectionLabel(title: "Family")
-                Spacer()
-                Text("Tap a person for their day · tap an event for calendar")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.textTertiary)
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            HubTileBanner(symbol: "house.fill", title: "HUB")
             memberStrip
+                .padding(12)
         }
+        .background(AppTheme.blueSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
     }
 
     private var memberStrip: some View {

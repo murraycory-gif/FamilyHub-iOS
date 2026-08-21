@@ -466,17 +466,17 @@ struct HubTileBanner<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
-                .font(.subheadline.weight(.bold))
+                .font(.body.weight(.bold))
             Text(title)
-                .font(.subheadline.weight(.bold))
+                .font(.headline.weight(.bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
             Spacer(minLength: 0)
             trailing
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.blue)
     }
