@@ -691,17 +691,27 @@ private struct CatalogRecipePicker: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Recipes")
                     .font(.system(size: 28, weight: .bold))
-                Text("Tap a recipe to see the photo, ingredients, and steps.")
+                Text("American dinners load instantly. Search or tap a style.")
                     .foregroundStyle(AppTheme.textSecondary)
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                    TextField("Chicken, tacos, pasta…", text: $catalog.query)
+                    TextField("Burger, chili, tacos, fried chicken…", text: $catalog.query)
                         .textFieldStyle(.plain)
                         .onSubmit { Task { await catalog.search() } }
                     if catalog.isLoading { ProgressView() }
                 }
                 .padding(14)
                 .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(catalog.categories, id: \.self) { item in
+                            FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
+                                catalog.category = item
+                                Task { await catalog.search() }
+                            }
+                        }
+                    }
+                }
                 if let message = catalog.message {
                     Text(message).foregroundStyle(AppTheme.textSecondary)
                 }

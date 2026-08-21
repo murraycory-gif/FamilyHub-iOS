@@ -27,55 +27,97 @@ struct CatalogRecipe: Identifiable, Hashable {
 @MainActor
 final class RecipeCatalog: ObservableObject {
     @Published var recipes: [CatalogRecipe] = []
-    @Published var categories: [String] = []
+    @Published var categories: [String] = ["American", "BBQ", "Southern", "Tex-Mex", "Diner", "Comfort", "Weeknight", "Holiday", "All"]
     @Published var query = ""
-    @Published var category = "All"
+    @Published var category = "American"
     @Published var isLoading = false
     @Published var message: String?
 
     func load() async {
-        if categories.isEmpty {
-            categories = ["All"] + ((try? await MealDB.categories()) ?? [])
+        applyFilter()
+        if category == "All" {
+            Task { await streamWorld() }
         }
-        isLoading = true
-        message = nil
-        do {
-            recipes = try await MealDB.letters("abc")
-            if recipes.isEmpty { message = "No recipes right now." }
-        } catch {
-            message = "Could not load recipes right now."
-        }
-        isLoading = false
-        Task { await loadMore() }
     }
 
     func loadMore() async {
-        let have = Set(recipes.map(\.id))
-        let extra = (try? await MealDB.letters("defghijklmnopqrstuvwxyz", excluding: have)) ?? []
-        if !extra.isEmpty { recipes.append(contentsOf: extra) }
+        await streamWorld()
     }
 
     func search() async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            applyFilter()
+            if category == "All" { await streamWorld() }
+            return
+        }
         isLoading = true
         message = nil
-        defer { isLoading = false }
-        do {
-            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                recipes = try await MealDB.search(trimmed)
-            } else if category != "All" {
-                recipes = try await MealDB.filter(category: category)
-            } else if recipes.isEmpty {
-                recipes = try await MealDB.letters("abc")
-            }
-            if recipes.isEmpty { message = "No recipes for that search." }
-        } catch {
-            message = "Could not load recipes right now."
+        let needle = trimmed.lowercased()
+        var seen = Set<String>()
+        var result: [CatalogRecipe] = []
+        for item in AmericanKitchen.recipes where matches(item, needle) {
+            if seen.insert(item.id).inserted { result.append(item) }
         }
+        recipes = result
+        isLoading = false
+        if let remote = try? await MealDB.search(trimmed) {
+            for item in remote where seen.insert(item.id).inserted {
+                result.append(item)
+            }
+            recipes = result
+        }
+        if recipes.isEmpty { message = "No recipes for that search." }
     }
 
     func detail(id: String) async -> CatalogRecipe? {
-        try? await MealDB.lookup(id)
+        if let local = AmericanKitchen.recipes.first(where: { $0.id == id }) {
+            return local
+        }
+        if let existing = recipes.first(where: { $0.id == id }), !existing.instructions.isEmpty {
+            return existing
+        }
+        return try? await MealDB.lookup(id)
+    }
+
+    private func applyFilter() {
+        message = nil
+        if category == "All" {
+            recipes = AmericanKitchen.recipes
+        } else if category == "American" {
+            recipes = AmericanKitchen.recipes
+        } else {
+            recipes = AmericanKitchen.recipes.filter { $0.category == category }
+        }
+        if recipes.isEmpty { message = "No recipes in that category yet." }
+    }
+
+    private func matches(_ item: CatalogRecipe, _ needle: String) -> Bool {
+        item.name.lowercased().contains(needle)
+            || item.category.lowercased().contains(needle)
+            || item.area.lowercased().contains(needle)
+            || item.ingredients.joined(separator: " ").lowercased().contains(needle)
+    }
+
+    private func streamWorld() async {
+        let areas = [
+            "American", "Canadian", "Mexican", "British", "Italian", "Chinese", "Indian",
+            "French", "Japanese", "Thai", "Greek", "Spanish", "Jamaican", "Moroccan",
+            "Irish", "Vietnamese", "Turkish", "Polish", "Portuguese", "Filipino"
+        ]
+        await withTaskGroup(of: [CatalogRecipe].self) { group in
+            for area in areas {
+                group.addTask { (try? await MealDB.filter(area: area)) ?? [] }
+            }
+            var seen = Set(recipes.map(\.id))
+            seen.formUnion(Set(AmericanKitchen.recipes.map(\.id)))
+            for await batch in group {
+                let extra = batch.filter { seen.insert($0.id).inserted }
+                if !extra.isEmpty {
+                    recipes.append(contentsOf: extra)
+                }
+            }
+        }
     }
 }
 
@@ -104,16 +146,16 @@ enum MealDB {
 
     static func filter(category: String) async throws -> [CatalogRecipe] {
         let encoded = category.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? category
-        let short = try await get("filter.php?c=\(encoded)")
-        var full: [CatalogRecipe] = []
-        for item in short.prefix(16) {
-            if let detail = try? await lookup(item.id) {
-                full.append(detail)
-            } else {
-                full.append(item)
-            }
+        return try await get("filter.php?c=\(encoded)")
+    }
+
+    static func filter(area: String) async throws -> [CatalogRecipe] {
+        let encoded = area.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? area
+        return try await get("filter.php?a=\(encoded)").map { item in
+            var copy = item
+            if copy.area.isEmpty { copy.area = area }
+            return copy
         }
-        return full
     }
 
     static func lookup(_ id: String) async throws -> CatalogRecipe? {
