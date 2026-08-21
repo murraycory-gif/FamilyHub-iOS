@@ -14,7 +14,8 @@ struct TodayView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var profile: HubProfile = .family
     @State private var selectedDay = Date()
-    @State private var showMoreDates = false
+    @State private var showDayMenu = false
+    @State private var showProfileMenu = false
     @StateObject private var weather = WeatherLoader()
     @State private var showWeatherOutlook = false
     @State private var showWeatherPlace = false
@@ -56,17 +57,81 @@ struct TodayView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .sheet(isPresented: $showMoreDates) {
+        .sheet(isPresented: $showDayMenu) {
             NavigationStack {
-                DatePicker("Day", selection: $selectedDay, displayedComponents: .date)
-                    .datePickerStyle(.graphical)
-                    .padding()
-                    .navigationTitle("Pick a day")
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { showMoreDates = false }
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(upcomingDays, id: \.self) { day in
+                            Button {
+                                selectedDay = day
+                                showDayMenu = false
+                            } label: {
+                                filterChoiceRow(
+                                    title: menuDayLabel(day),
+                                    detail: day.formatted(.dateTime.month(.abbreviated).day().weekday(.wide)),
+                                    selected: Calendar.current.isDate(day, inSameDayAs: selectedDay)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        DatePicker("Day", selection: $selectedDay, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .padding(.top, 8)
+                            .tint(AppTheme.blue)
+                    }
+                    .padding(20)
+                }
+                .background(AppTheme.bg.ignoresSafeArea())
+                .navigationTitle("Pick a day")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showDayMenu = false }
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showProfileMenu) {
+            NavigationStack {
+                ScrollView {
+                    VStack(spacing: 8) {
+                        Button {
+                            profile = .family
+                            showProfileMenu = false
+                        } label: {
+                            filterChoiceRow(title: "Whole family", detail: store.householdName, selected: profile == .family)
+                        }
+                        .buttonStyle(.plain)
+                        ForEach(store.members) { member in
+                            Button {
+                                profile = .member(member.id)
+                                showProfileMenu = false
+                            } label: {
+                                filterChoiceRow(
+                                    title: member.name,
+                                    detail: member.role.label,
+                                    selected: profile == .member(member.id),
+                                    color: Color(hex: member.colorHex)
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
+                    .padding(20)
+                }
+                .background(AppTheme.bg.ignoresSafeArea())
+                .navigationTitle("Who’s Hub")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showProfileMenu = false }
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                    }
+                }
             }
             .presentationDetents([.medium, .large])
         }
@@ -138,49 +203,67 @@ struct TodayView: View {
     }
 
     private var dateButton: some View {
-        Menu {
-            ForEach(upcomingDays, id: \.self) { day in
-                Button {
-                    selectedDay = day
-                } label: {
-                    if Calendar.current.isDate(day, inSameDayAs: selectedDay) {
-                        Label(menuDayLabel(day), systemImage: "checkmark")
-                    } else {
-                        Text(menuDayLabel(day))
-                    }
-                }
-            }
-            Divider()
-            Button("More dates…") { showMoreDates = true }
-        } label: {
+        Button { showDayMenu = true } label: {
             filterBanner(symbol: "calendar", title: shortDayName)
         }
+        .buttonStyle(.plain)
     }
 
     private var profileButton: some View {
-        Menu {
-            Button {
-                profile = .family
-            } label: {
-                Label("Whole family", systemImage: profile == .family ? "checkmark" : "person.3.fill")
-            }
-            ForEach(store.members) { member in
-                Button {
-                    profile = .member(member.id)
-                } label: {
-                    if profile == .member(member.id) {
-                        Label(member.name, systemImage: "checkmark")
-                    } else {
-                        Text(member.name)
-                    }
-                }
-            }
-        } label: {
+        Button { showProfileMenu = true } label: {
             filterBanner(symbol: "person.3.fill", title: shortProfileName)
         }
+        .buttonStyle(.plain)
     }
 
     private func filterBanner(symbol: String, title: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.body.weight(.bold))
+            Text(title)
+                .font(.headline.weight(.bold))
+                .lineLimit(1)
+            Image(systemName: "chevron.down")
+                .font(.caption.weight(.bold))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(AppTheme.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func filterChoiceRow(title: String, detail: String = "", selected: Bool, color: Color = AppTheme.blue) -> some View {
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(color)
+                .frame(width: 6, height: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                if !detail.isEmpty {
+                    Text(detail)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+            }
+            Spacer()
+            if selected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(AppTheme.blue)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+        .background(selected ? AppTheme.blueSoft : AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(selected ? AppTheme.blue : AppTheme.cardBorder, lineWidth: selected ? 3 : 1)
+        )
+        .contentShape(Rectangle())
+    }
         HStack(spacing: 8) {
             Image(systemName: symbol)
                 .font(.body.weight(.bold))
