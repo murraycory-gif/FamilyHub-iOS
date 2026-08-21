@@ -23,49 +23,38 @@ struct TodayView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let familyH = max(geo.size.height * 0.36, sizeClass == .regular ? 280 : 240)
+            let familyH = max(geo.size.height * 0.46, sizeClass == .regular ? 340 : 280)
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 14) {
                     header
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        weatherTile
-                            .frame(minHeight: homeTileH, maxHeight: homeTileH)
-                        nextEventTile
-                            .frame(minHeight: homeTileH, maxHeight: homeTileH)
+                    HStack(alignment: .top, spacing: 12) {
+                        agenda
+                            .frame(maxWidth: .infinity)
+                            .frame(maxHeight: .infinity)
+                        VStack(spacing: 12) {
+                            weatherTile
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            shoppingTile
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                        .frame(maxWidth: .infinity)
                         dinnerHomeTile
-                            .frame(minHeight: homeTileH, maxHeight: homeTileH)
-                        shoppingTile
-                            .frame(minHeight: homeTileH, maxHeight: homeTileH)
-                        homeStatTile(
-                            title: "Chores",
-                            value: "\(focusedChores.count)",
-                            symbol: "checkmark.circle.fill",
-                            color: AppTheme.chore,
-                            soft: AppTheme.choreSoft
-                        ) { router.open(.chores) }
-                        .frame(minHeight: homeTileH, maxHeight: homeTileH)
-                        homeStatTile(
-                            title: "Reminders",
-                            value: "\(focusedReminders.count)",
-                            detail: "\(focusedTodos.count) to-dos",
-                            symbol: "bell.fill",
-                            color: AppTheme.reminder,
-                            soft: AppTheme.reminderSoft
-                        ) { router.open(.lists, list: .reminders) }
-                        .frame(minHeight: homeTileH, maxHeight: homeTileH)
+                            .frame(maxWidth: .infinity)
+                            .frame(maxHeight: .infinity)
                     }
                     .frame(maxHeight: .infinity)
+                    .simultaneousGesture(daySwipe)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 2)
-                .padding(.bottom, 10)
+                .padding(.bottom, 8)
                 familySection
                     .padding(.horizontal, 24)
+                    .padding(.bottom, 18)
                     .frame(height: familyH)
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .ignoresSafeArea(edges: .bottom)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 8) {
@@ -469,9 +458,10 @@ struct TodayView: View {
         let plan = store.dinner(on: selectedDay)
         return Button { showDinner = true } label: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Tonight")
+                Text(Calendar.current.isDateInToday(selectedDay) ? "What's For Dinner Tonight" : "What's For Dinner")
                     .font(.headline)
                     .foregroundStyle(AppTheme.text)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Text(dinnerEyebrow(plan))
                     .font(.caption.weight(.bold))
@@ -889,6 +879,14 @@ private struct FamilyFocusCard: View {
             .contentShape(Rectangle())
             .onTapGesture { onSelect() }
 
+            DayStatusRow(
+                chores: store.openAssignments(for: nil).filter { $0.status == .pending && Calendar.current.isDate($0.dueOn, inSameDayAs: day) }.count,
+                reminders: store.reminders.filter { !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false) }.count,
+                todos: store.todos.filter { !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false) }.count
+            )
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+
             posterEvents(events, onEvent: onEvent)
                 .padding(14)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -918,9 +916,19 @@ private struct MemberHomeCard: View {
     var onEvent: (CalendarEvent) -> Void
     @State private var showStudio = false
 
-    private var chores: [ChoreAssignment] { store.openAssignments(for: member.id) }
-    private var reminders: [ReminderItem] { store.openReminders(for: member.id) }
-    private var todos: [TodoItem] { store.openTodos(for: member.id) }
+    private var chores: [ChoreAssignment] {
+        store.openAssignments(for: member.id).filter { $0.status == .pending && Calendar.current.isDate($0.dueOn, inSameDayAs: day) }
+    }
+    private var reminders: [ReminderItem] {
+        store.openReminders(for: member.id).filter { item in
+            item.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false
+        }
+    }
+    private var todos: [TodoItem] {
+        store.openTodos(for: member.id).filter { item in
+            item.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false
+        }
+    }
     private var events: [CalendarEvent] {
         store.events(on: day, filter: .member(member.id))
     }
@@ -956,6 +964,10 @@ private struct MemberHomeCard: View {
             }
             .contentShape(Rectangle())
             .onTapGesture { onSelect() }
+
+            DayStatusRow(chores: chores.count, reminders: reminders.count, todos: todos.count)
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
 
             posterEvents(events, onEvent: onEvent)
                 .padding(14)
@@ -1035,6 +1047,38 @@ private func posterBanner<Trailing: View>(
         }
         .clipped()
 }
+
+private struct DayStatusRow: View {
+    let chores: Int
+    let reminders: Int
+    let todos: Int
+
+    var body: some View {
+        HStack(spacing: 8) {
+            box(AppTheme.chore, AppTheme.choreSoft, "checkmark.circle.fill", chores, "Chores")
+            box(AppTheme.reminder, AppTheme.reminderSoft, "bell.fill", reminders, "Remind")
+            box(AppTheme.todo, AppTheme.todoSoft, "square.and.pencil", todos, "To-dos")
+        }
+    }
+
+    private func box(_ color: Color, _ soft: Color, _ symbol: String, _ count: Int, _ title: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: symbol)
+            Text("\(count)")
+                .monospacedDigit()
+            Text(title)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .font(.system(size: 11, weight: .bold))
+        .foregroundStyle(color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity)
+        .background(soft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
 private func posterChip(_ text: String) -> some View {
     Text(text)
         .font(.system(size: 11, weight: .bold))
