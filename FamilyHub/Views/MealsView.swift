@@ -519,47 +519,49 @@ private struct EatOutPicker: View {
                 if let message = places.message {
                     Text(message).foregroundStyle(AppTheme.textSecondary)
                 }
-                ForEach(places.places) { place in
-                    Button { opened = place } label: {
-                        HStack(spacing: 14) {
-                            PlacePhoto(coordinate: place.coordinate)
-                                .frame(width: 88, height: 88)
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(place.name)
-                                    .font(.headline.weight(.bold))
-                                    .foregroundStyle(AppTheme.text)
-                                    .lineLimit(2)
-                                Text(place.mode.title)
+                LazyVStack(spacing: 14) {
+                    ForEach(places.places) { place in
+                        Button { opened = place } label: {
+                            HStack(spacing: 14) {
+                                PlaceThumb(mode: place.mode)
+                                    .frame(width: 88, height: 88)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(place.name)
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(AppTheme.text)
+                                        .lineLimit(2)
+                                    Text(place.mode.title)
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(AppTheme.blue)
+                                    if !place.address.isEmpty {
+                                        Text(place.address)
+                                            .font(.subheadline)
+                                            .foregroundStyle(AppTheme.textSecondary)
+                                            .lineLimit(1)
+                                    }
+                                    if let distance = place.distanceLabel {
+                                        Text(distance)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(AppTheme.textTertiary)
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
                                     .font(.caption.weight(.bold))
-                                    .foregroundStyle(AppTheme.blue)
-                                if !place.address.isEmpty {
-                                    Text(place.address)
-                                        .font(.subheadline)
-                                        .foregroundStyle(AppTheme.textSecondary)
-                                        .lineLimit(1)
-                                }
-                                if let distance = place.distanceLabel {
-                                    Text(distance)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(AppTheme.textTertiary)
-                                }
+                                    .foregroundStyle(AppTheme.textTertiary)
                             }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(AppTheme.textTertiary)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+                            .background(AppTheme.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                    .stroke(AppTheme.cardBorder, lineWidth: 1)
+                            )
                         }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(AppTheme.cardBorder, lineWidth: 1)
-                        )
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(20)
@@ -572,9 +574,6 @@ private struct EatOutPicker: View {
         .task {
             await places.useHere()
             if let here = places.userLocation { completer.setRegion(here) }
-        }
-        .onChange(of: places.userLocation) { _, location in
-            if let location { completer.setRegion(location) }
         }
     }
 }
@@ -888,6 +887,19 @@ struct RecipePhoto: View {
               let loaded = UIImage(data: data) else { return }
         RecipeImageCache.shared.set(loaded, for: url)
         image = loaded
+    }
+}
+
+struct PlaceThumb: View {
+    var mode: PlaceMode
+
+    var body: some View {
+        ZStack {
+            AppTheme.blueSoft
+            Image(systemName: mode == .takeout ? "bag.fill" : "fork.knife")
+                .font(.title.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+        }
     }
 }
 

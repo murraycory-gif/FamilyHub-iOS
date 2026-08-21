@@ -231,14 +231,13 @@ final class PlacesSearch: ObservableObject {
         var result = places
         if let osm = try? await searchOSM(around: location) {
             merge(osm, into: &result, seen: &seen)
-            places = sortedPlaces(result)
         }
         for query in ["pizza", "coffee", "burgers", "tacos", "chinese food", "mexican food", "breakfast", "cafe"] {
             if let named = try? await searchNamed(query, around: location, requireFood: false) {
                 merge(named, into: &result, seen: &seen)
-                places = sortedPlaces(result)
             }
         }
+        places = sortedPlaces(result)
         if places.isEmpty {
             message = "No restaurants found near \(areaName)."
         } else {
@@ -261,7 +260,9 @@ final class PlacesSearch: ObservableObject {
     }
 
     private func sortedPlaces(_ items: [NearbyPlace]) -> [NearbyPlace] {
-        items.sorted { left, right in
+        var seen = Set<String>()
+        let unique = items.filter { seen.insert($0.id).inserted }
+        return unique.sorted { left, right in
             (left.distance ?? .greatestFiniteMagnitude) < (right.distance ?? .greatestFiniteMagnitude)
         }
     }
