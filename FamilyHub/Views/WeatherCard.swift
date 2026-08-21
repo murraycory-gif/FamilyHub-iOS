@@ -44,13 +44,15 @@ enum WeatherSky {
 struct WeatherAtmosphere: View {
     let code: Int
     let isDay: Bool
+    var showPhotos: Bool = true
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: false)) { timeline in
             AtmosphereLayers(
                 code: code,
                 isDay: isDay,
-                time: timeline.date.timeIntervalSinceReferenceDate
+                time: timeline.date.timeIntervalSinceReferenceDate,
+                showPhotos: showPhotos
             )
         }
         .allowsHitTesting(false)
@@ -62,6 +64,7 @@ private struct AtmosphereLayers: View {
     let code: Int
     let isDay: Bool
     let time: TimeInterval
+    var showPhotos: Bool = true
 
     private var kind: WeatherSky.Kind { WeatherSky.Kind.from(code: code, isDay: isDay) }
 
@@ -79,7 +82,9 @@ private struct AtmosphereLayers: View {
                     }
                 }
                 skyBody(size: geo.size)
-                driftingSky(size: geo.size)
+                if showPhotos {
+                    driftingSky(size: geo.size)
+                }
                 weatherFX(size: geo.size)
             }
         }
@@ -537,31 +542,28 @@ struct WeatherOutlookView: View {
     private var isToday: Bool { Calendar.current.isDateInToday(day) }
     private var weekLow: Int { weather.days.map(\.low).min() ?? 0 }
     private var weekHigh: Int { weather.days.map(\.high).max() ?? 100 }
-
     private var skyIsDay: Bool { isToday ? (weather.now?.isDay ?? true) : true }
     private var skyCode: Int { isToday ? (weather.now?.code ?? selected?.code ?? 2) : (selected?.code ?? 2) }
+    private var now: WeatherNow? { weather.now }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                WeatherAtmosphere(code: skyCode, isDay: skyIsDay)
-                    .ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        hero
-                        hourlyCard
-                        weekCard
-                    }
-                    .padding(20)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    hero
+                    detailsGrid
+                    hourlyCard
+                    dailyCard
                 }
+                .padding(20)
             }
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .background(AppTheme.bg.ignoresSafeArea())
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppTheme.blue)
                 }
                 ToolbarItem(placement: .principal) {
                     Button { showPlace = true } label: {
@@ -573,7 +575,7 @@ struct WeatherOutlookView: View {
                                 .font(.caption.weight(.bold))
                         }
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppTheme.text)
                     }
                 }
             }
@@ -586,99 +588,179 @@ struct WeatherOutlookView: View {
     }
 
     private var hero: some View {
-        VStack(spacing: 4) {
-            Text(store.weatherPlace?.label.split(separator: ",").first.map(String.init) ?? "Weather")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.white)
-            Text("\(isToday ? (weather.now?.temp ?? selected?.high ?? 0) : (selected?.high ?? 0))°")
-                .font(.system(size: 96, weight: .thin))
-                .monospacedDigit()
-                .foregroundStyle(.white)
-            Text(isToday ? (weather.now?.condition ?? "") : WeatherIcon.condition(for: selected?.code ?? 2))
-                .font(.title3.weight(.medium))
-                .foregroundStyle(.white.opacity(0.92))
-            Text("H:\(selected?.high ?? 0)°   L:\(selected?.low ?? 0)°")
-                .font(.headline.monospacedDigit())
-                .foregroundStyle(.white.opacity(0.9))
-            if isToday, let feels = weather.now?.feelsLike {
-                Text("Feels like \(feels)°")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.8))
+        ZStack {
+            WeatherAtmosphere(code: skyCode, isDay: skyIsDay, showPhotos: false)
+            VStack(spacing: 4) {
+                Text(store.weatherPlace?.label.split(separator: ",").first.map(String.init) ?? "Weather")
+                    .font(.title3.weight(.semibold))
+                Text("\(isToday ? (now?.temp ?? selected?.high ?? 0) : (selected?.high ?? 0))°")
+                    .font(.system(size: 84, weight: .thin))
+                    .monospacedDigit()
+                Text(isToday ? (now?.condition ?? "") : WeatherIcon.condition(for: selected?.code ?? 2))
+                    .font(.title3.weight(.medium))
+                Text("H:\(selected?.high ?? 0)°   L:\(selected?.low ?? 0)°")
+                    .font(.headline.monospacedDigit())
+                if isToday, let feels = now?.feelsLike {
+                    Text("Feels like \(feels)°")
+                        .font(.subheadline.weight(.medium))
+                        .opacity(0.9)
+                }
             }
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.25), radius: 8, y: 1)
+            .padding(.vertical, 28)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var detailsGrid: some View {
+        let uv = isToday ? (now?.uv ?? selected?.uv ?? 0) : (selected?.uv ?? 0)
+        let humidity = now?.humidity ?? 0
+        let wind = isToday ? (now?.windMph ?? selected?.windMph ?? 0) : (selected?.windMph ?? 0)
+        let rain = selected?.precip ?? 0
+        let rise = selected?.sunrise
+        let set = selected?.sunset
+        let tiles: [(String, String, String)] = [
+            ("thermometer.medium", "Feels like", isToday ? "\(now?.feelsLike ?? 0)°" : "—"),
+            ("humidity", "Humidity", isToday ? "\(humidity)%" : "—"),
+            ("wind", "Wind", "\(wind) mph"),
+            ("sun.max", "UV index", uvLabel(uv)),
+            ("sunrise", "Sunrise", rise.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—"),
+            ("sunset", "Sunset", set.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—"),
+            ("cloud.rain", "Rain chance", "\(rain)%"),
+        ]
+        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+            ForEach(tiles, id: \.1) { tile in
+                VStack(alignment: .leading, spacing: 6) {
+                    Label(tile.1, systemImage: tile.0)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.textTertiary)
+                        .labelStyle(.titleAndIcon)
+                    Text(tile.2)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.text)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
+            }
+        }
     }
 
     private var hourlyCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(isToday ? "Hourly" : day.formatted(.dateTime.weekday(.wide)))
+            Text("Hourly")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(AppTheme.textTertiary)
                 .textCase(.uppercase)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(Array(hours.prefix(24).enumerated()), id: \.element.id) { index, hour in
+                HStack(spacing: 14) {
+                    ForEach(Array(hours.prefix(48).enumerated()), id: \.element.id) { index, hour in
                         VStack(spacing: 8) {
                             Text(index == 0 && isToday ? "Now" : hour.at.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).replacingOccurrences(of: " ", with: ""))
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.85))
+                                .foregroundStyle(AppTheme.textSecondary)
                             Image(systemName: hour.symbolName)
                                 .font(.title3)
                                 .symbolRenderingMode(.multicolor)
+                                .frame(height: 22)
                             if hour.precip >= 20 {
                                 Text("\(hour.precip)%")
                                     .font(.system(size: 10, weight: .bold).monospacedDigit())
-                                    .foregroundStyle(Color(hex: "A8D8FF"))
+                                    .foregroundStyle(AppTheme.blue)
                             }
                             Text("\(hour.temp)°")
                                 .font(.subheadline.weight(.semibold).monospacedDigit())
-                                .foregroundStyle(.white)
+                                .foregroundStyle(AppTheme.text)
                         }
-                        .frame(width: 48)
+                        .frame(width: 52)
                     }
                 }
             }
         }
         .padding(16)
-        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
     }
 
-    private var weekCard: some View {
+    private var dailyCard: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("7-day forecast")
+            Text("\(weather.days.count)-day forecast")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(AppTheme.textTertiary)
                 .textCase(.uppercase)
                 .padding(.bottom, 6)
             ForEach(Array(weather.days.enumerated()), id: \.element.id) { index, item in
                 HStack(spacing: 8) {
-                    Text(index == 0 ? "Today" : item.weekday)
+                    Text(dayLabel(index, iso: item.dateISO, weekday: item.weekday))
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 52, alignment: .leading)
+                        .foregroundStyle(AppTheme.text)
+                        .frame(width: 72, alignment: .leading)
                     Image(systemName: item.symbolName)
                         .symbolRenderingMode(.multicolor)
                         .frame(width: 28)
+                    if item.precip >= 20 {
+                        Text("\(item.precip)%")
+                            .font(.caption.weight(.bold).monospacedDigit())
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(width: 36)
+                    } else {
+                        Color.clear.frame(width: 36)
+                    }
                     Text("\(item.low)°")
                         .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(AppTheme.textTertiary)
                         .frame(width: 32, alignment: .trailing)
                     TempRangeBar(low: item.low, high: item.high, weekLow: weekLow, weekHigh: weekHigh)
                     Text("\(item.high)°")
                         .font(.subheadline.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppTheme.text)
                         .frame(width: 32, alignment: .trailing)
                 }
                 .padding(.vertical, 8)
                 if index < weather.days.count - 1 {
-                    Divider().overlay(Color.white.opacity(0.12))
+                    Divider()
                 }
             }
         }
         .padding(16)
-        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+    }
+
+    private func dayLabel(_ index: Int, iso: String, weekday: String) -> String {
+        if index == 0 { return "Today" }
+        let stamp = DateFormatter()
+        stamp.dateFormat = "yyyy-MM-dd"
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = stamp.date(from: iso) else { return weekday }
+        if Calendar.current.isDateInTomorrow(date) { return "Tomorrow" }
+        if index < 7 { return weekday }
+        return date.formatted(.dateTime.weekday(.abbreviated).month(.defaultDigits).day())
+    }
+
+    private func uvLabel(_ value: Int) -> String {
+        switch value {
+        case 0: return "0 Low"
+        case 1...2: return "\(value) Low"
+        case 3...5: return "\(value) Mod"
+        case 6...7: return "\(value) High"
+        case 8...10: return "\(value) Very high"
+        default: return "\(value) Extreme"
+        }
     }
 }
 

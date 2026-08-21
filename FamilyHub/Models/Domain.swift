@@ -582,6 +582,10 @@ struct WeatherDay: Identifiable, Hashable {
     var low: Int
     var code: Int
     var precip: Int
+    var uv: Int = 0
+    var windMph: Int = 0
+    var sunrise: Date? = nil
+    var sunset: Date? = nil
 
     var id: String { dateISO }
 
@@ -593,6 +597,10 @@ struct WeatherNow: Hashable {
     var feelsLike: Int
     var code: Int
     var isDay: Bool
+    var humidity: Int = 0
+    var windMph: Int = 0
+    var uv: Int = 0
+    var precip: Int = 0
 
     var symbolName: String { WeatherIcon.symbol(for: code, isDay: isDay) }
     var condition: String { WeatherIcon.condition(for: code, isDay: isDay) }

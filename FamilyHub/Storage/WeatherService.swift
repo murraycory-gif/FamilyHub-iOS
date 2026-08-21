@@ -99,12 +99,13 @@ enum WeatherAPI {
         components.queryItems = [
             URLQueryItem(name: "latitude", value: String(place.latitude)),
             URLQueryItem(name: "longitude", value: String(place.longitude)),
-            URLQueryItem(name: "current", value: "temperature_2m,apparent_temperature,weather_code,is_day"),
-            URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation_probability,is_day"),
-            URLQueryItem(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset"),
+            URLQueryItem(name: "current", value: "temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m,precipitation"),
+            URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation_probability,is_day,uv_index"),
+            URLQueryItem(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max,wind_speed_10m_max"),
             URLQueryItem(name: "temperature_unit", value: "fahrenheit"),
+            URLQueryItem(name: "wind_speed_unit", value: "mph"),
             URLQueryItem(name: "timezone", value: "auto"),
-            URLQueryItem(name: "forecast_days", value: "7"),
+            URLQueryItem(name: "forecast_days", value: "16"),
         ]
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         return try JSONDecoder().decode(ForecastResponse.self, from: data).bundle()
@@ -146,6 +147,9 @@ private struct ForecastResponse: Decodable {
         var apparent_temperature: Double
         var weather_code: Int
         var is_day: Int
+        var relative_humidity_2m: Int?
+        var wind_speed_10m: Double?
+        var precipitation: Double?
     }
 
     struct Hourly: Decodable {
@@ -154,6 +158,7 @@ private struct ForecastResponse: Decodable {
         var weather_code: [Int]
         var precipitation_probability: [Int]?
         var is_day: [Int]?
+        var uv_index: [Double]?
     }
 
     struct Daily: Decodable {
@@ -164,6 +169,8 @@ private struct ForecastResponse: Decodable {
         var precipitation_probability_max: [Int]?
         var sunrise: [String]?
         var sunset: [String]?
+        var uv_index_max: [Double]?
+        var wind_speed_10m_max: [Double]?
     }
 
     func bundle() -> WeatherBundle {
@@ -192,11 +199,25 @@ private struct ForecastResponse: Decodable {
             return current.is_day == 1
         }()
 
+        let nowHourIndex = hourly.time.indices.first { index in
+            abs(parseHour(hourly.time[index]).timeIntervalSinceNow) < 45 * 60
+        }
+        let nowUV: Int = {
+            if let idx = nowHourIndex, let uvs = hourly.uv_index, idx < uvs.count {
+                return Int(uvs[idx].rounded())
+            }
+            return Int((daily.uv_index_max?.first ?? 0).rounded())
+        }()
+
         let now = WeatherNow(
             temp: Int(current.temperature_2m.rounded()),
             feelsLike: Int(current.apparent_temperature.rounded()),
             code: current.weather_code,
-            isDay: sunIsUp
+            isDay: sunIsUp,
+            humidity: current.relative_humidity_2m ?? 0,
+            windMph: Int((current.wind_speed_10m ?? 0).rounded()),
+            uv: nowUV,
+            precip: Int((current.precipitation ?? 0).rounded())
         )
 
         let start = Date().addingTimeInterval(-30 * 60)
@@ -220,7 +241,7 @@ private struct ForecastResponse: Decodable {
                 isDay: hourIsDay
             )
         }
-        .prefix(168)
+        .prefix(384)
         .map { $0 }
 
         let days: [WeatherDay] = zip(daily.time.indices, daily.time).map { index, isoDay in
@@ -231,7 +252,11 @@ private struct ForecastResponse: Decodable {
                 high: Int(daily.temperature_2m_max[index].rounded()),
                 low: Int(daily.temperature_2m_min[index].rounded()),
                 code: daily.weather_code[index],
-                precip: daily.precipitation_probability_max?[index] ?? 0
+                precip: daily.precipitation_probability_max?[index] ?? 0,
+                uv: Int((daily.uv_index_max?[index] ?? 0).rounded()),
+                windMph: Int((daily.wind_speed_10m_max?[index] ?? 0).rounded()),
+                sunrise: index < sunriseDates.count ? sunriseDates[index] : nil,
+                sunset: index < sunsetDates.count ? sunsetDates[index] : nil
             )
         }
 
