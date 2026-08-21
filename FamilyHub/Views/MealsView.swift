@@ -1,5 +1,6 @@
 import MapKit
 import SwiftUI
+import UIKit
 
 struct MealsView: View {
     @EnvironmentObject private var store: HubStore
@@ -16,7 +17,8 @@ struct MealsView: View {
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
         .fullScreenCover(item: pickDayBinding) { day in
-            MealChoiceSheet(day: day.date)
+            TonightDinnerView(day: day.date)
+                .environmentObject(store)
         }
     }
 
@@ -44,28 +46,29 @@ struct MealsView: View {
     private func dayCard(_ day: Date) -> some View {
         let title = store.dinnerTitle(on: day)
         let plan = store.dinner(on: day)
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(dayLabel(day))
-                .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.blue)
-                .textCase(.uppercase)
-            Text(title ?? "Nothing planned")
-                .font(.title3.weight(.bold))
-                .foregroundStyle(title == nil ? AppTheme.textSecondary : AppTheme.text)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text(kindLabel(plan))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.textTertiary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            HStack {
-                Spacer()
-                Image(systemName: "chevron.right")
+        let recipe = plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
+        return HStack(spacing: 12) {
+            dayThumb(plan: plan, recipe: recipe)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(dayLabel(day))
                     .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+                    .textCase(.uppercase)
+                Text(title ?? "Nothing planned")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(title == nil ? AppTheme.textSecondary : AppTheme.text)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                Text(kindLabel(plan))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.textTertiary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
             }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.textTertiary)
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 148, maxHeight: 148, alignment: .topLeading)
@@ -76,6 +79,24 @@ struct MealsView: View {
                 .stroke(title == nil ? AppTheme.cardBorder : AppTheme.blue, lineWidth: title == nil ? 1 : 3)
         )
         .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+    }
+
+    private func dayThumb(plan: DinnerPlan?, recipe: Recipe?) -> some View {
+        Group {
+            if let recipe, let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
+                RecipePhoto(url: url)
+            } else if let lat = plan?.placeLatitude, let lon = plan?.placeLongitude {
+                PlacePhoto(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+            } else {
+                ZStack {
+                    AppTheme.blueSoft
+                    Image(systemName: plan?.placeName != nil ? "mappin.and.ellipse" : "fork.knife")
+                        .foregroundStyle(AppTheme.blue)
+                }
+            }
+        }
+        .frame(width: 88, height: 88)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func kindLabel(_ plan: DinnerPlan?) -> String {
@@ -223,6 +244,12 @@ struct TonightDinnerView: View {
 
     private func eatOutView(_ plan: DinnerPlan) -> some View {
         VStack(alignment: .leading, spacing: 16) {
+            if let lat = plan.placeLatitude, let lon = plan.placeLongitude {
+                PlacePhoto(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            }
             Text(isToday ? "Eating out tonight" : "Eating out")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
@@ -402,39 +429,53 @@ private struct EatOutPicker: View {
     @StateObject private var places = PlacesSearch()
     let day: Date
     var onDone: () -> Void
+    @State private var areaQuery = ""
+    @State private var opened: NearbyPlace?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Eat out")
                     .font(.system(size: 28, weight: .bold))
-                Text("Takeout and sit-down near you.")
+                Text("Near \(places.areaName). Tap a place for the menu and details.")
                     .foregroundStyle(AppTheme.textSecondary)
+                HStack(spacing: 8) {
+                    Button {
+                        areaQuery = ""
+                        Task { await places.useHere() }
+                    } label: {
+                        Label("Here", systemImage: "location.fill")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(AppTheme.blue, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    HStack {
+                        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+                        TextField("City or zip", text: $areaQuery)
+                            .textFieldStyle(.plain)
+                            .onSubmit { Task { await places.searchArea(areaQuery) } }
+                    }
+                    .padding(10)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
                 if places.isLoading { ProgressView() }
                 if let message = places.message {
                     Text(message).foregroundStyle(AppTheme.textSecondary)
                 }
                 ForEach(places.places) { place in
-                    Button {
-                        store.setDinnerPlace(
-                            on: day,
-                            name: place.name,
-                            address: place.address,
-                            phone: place.phone,
-                            url: place.url?.absoluteString ?? "",
-                            kind: place.mode.rawValue
-                        )
-                        onDone()
-                    } label: {
+                    Button { opened = place } label: {
                         HStack(spacing: 14) {
-                            Image(systemName: place.mode == .takeout ? "takeoutbag.and.cup.and.straw.fill" : "fork.knife")
-                                .font(.title2)
-                                .foregroundStyle(AppTheme.blue)
-                                .frame(width: 36)
+                            PlacePhoto(coordinate: place.coordinate)
+                                .frame(width: 88, height: 88)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(place.name)
                                     .font(.headline.weight(.bold))
                                     .foregroundStyle(AppTheme.text)
+                                    .lineLimit(2)
                                 Text(place.mode.title)
                                     .font(.caption.weight(.bold))
                                     .foregroundStyle(AppTheme.blue)
@@ -444,11 +485,19 @@ private struct EatOutPicker: View {
                                         .foregroundStyle(AppTheme.textSecondary)
                                         .lineLimit(1)
                                 }
+                                if let distance = place.distanceLabel {
+                                    Text(distance)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(AppTheme.textTertiary)
+                                }
                             }
                             Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(AppTheme.textTertiary)
                         }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
                         .background(AppTheme.card)
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                         .overlay(
@@ -463,7 +512,10 @@ private struct EatOutPicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .task { await places.loadAll() }
+        .navigationDestination(item: $opened) { place in
+            PlaceInfoView(place: place, day: day, onDone: onDone)
+        }
+        .task { await places.useHere() }
     }
 }
 
@@ -766,6 +818,130 @@ struct RecipePhoto: View {
               let loaded = UIImage(data: data) else { return }
         RecipeImageCache.shared.set(loaded, for: url)
         image = loaded
+    }
+}
+
+struct PlacePhoto: View {
+    let coordinate: CLLocationCoordinate2D
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            AppTheme.blueSoft
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                ProgressView()
+            }
+        }
+        .task(id: "\(coordinate.latitude),\(coordinate.longitude)") {
+            await load()
+        }
+    }
+
+    private func load() async {
+        let options = MKMapSnapshotter.Options()
+        options.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 350, longitudinalMeters: 350)
+        options.size = CGSize(width: 600, height: 400)
+        options.showsBuildings = true
+        if let snapshot = try? await MKMapSnapshotter(options: options).start() {
+            image = snapshot.image
+        }
+    }
+}
+
+private struct PlaceInfoView: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.openURL) private var openURL
+    let place: NearbyPlace
+    let day: Date
+    var onDone: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                PlacePhoto(coordinate: place.coordinate)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 240)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                Map(initialPosition: .region(MKCoordinateRegion(center: place.coordinate, latitudinalMeters: 600, longitudinalMeters: 600))) {
+                    Marker(place.name, coordinate: place.coordinate)
+                }
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                Text(place.name)
+                    .font(.system(size: 32, weight: .bold))
+                Text(place.mode.title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+                VStack(spacing: 0) {
+                    if !place.address.isEmpty { row("mappin.and.ellipse", place.address) }
+                    if let distance = place.distanceLabel { row("location", distance) }
+                    if !place.phone.isEmpty { row("phone.fill", place.phone) }
+                    if let url = place.url { row("safari", url.host ?? "Website") }
+                }
+                .background(AppTheme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                HStack(spacing: 10) {
+                    if !place.phone.isEmpty, let tel = URL(string: "tel:\(place.phone.filter(\.isNumber))") {
+                        pill("Call", "phone.fill") { openURL(tel) }
+                    }
+                    if let url = place.url {
+                        pill(place.mode == .takeout ? "Menu / order" : "Menu", "menucard") { openURL(url) }
+                    }
+                    pill("Directions", "arrow.triangle.turn.up.right.diamond.fill") {
+                        let item = MKMapItem(placemark: MKPlacemark(coordinate: place.coordinate))
+                        item.name = place.name
+                        item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
+                    }
+                }
+                Button {
+                    store.setDinnerPlace(
+                        on: day,
+                        name: place.name,
+                        address: place.address,
+                        phone: place.phone,
+                        url: place.url?.absoluteString ?? "",
+                        kind: place.mode.rawValue,
+                        latitude: place.coordinate.latitude,
+                        longitude: place.coordinate.longitude
+                    )
+                    onDone()
+                } label: {
+                    Text("Set as dinner")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func row(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).foregroundStyle(AppTheme.blue).frame(width: 24)
+            Text(text)
+            Spacer()
+        }
+        .padding(16)
+    }
+
+    private func pill(_ title: String, _ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(AppTheme.blue, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 

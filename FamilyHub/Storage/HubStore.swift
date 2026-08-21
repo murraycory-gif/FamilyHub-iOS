@@ -104,7 +104,9 @@ final class HubStore: ObservableObject {
         address: String,
         phone: String,
         url: String,
-        kind: String
+        kind: String,
+        latitude: Double? = nil,
+        longitude: Double? = nil
     ) {
         upsertDinner(
             on: day,
@@ -114,7 +116,9 @@ final class HubStore: ObservableObject {
             placeAddress: address,
             placePhone: phone,
             placeURL: url,
-            placeKind: kind
+            placeKind: kind,
+            placeLatitude: latitude,
+            placeLongitude: longitude
         )
     }
 
@@ -126,7 +130,9 @@ final class HubStore: ObservableObject {
         placeAddress: String?,
         placePhone: String?,
         placeURL: String?,
-        placeKind: String?
+        placeKind: String?,
+        placeLatitude: Double? = nil,
+        placeLongitude: Double? = nil
     ) {
         let start = Calendar.current.startOfDay(for: day)
         if let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) {
@@ -137,6 +143,8 @@ final class HubStore: ObservableObject {
             dinners[idx].placePhone = placePhone
             dinners[idx].placeURL = placeURL
             dinners[idx].placeKind = placeKind
+            dinners[idx].placeLatitude = placeLatitude
+            dinners[idx].placeLongitude = placeLongitude
         } else {
             dinners.append(.make(
                 day: start,
@@ -146,7 +154,9 @@ final class HubStore: ObservableObject {
                 placeAddress: placeAddress,
                 placePhone: placePhone,
                 placeURL: placeURL,
-                placeKind: placeKind
+                placeKind: placeKind,
+                placeLatitude: placeLatitude,
+                placeLongitude: placeLongitude
             ))
         }
         persist()

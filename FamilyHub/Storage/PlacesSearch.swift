@@ -51,6 +51,7 @@ final class PlacesSearch: ObservableObject {
     @Published var isLoading = false
     @Published var message: String?
     @Published var userLocation: CLLocation?
+    @Published var areaName = "Current location"
 
     private let locator = LocationFinder()
 
@@ -59,19 +60,59 @@ final class PlacesSearch: ObservableObject {
     }
 
     func loadAll() async {
+        await useHere()
+    }
+
+    func useHere() async {
         isLoading = true
         message = nil
         defer { isLoading = false }
         do {
             let location = try await locator.current()
             userLocation = location
+            areaName = "Current location"
+            await fill(around: location)
+        } catch {
+            message = "Turn on location, or type a city or zip."
+        }
+    }
+
+    func searchArea(_ text: String) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            await useHere()
+            return
+        }
+        isLoading = true
+        message = nil
+        defer { isLoading = false }
+        do {
+            let marks = try await CLGeocoder().geocodeAddressString(trimmed)
+            guard let location = marks.first?.location else {
+                message = "Could not find that city or zip."
+                return
+            }
+            let place = marks.first
+            areaName = [place?.locality, place?.administrativeArea, place?.postalCode]
+                .compactMap { $0 }
+                .joined(separator: ", ")
+            if areaName.isEmpty { areaName = trimmed }
+            await fill(around: location)
+        } catch {
+            message = "Could not find that city or zip."
+        }
+    }
+
+    private func fill(around location: CLLocation) async {
+        do {
             let takeout = try await search(mode: .takeout, around: location)
             let sitdown = try await search(mode: .sitdown, around: location)
             var seen = Set<String>()
             places = (takeout + sitdown).filter { seen.insert($0.id).inserted }
+                .sorted { ($0.distance ?? .greatestFiniteMagnitude) < ($1.distance ?? .greatestFiniteMagnitude) }
             if places.isEmpty { message = "No places found nearby." }
         } catch {
-            message = "Turn on location to find dinner near you."
+            message = "Could not load restaurants."
         }
     }
 

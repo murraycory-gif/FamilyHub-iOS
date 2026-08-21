@@ -461,6 +461,53 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
     var placePhone: String?
     var placeURL: String?
     var placeKind: String?
+    var placeLatitude: Double?
+    var placeLongitude: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case id, day, recipeID, note, placeName, placeAddress, placePhone, placeURL, placeKind, placeLatitude, placeLongitude
+    }
+
+    init(
+        id: UUID,
+        day: Date,
+        recipeID: UUID?,
+        note: String,
+        placeName: String?,
+        placeAddress: String?,
+        placePhone: String?,
+        placeURL: String?,
+        placeKind: String?,
+        placeLatitude: Double? = nil,
+        placeLongitude: Double? = nil
+    ) {
+        self.id = id
+        self.day = day
+        self.recipeID = recipeID
+        self.note = note
+        self.placeName = placeName
+        self.placeAddress = placeAddress
+        self.placePhone = placePhone
+        self.placeURL = placeURL
+        self.placeKind = placeKind
+        self.placeLatitude = placeLatitude
+        self.placeLongitude = placeLongitude
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        day = try c.decode(Date.self, forKey: .day)
+        recipeID = try c.decodeIfPresent(UUID.self, forKey: .recipeID)
+        note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
+        placeName = try c.decodeIfPresent(String.self, forKey: .placeName)
+        placeAddress = try c.decodeIfPresent(String.self, forKey: .placeAddress)
+        placePhone = try c.decodeIfPresent(String.self, forKey: .placePhone)
+        placeURL = try c.decodeIfPresent(String.self, forKey: .placeURL)
+        placeKind = try c.decodeIfPresent(String.self, forKey: .placeKind)
+        placeLatitude = try c.decodeIfPresent(Double.self, forKey: .placeLatitude)
+        placeLongitude = try c.decodeIfPresent(Double.self, forKey: .placeLongitude)
+    }
 
     static func make(
         day: Date,
@@ -470,7 +517,9 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeAddress: String? = nil,
         placePhone: String? = nil,
         placeURL: String? = nil,
-        placeKind: String? = nil
+        placeKind: String? = nil,
+        placeLatitude: Double? = nil,
+        placeLongitude: Double? = nil
     ) -> DinnerPlan {
         DinnerPlan(
             id: UUID(),
@@ -481,7 +530,9 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
             placeAddress: placeAddress,
             placePhone: placePhone,
             placeURL: placeURL,
-            placeKind: placeKind
+            placeKind: placeKind,
+            placeLatitude: placeLatitude,
+            placeLongitude: placeLongitude
         )
     }
 }
