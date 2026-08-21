@@ -93,6 +93,12 @@ struct TodayView: View {
                 .environmentObject(weather)
         }
         .task {
+            let label = store.weatherPlace?.label ?? ""
+            if label.isEmpty || label == "Chicago" || label == "Current location" {
+                if let here = try? await weather.placeFromCurrentLocation() {
+                    store.setWeatherPlace(here)
+                }
+            }
             while !Task.isCancelled {
                 await weather.load(place: store.weatherPlace ?? .chicago)
                 try? await Task.sleep(for: .seconds(10 * 60))
@@ -286,7 +292,11 @@ struct TodayView: View {
     }
 
     private var agenda: some View {
-        HubCard(fill: AppTheme.blueSoft, stroke: AppTheme.blue) {
+        VStack(alignment: .leading, spacing: 0) {
+            HubTileBanner(
+                symbol: "calendar",
+                title: Calendar.current.isDateInToday(selectedDay) ? "On Today's Agenda" : "On the Agenda"
+            )
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(dayHeadline)
@@ -296,7 +306,6 @@ struct TodayView: View {
                         .font(.caption.weight(.semibold).monospacedDigit())
                         .foregroundStyle(AppTheme.textTertiary)
                 }
-
                 if dayItems.isEmpty {
                     Text(emptyDayCopy)
                         .font(.subheadline)
@@ -316,7 +325,15 @@ struct TodayView: View {
                     }
                 }
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .background(AppTheme.blueSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
         .frame(maxHeight: .infinity)
         .simultaneousGesture(daySwipe)
     }
@@ -336,26 +353,21 @@ struct TodayView: View {
 
     private var shoppingTile: some View {
         let open = store.shoppingItems.filter { !$0.isChecked }
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Shopping")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.text)
-                Spacer()
+        return VStack(alignment: .leading, spacing: 0) {
+            HubTileBanner(symbol: "cart.fill", title: "Shopping List") {
                 Button {
                     shoppingDraft = ""
                     showAddShopping = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.body.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 32, height: 32)
-                        .background(AppTheme.blue, in: Circle())
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                        .frame(width: 24, height: 24)
+                        .background(.white, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Add to shopping list")
             }
-
             Button {
                 router.open(.shopping)
             } label: {
@@ -363,9 +375,6 @@ struct TodayView: View {
                     if open.isEmpty {
                         VStack(spacing: 6) {
                             Spacer(minLength: 0)
-                            Image(systemName: "cart")
-                                .font(.title2)
-                                .foregroundStyle(AppTheme.blue)
                             Text("Nothing to get")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(AppTheme.textSecondary)
@@ -393,14 +402,15 @@ struct TodayView: View {
                         }
                     }
                 }
+                .padding(12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
-        .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(AppTheme.blueSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(AppTheme.blue, lineWidth: 3)
@@ -461,18 +471,7 @@ struct TodayView: View {
         let title = store.dinnerTitle(on: selectedDay)
         return Button { showDinner = true } label: {
             VStack(spacing: 0) {
-                ZStack(alignment: .bottomLeading) {
-                    dinnerPhoto(plan: plan, recipe: recipe)
-                    LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .top, endPoint: .bottom)
-                    Text("What's For Dinner")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(12)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 92)
-                .clipped()
-
+                HubTileBanner(symbol: "fork.knife", title: "What's For Dinner")
                 VStack(spacing: 10) {
                     dinnerPhoto(plan: plan, recipe: recipe)
                         .frame(width: 88, height: 88)

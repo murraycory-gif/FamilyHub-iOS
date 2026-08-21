@@ -452,4 +452,40 @@ enum PlaceSnapshotCache {
     static func set(_ image: UIImage, for key: String) { images[key] = image }
 }
 
+struct HubTileBanner<Trailing: View>: View {
+    let symbol: String
+    let title: String
+    @ViewBuilder var trailing: Trailing
+
+    init(symbol: String, title: String, @ViewBuilder trailing: () -> Trailing) {
+        self.symbol = symbol
+        self.title = title
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.subheadline.weight(.bold))
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Spacer(minLength: 0)
+            trailing
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.blue)
+    }
+}
+
+extension HubTileBanner where Trailing == EmptyView {
+    init(symbol: String, title: String) {
+        self.init(symbol: symbol, title: title) { EmptyView() }
+    }
+}
+
 

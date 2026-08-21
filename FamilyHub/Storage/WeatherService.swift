@@ -21,7 +21,14 @@ final class WeatherLoader: ObservableObject {
     }
 
     func hoursOn(_ date: Date) -> [WeatherHour] {
-        hours.filter { Calendar.current.isDate($0.at, inSameDayAs: date) }
+        let cal = Calendar.current
+        var ofDay = hours.filter { cal.isDate($0.at, inSameDayAs: date) }
+        if cal.isDateInToday(date) {
+            ofDay = ofDay.filter { $0.at >= Date().addingTimeInterval(-20 * 60) }
+        } else {
+            ofDay = ofDay.filter { cal.component(.hour, from: $0.at) >= 6 }
+        }
+        return ofDay
     }
 
     func load(place: WeatherPlace) async {
@@ -75,6 +82,16 @@ enum WeatherAPI {
     }
 
     static func reverseGeocode(latitude: Double, longitude: Double) async throws -> WeatherPlace {
+        let location = CLLocation(latitude: latitude, longitude: longitude)
+        if let marks = try? await CLGeocoder().reverseGeocodeLocation(location),
+           let mark = marks.first {
+            let city = mark.locality ?? mark.subLocality ?? mark.name
+            let region = mark.administrativeArea
+            let label = [city, region].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+            if !label.isEmpty {
+                return WeatherPlace(label: label, latitude: latitude, longitude: longitude)
+            }
+        }
         var components = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/reverse")!
         components.queryItems = [
             URLQueryItem(name: "latitude", value: String(latitude)),
@@ -209,10 +226,20 @@ private struct ForecastResponse: Decodable {
             return Int((daily.uv_index_max?.first ?? 0).rounded())
         }()
 
+        let precipNow = current.precipitation ?? 0
+        var code = current.weather_code
+        let rainCodes: Set<Int> = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82]
+        if precipNow < 0.1, rainCodes.contains(code) {
+            let pop = nowHourIndex.flatMap { idx in hourly.precipitation_probability?[idx] } ?? 0
+            if pop < 40 {
+                code = 2
+            }
+        }
+
         let now = WeatherNow(
             temp: Int(current.temperature_2m.rounded()),
             feelsLike: Int(current.apparent_temperature.rounded()),
-            code: current.weather_code,
+            code: code,
             isDay: sunIsUp,
             humidity: current.relative_humidity_2m ?? 0,
             windMph: Int((current.wind_speed_10m ?? 0).rounded()),

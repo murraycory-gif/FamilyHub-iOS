@@ -452,69 +452,68 @@ struct HubWeatherTile: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            WeatherAtmosphere(code: skyCode, isDay: skyIsDay)
-            VStack(alignment: .leading, spacing: 6) {
+        VStack(spacing: 0) {
+            HubTileBanner(symbol: "location.fill", title: shortPlace) {
                 Button(action: onChangePlace) {
-                    HStack(spacing: 4) {
-                        Text(shortPlace)
-                            .font(.headline)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
-                if isLoading && now == nil && day == nil {
-                    ProgressView().tint(.white)
-                } else {
-                    Text(condition)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.92))
-                    Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
-                        .font(.subheadline.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(.white.opacity(0.88))
-                    Text("\(temp)°")
-                        .font(.system(size: 58, weight: .thin))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
-                        .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
-                        .minimumScaleFactor(0.5)
-                        .lineLimit(1)
-                        .padding(.top, 2)
-                }
-                Spacer(minLength: 8)
-                if !hours.isEmpty {
-                    HStack(spacing: 0) {
-                        ForEach(Array(hours.prefix(5).enumerated()), id: \.element.id) { index, hour in
-                            VStack(spacing: 4) {
-                                Text(index == 0 && isToday ? "Now" : hourLabel(hour.at))
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.8))
-                                Image(systemName: hour.symbolName)
-                                    .font(.body)
-                                    .symbolRenderingMode(.multicolor)
-                                    .frame(height: 18)
-                                Text("\(hour.temp)°")
-                                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                                    .foregroundStyle(.white)
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                    }
-                    .padding(.bottom, 10)
-                }
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
+            ZStack(alignment: .topLeading) {
+                WeatherAtmosphere(code: skyCode, isDay: skyIsDay)
+                VStack(alignment: .leading, spacing: 6) {
+                    if isLoading && now == nil && day == nil {
+                        ProgressView().tint(.white)
+                    } else {
+                        Text(condition)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.92))
+                        Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(.white.opacity(0.88))
+                        Text("\(temp)°")
+                            .font(.system(size: 48, weight: .thin))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    if !hours.isEmpty {
+                        HStack(spacing: 0) {
+                            ForEach(Array(hours.prefix(5).enumerated()), id: \.element.id) { index, hour in
+                                VStack(spacing: 4) {
+                                    Text(index == 0 && isToday ? "Now" : hourLabel(hour.at))
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(.white.opacity(0.8))
+                                    Image(systemName: hour.symbolName)
+                                        .font(.body)
+                                        .symbolRenderingMode(.multicolor)
+                                        .frame(height: 18)
+                                    Text("\(hour.temp)°")
+                                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                                        .foregroundStyle(.white)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .padding(.bottom, 8)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                .stroke(AppTheme.blue, lineWidth: 3)
         )
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onTapGesture(perform: onOpen)
