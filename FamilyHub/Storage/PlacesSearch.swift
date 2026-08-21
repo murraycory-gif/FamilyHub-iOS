@@ -127,7 +127,9 @@ final class PlacesSearch: ObservableObject {
                 areaName = "Current location"
             }
             if areaName.isEmpty { areaName = "Current location" }
-            await fill(around: location)
+            await fillQuick(around: location)
+            isLoading = false
+            await fillMore(around: location)
         } catch {
             message = "Turn on location, or type a city or zip."
         }
@@ -155,7 +157,9 @@ final class PlacesSearch: ObservableObject {
                 .joined(separator: ", ")
             if areaName.isEmpty { areaName = trimmed }
             searchCenter = location
-            await fill(around: location)
+            await fillQuick(around: location)
+            isLoading = false
+            await fillMore(around: location)
         } catch {
             message = "Could not find that city or zip."
         }
@@ -168,7 +172,10 @@ final class PlacesSearch: ObservableObject {
             return
         }
         if trimmed.isEmpty {
-            await fill(around: location)
+            isLoading = true
+            await fillQuick(around: location)
+            isLoading = false
+            Task { await fillMore(around: location) }
             return
         }
         isLoading = true
@@ -197,35 +204,51 @@ final class PlacesSearch: ObservableObject {
         }
     }
 
-    private func fill(around location: CLLocation) async {
+    private func fillQuick(around location: CLLocation) async {
         message = nil
         var seen = Set<String>()
         var result: [NearbyPlace] = []
-
-        let osm = (try? await searchOSM(around: location)) ?? []
-        for item in osm {
-            if seen.insert(item.id).inserted {
-                result.append(item)
-            }
+        if let named = try? await searchNamed("restaurants", around: location, requireFood: false) {
+            merge(named, into: &result, seen: &seen)
         }
-        places = sortedPlaces(result)
-
-        let queries = [
-            "restaurants", "fast food", "pizza", "coffee", "burgers",
-            "mexican food", "chinese food", "thai food", "breakfast", "cafe"
-        ]
+        if let fast = try? await searchNamed("fast food", around: location, requireFood: false) {
+            merge(fast, into: &result, seen: &seen)
+        }
         if let poi = try? await searchPOIs(around: location) {
             merge(poi, into: &result, seen: &seen)
         }
-        for query in queries {
-            if let named = try? await searchNamed(query, around: location) {
-                merge(named, into: &result, seen: &seen)
-            }
-        }
         places = sortedPlaces(result)
         if places.isEmpty {
-            message = "No restaurants found near \(areaName)."
+            message = "Looking for more places near \(areaName)…"
         }
+    }
+
+    private func fillMore(around location: CLLocation) async {
+        var seen = Set(places.map(\.id))
+        for item in places {
+            seen.insert(item.name.lowercased() + String(format: "-%.3f-%.3f", item.coordinate.latitude, item.coordinate.longitude))
+        }
+        var result = places
+        if let osm = try? await searchOSM(around: location) {
+            merge(osm, into: &result, seen: &seen)
+            places = sortedPlaces(result)
+        }
+        for query in ["pizza", "coffee", "burgers", "tacos", "chinese food", "mexican food", "breakfast", "cafe"] {
+            if let named = try? await searchNamed(query, around: location, requireFood: false) {
+                merge(named, into: &result, seen: &seen)
+                places = sortedPlaces(result)
+            }
+        }
+        if places.isEmpty {
+            message = "No restaurants found near \(areaName)."
+        } else {
+            message = nil
+        }
+    }
+
+    private func fill(around location: CLLocation) async {
+        await fillQuick(around: location)
+        await fillMore(around: location)
     }
 
     private func merge(_ batch: [NearbyPlace], into result: inout [NearbyPlace], seen: inout Set<String>) {
@@ -247,7 +270,7 @@ final class PlacesSearch: ObservableObject {
         let lat = location.coordinate.latitude
         let lon = location.coordinate.longitude
         let radius = Int(maxMeters)
-        let query = "[out:json][timeout:25];(nwr[amenity=restaurant](around:\(radius),\(lat),\(lon));nwr[amenity=fast_food](around:\(radius),\(lat),\(lon));nwr[amenity=cafe](around:\(radius),\(lat),\(lon));nwr[amenity=bar](around:\(radius),\(lat),\(lon));nwr[amenity=pub](around:\(radius),\(lat),\(lon));nwr[amenity=ice_cream](around:\(radius),\(lat),\(lon));nwr[shop=bakery](around:\(radius),\(lat),\(lon)););out center tags;"
+        let query = "[out:json][timeout:8];(node[\"amenity\"=\"restaurant\"](around:\(radius),\(lat),\(lon));node[\"amenity\"=\"fast_food\"](around:\(radius),\(lat),\(lon));node[\"amenity\"=\"cafe\"](around:\(radius),\(lat),\(lon));node[\"amenity\"=\"bar\"](around:\(radius),\(lat),\(lon));way[\"amenity\"=\"restaurant\"](around:\(radius),\(lat),\(lon));way[\"amenity\"=\"fast_food\"](around:\(radius),\(lat),\(lon)););out center tags;"
         let endpoints = [
             "https://overpass-api.de/api/interpreter",
             "https://overpass.kumi.systems/api/interpreter"
@@ -267,7 +290,7 @@ final class PlacesSearch: ObservableObject {
         guard let url = URL(string: endpoint) else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 30
+        request.timeoutInterval = 8
         request.setValue("HUB/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
         let encoded = query.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) ?? query
@@ -291,10 +314,9 @@ final class PlacesSearch: ObservableObject {
         }
     }
 
-    private func searchNamed(_ query: String, around location: CLLocation) async throws -> [NearbyPlace] {
+    private func searchNamed(_ query: String, around location: CLLocation, requireFood: Bool = true) async throws -> [NearbyPlace] {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
-        request.resultTypes = .pointOfInterest
         request.region = MKCoordinateRegion(
             center: location.coordinate,
             latitudinalMeters: 24000,
@@ -302,7 +324,7 @@ final class PlacesSearch: ObservableObject {
         )
         let response = try await MKLocalSearch(request: request).start()
         return response.mapItems.compactMap { item in
-            self.place(from: item, around: location, requireFood: true)
+            self.place(from: item, around: location, requireFood: requireFood)
         }
     }
 

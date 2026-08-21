@@ -450,6 +450,8 @@ private struct EatOutPicker: View {
                         }
                         .onChange(of: areaQuery) { _, value in
                             completer.update(value)
+                            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard trimmed.isEmpty == false else { return }
                             Task {
                                 try? await Task.sleep(for: .milliseconds(350))
                                 guard areaQuery == value else { return }
