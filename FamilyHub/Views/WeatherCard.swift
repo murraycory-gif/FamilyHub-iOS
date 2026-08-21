@@ -530,32 +530,71 @@ struct HubWeatherTile: View {
     }
 }
 
+private struct WeatherGlyph: View {
+    let code: Int
+    var isDay: Bool = true
+    var size: CGFloat = 28
+
+    var body: some View {
+        Image(systemName: WeatherIcon.symbol(for: code, isDay: isDay))
+            .font(.system(size: size, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(tint)
+            .accessibilityLabel(WeatherIcon.condition(for: code, isDay: isDay))
+    }
+
+    private var tint: Color {
+        switch code {
+        case 0, 1: return isDay ? Color(hex: "E6A400") : AppTheme.blue
+        case 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82: return AppTheme.blue
+        case 71, 73, 75, 77, 85, 86: return Color(hex: "5B8DEF")
+        case 95, 96, 99: return Color(hex: "7C5CFC")
+        default: return AppTheme.blue
+        }
+    }
+}
+
 struct WeatherOutlookView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var weather: WeatherLoader
     @Environment(\.dismiss) private var dismiss
     let day: Date
     @State private var showPlace = false
+    @State private var focusedDay = Date()
 
-    private var selected: WeatherDay? { weather.forecastDay(on: day) }
+    private var selected: WeatherDay? { weather.forecastDay(on: focusedDay) }
     private var hours: [WeatherHour] {
-        if Calendar.current.isDateInToday(day) {
-            return Array(weather.hours.prefix(24))
+        if Calendar.current.isDateInToday(focusedDay) {
+            return Array(weather.hours.filter { $0.at >= Date().addingTimeInterval(-30 * 60) }.prefix(24))
         }
-        return weather.hoursOn(day)
+        return weather.hoursOn(focusedDay)
     }
-    private var isToday: Bool { Calendar.current.isDateInToday(day) }
+    private var isToday: Bool { Calendar.current.isDateInToday(focusedDay) }
     private var weekLow: Int { weather.days.map(\.low).min() ?? 0 }
     private var weekHigh: Int { weather.days.map(\.high).max() ?? 100 }
     private var skyIsDay: Bool { isToday ? (weather.now?.isDay ?? true) : true }
     private var skyCode: Int { isToday ? (weather.now?.code ?? selected?.code ?? 2) : (selected?.code ?? 2) }
     private var now: WeatherNow? { weather.now }
+    private var canGoBack: Bool { weather.forecastDay(on: shiftDate(-1)) != nil }
+    private var canGoForward: Bool { weather.forecastDay(on: shiftDate(1)) != nil }
+
+    private func shiftDate(_ delta: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: delta, to: Calendar.current.startOfDay(for: focusedDay)) ?? focusedDay
+    }
+
+    private func shift(_ delta: Int) {
+        let next = shiftDate(delta)
+        if weather.forecastDay(on: next) != nil {
+            focusedDay = next
+        }
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     hero
+                    dayPager
                     detailsGrid
                     hourlyCard
                     dailyCard
@@ -563,6 +602,14 @@ struct WeatherOutlookView: View {
                 .padding(20)
             }
             .background(AppTheme.bg.ignoresSafeArea())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 50)
+                    .onEnded { value in
+                        if value.translation.width < -50 { shift(1) }
+                        if value.translation.width > 50 { shift(-1) }
+                    }
+            )
+            .onAppear { focusedDay = Calendar.current.startOfDay(for: day) }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -595,28 +642,57 @@ struct WeatherOutlookView: View {
     private var hero: some View {
         ZStack {
             WeatherAtmosphere(code: skyCode, isDay: skyIsDay, showPhotos: false)
-            VStack(spacing: 4) {
-                Text(store.weatherPlace?.label.split(separator: ",").first.map(String.init) ?? "Weather")
-                    .font(.title3.weight(.semibold))
+            VStack(spacing: 6) {
+                WeatherGlyph(code: skyCode, isDay: skyIsDay, size: 44)
                 Text("\(isToday ? (now?.temp ?? selected?.high ?? 0) : (selected?.high ?? 0))°")
                     .font(.system(size: 84, weight: .thin))
                     .monospacedDigit()
-                Text(isToday ? (now?.condition ?? "") : WeatherIcon.condition(for: selected?.code ?? 2))
-                    .font(.title3.weight(.medium))
+                Text(isToday ? (now?.condition ?? WeatherIcon.condition(for: skyCode, isDay: skyIsDay)) : WeatherIcon.condition(for: selected?.code ?? 2))
+                    .font(.title2.weight(.semibold))
                 Text("H:\(selected?.high ?? 0)°   L:\(selected?.low ?? 0)°")
-                    .font(.headline.monospacedDigit())
+                    .font(.title3.weight(.semibold).monospacedDigit())
                 if isToday, let feels = now?.feelsLike {
                     Text("Feels like \(feels)°")
-                        .font(.subheadline.weight(.medium))
+                        .font(.headline.weight(.medium))
                         .opacity(0.9)
                 }
             }
             .foregroundStyle(.white)
             .shadow(color: .black.opacity(0.25), radius: 8, y: 1)
-            .padding(.vertical, 28)
         }
         .frame(maxWidth: .infinity)
+        .frame(minHeight: 260)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var dayPager: some View {
+        HStack(spacing: 16) {
+            Button { shift(-1) } label: {
+                Image(systemName: "chevron.left.circle.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(canGoBack ? AppTheme.blue : AppTheme.blue.opacity(0.3))
+            }
+            .disabled(!canGoBack)
+            VStack(spacing: 2) {
+                Text(focusedDay.formatted(.dateTime.weekday(.wide)))
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                Text(focusedDay.formatted(.dateTime.month(.wide).day().year()))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+                Text("Swipe for other days")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textTertiary)
+            }
+            .frame(maxWidth: .infinity)
+            Button { shift(1) } label: {
+                Image(systemName: "chevron.right.circle.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(canGoForward ? AppTheme.blue : AppTheme.blue.opacity(0.3))
+            }
+            .disabled(!canGoForward)
+        }
+        .padding(.vertical, 4)
     }
 
     private var detailsGrid: some View {
@@ -668,22 +744,25 @@ struct WeatherOutlookView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
                     ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
-                        VStack(spacing: 6) {
+                        VStack(spacing: 8) {
                             Text(hourHeading(index: index, date: hour.at))
-                                .font(.caption.weight(.bold))
+                                .font(.subheadline.weight(.bold))
                                 .foregroundStyle(AppTheme.text)
-                            Image(systemName: hour.symbolName)
-                                .font(.title2)
-                                .symbolRenderingMode(.multicolor)
-                                .frame(height: 26)
+                            WeatherGlyph(code: hour.code, isDay: hour.isDay, size: 34)
+                                .frame(height: 36)
+                            Text(WeatherIcon.condition(for: hour.code, isDay: hour.isDay))
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
                             Text(hour.precip > 0 ? "\(hour.precip)%" : " ")
                                 .font(.caption.weight(.bold).monospacedDigit())
                                 .foregroundStyle(hour.precip >= 20 ? AppTheme.blue : AppTheme.textTertiary)
                             Text("\(hour.temp)°")
-                                .font(.title3.weight(.semibold).monospacedDigit())
+                                .font(.title2.weight(.bold).monospacedDigit())
                                 .foregroundStyle(AppTheme.text)
                         }
-                        .frame(width: 64)
+                        .frame(width: 72)
                     }
                 }
             }
@@ -705,19 +784,18 @@ struct WeatherOutlookView: View {
                 .padding(.bottom, 8)
             ForEach(Array(weather.days.enumerated()), id: \.element.id) { index, item in
                 HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(dayLabel(index, iso: item.dateISO, weekday: item.weekday))
                             .font(.body.weight(.semibold))
                             .foregroundStyle(AppTheme.text)
-                        Text(dayDate(iso: item.dateISO, index: index))
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.textTertiary)
+                        Text("\(dayDate(iso: item.dateISO, index: index)) · \(WeatherIcon.condition(for: item.code))")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                            .lineLimit(1)
                     }
-                    .frame(width: 92, alignment: .leading)
-                    Image(systemName: item.symbolName)
-                        .font(.title2)
-                        .symbolRenderingMode(.multicolor)
-                        .frame(width: 36)
+                    .frame(width: 150, alignment: .leading)
+                    WeatherGlyph(code: item.code, isDay: true, size: 32)
+                        .frame(width: 40)
                     HStack(spacing: 4) {
                         Image(systemName: "drop.fill")
                             .font(.caption2)
@@ -738,6 +816,13 @@ struct WeatherOutlookView: View {
                         .frame(width: 40, alignment: .trailing)
                 }
                 .padding(.vertical, 10)
+                .padding(.horizontal, 6)
+                .background(
+                    isFocused(item.dateISO) ? AppTheme.blueSoft : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
+                .contentShape(Rectangle())
+                .onTapGesture { jumpTo(iso: item.dateISO) }
                 if index < weather.days.count - 1 {
                     Divider()
                 }
@@ -775,6 +860,22 @@ struct WeatherOutlookView: View {
         stamp.locale = Locale(identifier: "en_US_POSIX")
         guard let date = stamp.date(from: iso) else { return "" }
         return date.formatted(.dateTime.month(.abbreviated).day())
+    }
+
+    private func jumpTo(iso: String) {
+        let stamp = DateFormatter()
+        stamp.dateFormat = "yyyy-MM-dd"
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        if let date = stamp.date(from: iso) {
+            focusedDay = date
+        }
+    }
+
+    private func isFocused(_ iso: String) -> Bool {
+        let stamp = DateFormatter()
+        stamp.dateFormat = "yyyy-MM-dd"
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        return stamp.string(from: focusedDay) == iso
     }
 
     private func uvLabel(_ value: Int) -> String {

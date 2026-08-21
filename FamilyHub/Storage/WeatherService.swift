@@ -106,6 +106,7 @@ enum WeatherAPI {
             URLQueryItem(name: "wind_speed_unit", value: "mph"),
             URLQueryItem(name: "timezone", value: "auto"),
             URLQueryItem(name: "forecast_days", value: "16"),
+            URLQueryItem(name: "past_days", value: "7"),
         ]
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         return try JSONDecoder().decode(ForecastResponse.self, from: data).bundle()
@@ -220,7 +221,7 @@ private struct ForecastResponse: Decodable {
             precip: Int((current.precipitation ?? 0).rounded())
         )
 
-        let start = Date().addingTimeInterval(-30 * 60)
+        let start = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date().addingTimeInterval(-7 * 86400)
         let hours: [WeatherHour] = zip(hourly.time.indices, hourly.time).compactMap { index, raw in
             let at = parseHour(raw)
             guard at >= start else { return nil }
@@ -241,7 +242,7 @@ private struct ForecastResponse: Decodable {
                 isDay: hourIsDay
             )
         }
-        .prefix(384)
+        .prefix(600)
         .map { $0 }
 
         let days: [WeatherDay] = zip(daily.time.indices, daily.time).map { index, isoDay in
