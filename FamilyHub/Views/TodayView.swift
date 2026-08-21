@@ -19,6 +19,7 @@ struct TodayView: View {
     @State private var showWeatherPlace = false
     @State private var showAddShopping = false
     @State private var shoppingDraft = ""
+    @State private var showDinner = false
 
     var body: some View {
         GeometryReader { geo in
@@ -75,6 +76,10 @@ struct TodayView: View {
                     }
             }
             .presentationDetents([.medium, .large])
+        }
+        .fullScreenCover(isPresented: $showDinner) {
+            TonightDinnerView(day: selectedDay)
+                .environmentObject(store)
         }
         .fullScreenCover(isPresented: $showWeatherOutlook) {
             WeatherOutlookView(day: selectedDay)
@@ -503,22 +508,34 @@ struct TodayView: View {
     }
 
     private var dinnerCard: some View {
-        Button { router.openMeals(day: selectedDay) } label: {
+        let plan = store.dinner(on: selectedDay)
+        let recipe = plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
+        let photoURL = recipe.flatMap { URL(string: $0.imageURL) }
+        return Button { showDinner = true } label: {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color(hex: "FFEDD5"))
-                    Image(systemName: "fork.knife")
-                        .foregroundStyle(Color(hex: "C2410C"))
+                    if let photoURL {
+                        RecipePhoto(url: photoURL)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    } else {
+                        Image(systemName: plan?.placeName != nil ? "mappin.and.ellipse" : "fork.knife")
+                            .foregroundStyle(Color(hex: "C2410C"))
+                    }
                 }
-                .frame(width: 48, height: 48)
+                .frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(Calendar.current.isDateInToday(selectedDay) ? "Dinner tonight" : "Dinner")
+                    Text(dinnerEyebrow(plan))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color(hex: "C2410C"))
-                    Text(store.dinnerTitle(on: selectedDay) ?? "Nothing planned — tap to open Meals")
+                    Text(store.dinnerTitle(on: selectedDay) ?? "Nothing planned — tap to pick dinner")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(AppTheme.text)
+                        .lineLimit(1)
+                    Text(dinnerHint(plan, recipe: recipe))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
                         .lineLimit(1)
                 }
                 Spacer()
@@ -527,11 +544,25 @@ struct TodayView: View {
                     .foregroundStyle(AppTheme.textTertiary)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 16)
+            .padding(.vertical, 14)
             .background(Color(hex: "FFF7ED"), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
         .simultaneousGesture(daySwipe)
+    }
+
+    private func dinnerEyebrow(_ plan: DinnerPlan?) -> String {
+        if plan?.placeName != nil {
+            return Calendar.current.isDateInToday(selectedDay) ? "Eating out tonight" : "Eating out"
+        }
+        return Calendar.current.isDateInToday(selectedDay) ? "Dinner tonight" : "Dinner"
+    }
+
+    private func dinnerHint(_ plan: DinnerPlan?, recipe: Recipe?) -> String {
+        if recipe != nil { return "Tap for ingredients and steps" }
+        if plan?.placeName != nil { return "Tap for address and directions" }
+        if plan != nil { return "Tap to see the plan" }
+        return "Tap to plan dinner"
     }
 
     private var callouts: some View {

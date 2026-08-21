@@ -113,7 +113,190 @@ private struct DatedDay: Identifiable {
     var id: TimeInterval { Calendar.current.startOfDay(for: date).timeIntervalSince1970 }
 }
 
-private struct MealChoiceSheet: View {
+struct TonightDinnerView: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    let day: Date
+    @State private var showChange = false
+    @State private var addedToList = false
+
+    private var plan: DinnerPlan? { store.dinner(on: day) }
+    private var recipe: Recipe? {
+        plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
+    }
+
+    var body: some View {
+        if plan == nil {
+            MealChoiceSheet(day: day)
+        } else {
+            NavigationStack { content }
+                .fullScreenCover(isPresented: $showChange) {
+                    MealChoiceSheet(day: day)
+                        .environmentObject(store)
+                }
+        }
+    }
+
+    private var content: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let recipe {
+                    cookView(recipe)
+                } else if let plan, plan.placeName != nil {
+                    eatOutView(plan)
+                } else {
+                    noteView
+                }
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Done") { dismiss() }.foregroundStyle(AppTheme.blue)
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Change") { showChange = true }.foregroundStyle(AppTheme.blue)
+            }
+        }
+    }
+
+    private func cookView(_ recipe: Recipe) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
+                RecipePhoto(url: url)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 240)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            }
+            Text(isToday ? "Dinner tonight" : "Dinner")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+            Text(recipe.name)
+                .font(.system(size: 34, weight: .bold))
+            if !recipe.ingredients.isEmpty {
+                Text("What you need")
+                    .font(.title3.weight(.bold))
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(recipe.ingredients, id: \.self) { line in
+                        HStack(alignment: .top, spacing: 10) {
+                            Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
+                            Text(line)
+                        }
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppTheme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                Button {
+                    for line in recipe.ingredients { store.addShoppingItem(line) }
+                    addedToList = true
+                } label: {
+                    Text(addedToList ? "Added to shopping" : "Add ingredients to shopping")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(addedToList ? AppTheme.todo : AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            if !recipe.instructions.isEmpty {
+                Text("How to make it")
+                    .font(.title3.weight(.bold))
+                Text(recipe.instructions)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            }
+            if !recipe.notes.isEmpty {
+                Text(recipe.notes)
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+        }
+    }
+
+    private func eatOutView(_ plan: DinnerPlan) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(isToday ? "Eating out tonight" : "Eating out")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+            Text(plan.placeName ?? "Restaurant")
+                .font(.system(size: 34, weight: .bold))
+            Text(plan.placeKind == "takeout" ? "Takeout" : "Sit down")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.blue)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(AppTheme.blueSoft, in: Capsule())
+
+            VStack(spacing: 0) {
+                if let address = plan.placeAddress, !address.isEmpty {
+                    infoRow("mappin.and.ellipse", address)
+                }
+                if let phone = plan.placePhone, !phone.isEmpty {
+                    infoRow("phone.fill", phone)
+                }
+            }
+            .background(AppTheme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+            HStack(spacing: 10) {
+                if let phone = plan.placePhone, !phone.isEmpty,
+                   let tel = URL(string: "tel:\(phone.filter(\.isNumber))") {
+                    actionPill("Call", "phone.fill") { openURL(tel) }
+                }
+                if let raw = plan.placeURL, let url = URL(string: raw) {
+                    actionPill("Menu", "menucard") { openURL(url) }
+                }
+                if let address = plan.placeAddress, !address.isEmpty,
+                   let maps = URL(string: "http://maps.apple.com/?q=\(address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? address)") {
+                    actionPill("Directions", "arrow.triangle.turn.up.right.diamond.fill") { openURL(maps) }
+                }
+            }
+        }
+    }
+
+    private var noteView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(isToday ? "Dinner tonight" : "Dinner")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+            Text(plan?.note ?? store.dinnerTitle(on: day) ?? "Dinner")
+                .font(.system(size: 34, weight: .bold))
+        }
+    }
+
+    private var isToday: Bool { Calendar.current.isDateInToday(day) }
+
+    private func infoRow(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).foregroundStyle(AppTheme.blue).frame(width: 24)
+            Text(text).font(.body)
+            Spacer()
+        }
+        .padding(16)
+    }
+
+    private func actionPill(_ title: String, _ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(AppTheme.blue, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct MealChoiceSheet: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.dismiss) private var dismiss
     let day: Date
@@ -546,14 +729,14 @@ private struct CatalogRecipeDetail: View {
     }
 }
 
-private final class RecipeImageCache {
+final class RecipeImageCache {
     static let shared = RecipeImageCache()
     private var map: [URL: UIImage] = [:]
     func image(for url: URL) -> UIImage? { map[url] }
     func set(_ image: UIImage, for url: URL) { map[url] = image }
 }
 
-private struct RecipePhoto: View {
+struct RecipePhoto: View {
     let url: URL?
     @State private var image: UIImage?
 
