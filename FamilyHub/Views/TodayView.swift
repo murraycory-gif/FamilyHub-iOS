@@ -945,6 +945,153 @@ private func posterEvents(_ events: [CalendarEvent], onEvent: @escaping (Calenda
     }
 }
 
+private struct BannerStudio: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let current: Data?
+    var onSave: (Data?) -> Void
+
+    @State private var photoItem: PhotosPickerItem?
+    @State private var cropPayload: PhotoCropPayload?
+    @State private var preview: Data?
+
+    private let presets: [(String, String, String)] = [
+        ("Navy", "0B1F3A", "2563EB"),
+        ("Azure", "0284C7", "7DD3FC"),
+        ("Sunset", "9A3412", "F97316"),
+        ("Blush", "9D174D", "F9A8D4"),
+        ("Forest", "064E3B", "34D399"),
+        ("Dusk", "312E81", "C4B5FD"),
+        ("Night", "020617", "1E3A5F"),
+        ("Gold", "92400E", "FBBF24"),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    ZStack(alignment: .bottomLeading) {
+                        if let preview, let image = UIImage(data: preview) {
+                            Image(uiImage: image).resizable().scaledToFill()
+                        } else {
+                            LinearGradient(colors: [AppTheme.navy, AppTheme.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        }
+                        LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+                        Text(title)
+                            .font(.title.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(16)
+                    }
+                    .frame(height: 160)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                    HStack(spacing: 10) {
+                        PhotosPicker(selection: $photoItem, matching: .images) {
+                            Label("Photo", systemImage: "photo.on.rectangle")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(AppTheme.blueSoft, in: Capsule())
+                                .foregroundStyle(AppTheme.blue)
+                        }
+                        .buttonStyle(.plain)
+                        if preview != nil {
+                            Button("Adjust") {
+                                if let preview, let image = UIImage(data: preview) {
+                                    cropPayload = PhotoCropPayload(image: image)
+                                }
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.blue)
+                            Button("Clear") { preview = nil }
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
+                    }
+
+                    SectionLabel(title: "Banners")
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10)], spacing: 10) {
+                        ForEach(presets, id: \.0) { item in
+                            Button {
+                                preview = bannerJPEG(start: item.1, end: item.2)
+                            } label: {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(LinearGradient(colors: [Color(hex: item.1), Color(hex: item.2)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                    .frame(height: 78)
+                                    .overlay(alignment: .bottomLeading) {
+                                        Text(item.0)
+                                            .font(.caption.weight(.bold))
+                                            .foregroundStyle(.white)
+                                            .padding(8)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("\(title) banner")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(preview)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+            .onAppear { preview = current }
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        cropPayload = PhotoCropPayload(image: image)
+                    }
+                }
+            }
+            .fullScreenCover(item: $cropPayload) { payload in
+                PhotoCropper(
+                    image: payload.image,
+                    onCancel: { cropPayload = nil },
+                    onCrop: { data in
+                        preview = data
+                        cropPayload = nil
+                    }
+                )
+            }
+        }
+    }
+
+    private func bannerJPEG(start: String, end: String) -> Data? {
+        let size = CGSize(width: 1200, height: 675)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let image = renderer.image { ctx in
+            ctx.cgContext.setFillColor(ui(start).cgColor)
+            ctx.fill(CGRect(origin: .zero, size: size))
+            ctx.cgContext.setFillColor(ui(end).withAlphaComponent(0.85).cgColor)
+            ctx.fill(CGRect(x: 0, y: size.height * 0.35, width: size.width, height: size.height * 0.65))
+        }
+        return image.jpegData(compressionQuality: 0.9)
+    }
+
+    private func ui(_ hex: String) -> UIColor {
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        return UIColor(
+            red: CGFloat((int >> 16) & 0xFF) / 255,
+            green: CGFloat((int >> 8) & 0xFF) / 255,
+            blue: CGFloat(int & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+}
+
 #Preview {
     NavigationStack {
         TodayView()

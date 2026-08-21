@@ -14,7 +14,7 @@ echo "Unlock the iPad, keep it awake, and leave it on the Home Screen."
 if [ "${SKIP_BUILD:-0}" != "1" ]; then
   echo "Building for device..."
   rm -rf "$DERIVED"
-  xcodebuild \
+  if ! xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
     -configuration Debug \
@@ -22,6 +22,13 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
     -derivedDataPath "$DERIVED" \
     -allowProvisioningUpdates \
     build
+  then
+    echo ""
+    echo "---- compiler errors ----"
+    grep -E "error:" "$DERIVED/Logs/Build/"*.xcactivitylog >/dev/null 2>&1 || true
+    grep -R --include='*.log' -E "error:" "$DERIVED" 2>/dev/null | tail -40 || true
+    exit 1
+  fi
 fi
 
 APP=$(find "$DERIVED/Build/Products" -name 'FamilyHub.app' -print -quit 2>/dev/null || true)
