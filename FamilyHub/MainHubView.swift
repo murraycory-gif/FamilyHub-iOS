@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum HubSection: String, CaseIterable, Identifiable, Hashable {
-    case today, calendar, chores, lists, shopping, meals, family
+    case today, calendar, chores, lists, shopping, meals, family, looks
 
     var id: String { rawValue }
 
@@ -14,6 +14,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .shopping: return "Shopping"
         case .meals: return "Meals"
         case .family: return "Family"
+        case .looks: return "Looks"
         }
     }
 
@@ -26,6 +27,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .shopping: return "cart.fill"
         case .meals: return "fork.knife"
         case .family: return "person.3.fill"
+        case .looks: return "square.grid.2x2.fill"
         }
     }
 }
@@ -161,6 +163,7 @@ struct MainHubView: View {
         case .shopping: ShoppingListView().hubChrome(showBack: true)
         case .meals: MealsView().hubChrome(showBack: true)
         case .family: FamilyView().hubChrome(showBack: true)
+        case .looks: HubLooksView().hubChrome(showBack: true)
         }
     }
 }
