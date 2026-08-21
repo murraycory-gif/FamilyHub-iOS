@@ -295,8 +295,29 @@ struct PhotoCropper: View {
                             .overlay(maskShape.stroke(.white.opacity(0.9), lineWidth: 3))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .gesture(pan())
-                    .simultaneousGesture(pinch())
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                offset = CGSize(
+                                    width: dragStart.width + value.translation.width,
+                                    height: dragStart.height + value.translation.height
+                                )
+                            }
+                            .onEnded { _ in
+                                clamp()
+                                dragStart = offset
+                            }
+                    )
+                    .simultaneousGesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                scale = min(max(pinchStart * value, 1), 4)
+                            }
+                            .onEnded { _ in
+                                pinchStart = scale
+                                clamp()
+                            }
+                    )
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Drag to center · pinch or slide to zoom")
@@ -342,31 +363,6 @@ struct PhotoCropper: View {
             .scaleEffect(scale)
             .offset(offset)
             .frame(width: width, height: height)
-    }
-
-    private func pan() -> some Gesture {
-        DragGesture()
-            .onChanged { value in
-                offset = CGSize(
-                    width: dragStart.width + value.translation.width,
-                    height: dragStart.height + value.translation.height
-                )
-            }
-            .onEnded { _ in
-                clamp()
-                dragStart = offset
-            }
-    }
-
-    private func pinch() -> some Gesture {
-        MagnificationGesture()
-            .onChanged { value in
-                scale = min(max(pinchStart * value, 1), 4)
-            }
-            .onEnded { _ in
-                pinchStart = scale
-                clamp()
-            }
     }
 
     private func clamp() {
@@ -430,24 +426,12 @@ struct BannerPreset: Identifiable {
     ]
 
     func jpeg() -> Data? {
-        let size = CGSize(width: 1200, height: 675)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let image = renderer.image { ctx in
-            let cgColors = colors.map { UIColor($0).cgColor }
-            if let gradient = CGGradient(
-                colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                colors: cgColors as CFArray,
-                locations: [0, 1]
-            ) {
-                ctx.cgContext.drawLinearGradient(
-                    gradient,
-                    start: .zero,
-                    end: CGPoint(x: size.width, y: size.height),
-                    options: []
-                )
-            }
-        }
-        return image.jpegData(compressionQuality: 0.9)
+        let renderer = ImageRenderer(
+            content: LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                .frame(width: 1200, height: 675)
+        )
+        renderer.scale = 1
+        return renderer.uiImage?.jpegData(compressionQuality: 0.9)
     }
 }
 
