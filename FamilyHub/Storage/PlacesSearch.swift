@@ -129,7 +129,7 @@ final class PlacesSearch: ObservableObject {
             if areaName.isEmpty { areaName = "Current location" }
             await fillQuick(around: location)
             isLoading = false
-            await fillMore(around: location)
+            Task { await fillMore(around: location) }
         } catch {
             message = "Turn on location, or type a city or zip."
         }
@@ -159,7 +159,7 @@ final class PlacesSearch: ObservableObject {
             searchCenter = location
             await fillQuick(around: location)
             isLoading = false
-            await fillMore(around: location)
+            Task { await fillMore(around: location) }
         } catch {
             message = "Could not find that city or zip."
         }
