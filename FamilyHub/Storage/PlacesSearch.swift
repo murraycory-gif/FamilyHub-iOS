@@ -160,20 +160,31 @@ final class PlacesSearch: ObservableObject {
     }
 
     private func fill(around location: CLLocation) async {
+        message = nil
+        var seen = Set<String>()
+        var result: [NearbyPlace] = []
+
+        let osm = (try? await searchOSM(around: location)) ?? []
+        for item in osm where seen.insert(item.id).inserted {
+            result.append(item)
+        }
+        places = result.sorted { ($0.distance ?? .greatestFiniteMagnitude) < ($1.distance ?? .greatestFiniteMagnitude) }
+
         let queries = [
             "restaurants", "fast food", "pizza", "coffee", "burgers",
             "mexican food", "chinese food", "thai food", "italian restaurant",
             "breakfast", "sandwiches", "barbecue", "wings", "seafood", "diner", "cafe"
         ]
-        var seen = Set<String>()
-        var result: [NearbyPlace] = []
         await withTaskGroup(of: [NearbyPlace].self) { group in
             group.addTask { (try? await self.searchPOIs(around: location)) ?? [] }
             for query in queries {
                 group.addTask { (try? await self.searchNamed(query, around: location)) ?? [] }
             }
             for await batch in group {
-                for item in batch where seen.insert(item.id).inserted {
+                for item in batch {
+                    let key = item.id
+                    let fuzzy = item.name.lowercased() + String(format: "-%.3f-%.3f", item.coordinate.latitude, item.coordinate.longitude)
+                    guard seen.insert(key).inserted, seen.insert(fuzzy).inserted else { continue }
                     result.append(item)
                 }
             }
@@ -182,6 +193,56 @@ final class PlacesSearch: ObservableObject {
         if places.isEmpty {
             message = "No restaurants found near \(areaName)."
         }
+    }
+
+    private func searchOSM(around location: CLLocation) async throws -> [NearbyPlace] {
+        let lat = location.coordinate.latitude
+        let lon = location.coordinate.longitude
+        let radius = Int(maxMeters)
+        let query = """
+        [out:json][timeout:25];
+        (
+          nwr["amenity"="restaurant"](around:\(radius),\(lat),\(lon));
+          nwr["amenity"="fast_food"](around:\(radius),\(lat),\(lon));
+          nwr["amenity"="cafe"](around:\(radius),\(lat),\(lon));
+          nwr["amenity"="bar"](around:\(radius),\(lat),\(lon));
+          nwr["amenity"="pub"](around:\(radius),\(lat),\(lon));
+          nwr["amenity"="ice_cream"](around:\(radius),\(lat),\(lon));
+          nwr["amenity"="food_court"](around:\(radius),\(lat),\(lon));
+          nwr["shop"="bakery"](around:\(radius),\(lat),\(lon));
+        );
+        out center tags;
+        """
+        let endpoints = [
+            "https://overpass-api.de/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter"
+        ]
+        var lastError: Error?
+        for endpoint in endpoints {
+            do {
+                return try await fetchOSM(endpoint: endpoint, query: query, around: location)
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError ?? URLError(.cannotConnectToHost)
+    }
+
+    private func fetchOSM(endpoint: String, query: String, around location: CLLocation) async throws -> [NearbyPlace] {
+        guard let url = URL(string: endpoint) else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.setValue("HUB/1.0 (family hub)", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        request.httpBody = Data("data=\(encoded)".utf8)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        let decoded = try JSONDecoder().decode(OSMResponse.self, from: data)
+        return decoded.elements.compactMap { $0.asPlace(around: location, maxMeters: maxMeters, takeoutNames: takeoutNames) }
     }
 
     private func searchPOIs(around location: CLLocation) async throws -> [NearbyPlace] {
@@ -249,5 +310,57 @@ final class PlacesSearch: ObservableObject {
         case .cafe, .bakery: return .takeout
         default: return .sitdown
         }
+    }
+}
+
+private struct OSMResponse: Decodable {
+    var elements: [OSMElement]
+}
+
+private struct OSMElement: Decodable {
+    var type: String
+    var id: Int
+    var lat: Double?
+    var lon: Double?
+    var center: OSMCenter?
+    var tags: [String: String]?
+
+    struct OSMCenter: Decodable {
+        var lat: Double
+        var lon: Double
+    }
+
+    func asPlace(around location: CLLocation, maxMeters: CLLocationDistance, takeoutNames: [String]) -> NearbyPlace? {
+        let tags = self.tags ?? [:]
+        let name = tags["name"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !name.isEmpty else { return nil }
+        let lat = self.lat ?? center?.lat
+        let lon = self.lon ?? center?.lon
+        guard let lat, let lon else { return nil }
+        let coord = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        let distance = location.distance(from: CLLocation(latitude: lat, longitude: lon))
+        guard distance <= maxMeters else { return nil }
+        let amenity = (tags["amenity"] ?? tags["shop"] ?? "").lowercased()
+        let cuisine = tags["cuisine"]?.replacingOccurrences(of: "_", with: " ") ?? ""
+        let lower = name.lowercased()
+        let takeout = amenity == "fast_food" || amenity == "cafe" || amenity == "ice_cream" || amenity == "food_court"
+            || takeoutNames.contains(where: { lower.contains($0) })
+        let address = [
+            [tags["addr:housenumber"], tags["addr:street"]].compactMap { $0 }.joined(separator: " "),
+            tags["addr:city"]
+        ].filter { !$0.isEmpty }.joined(separator: " ")
+        let phone = tags["phone"] ?? tags["contact:phone"] ?? ""
+        let website = tags["website"] ?? tags["contact:website"]
+        return NearbyPlace(
+            id: "osm-\(type)-\(id)",
+            name: name,
+            category: cuisine.isEmpty ? amenity.replacingOccurrences(of: "_", with: " ") : cuisine,
+            address: address,
+            phone: phone,
+            url: website.flatMap(URL.init(string:)),
+            coordinate: coord,
+            distance: distance,
+            mode: takeout ? .takeout : .sitdown
+        )
     }
 }
