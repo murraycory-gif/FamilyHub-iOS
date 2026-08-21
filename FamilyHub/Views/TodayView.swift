@@ -1,3 +1,4 @@
+import MapKit
 import SwiftUI
 import PhotosUI
 import UIKit
@@ -285,7 +286,7 @@ struct TodayView: View {
     }
 
     private var agenda: some View {
-        HubCard {
+        HubCard(fill: AppTheme.blueSoft, stroke: AppTheme.blue) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(dayHeadline)
@@ -399,10 +400,10 @@ struct TodayView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                .stroke(AppTheme.blue, lineWidth: 3)
         )
     }
 
@@ -456,28 +457,49 @@ struct TodayView: View {
 
     private var dinnerHomeTile: some View {
         let plan = store.dinner(on: selectedDay)
+        let recipe = plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
+        let title = store.dinnerTitle(on: selectedDay)
         return Button { showDinner = true } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(Calendar.current.isDateInToday(selectedDay) ? "What's For Dinner Tonight" : "What's For Dinner")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.text)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-                Text(dinnerEyebrow(plan))
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
-                Text(store.dinnerTitle(on: selectedDay) ?? "Nothing planned")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(AppTheme.text)
-                    .lineLimit(3)
-                Text(dinnerHint(plan, recipe: plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
-                    .lineLimit(2)
+            VStack(spacing: 0) {
+                ZStack(alignment: .bottomLeading) {
+                    dinnerPhoto(plan: plan, recipe: recipe)
+                    LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .top, endPoint: .bottom)
+                    Text("What's For Dinner")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(12)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 92)
+                .clipped()
+
+                VStack(spacing: 10) {
+                    dinnerPhoto(plan: plan, recipe: recipe)
+                        .frame(width: 88, height: 88)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(AppTheme.blue, lineWidth: 2)
+                        )
+                    Text(dinnerEyebrow(plan))
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                    Text(title ?? "Nothing planned")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.text)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                    Text(dinnerHint(plan, recipe: recipe))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(AppTheme.card)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppTheme.blueSoft)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -486,6 +508,22 @@ struct TodayView: View {
         }
         .buttonStyle(.plain)
         .simultaneousGesture(daySwipe)
+    }
+
+    @ViewBuilder
+    private func dinnerPhoto(plan: DinnerPlan?, recipe: Recipe?) -> some View {
+        if let recipe, let url = URL(string: recipe.imageURL), recipe.imageURL.isEmpty == false {
+            RecipePhoto(url: url)
+        } else if let plan, let lat = plan.placeLatitude, let lon = plan.placeLongitude {
+            PlaceSnapshot(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+        } else {
+            ZStack {
+                AppTheme.blue
+                Image(systemName: plan?.placeName != nil ? "mappin.and.ellipse" : "fork.knife")
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(.white)
+            }
+        }
     }
 
     private func homeStatTile(title: String, value: String, detail: String = "", symbol: String, color: Color, soft: Color, action: @escaping () -> Void) -> some View {
@@ -669,6 +707,12 @@ struct TodayView: View {
     }
 
     private func dinnerEyebrow(_ plan: DinnerPlan?) -> String {
+        if plan?.placeKind == "delivery" {
+            return Calendar.current.isDateInToday(selectedDay) ? "Delivery tonight" : "Delivery"
+        }
+        if plan?.placeKind == "takeout" {
+            return Calendar.current.isDateInToday(selectedDay) ? "Take out tonight" : "Take out"
+        }
         if plan?.placeName != nil {
             return Calendar.current.isDateInToday(selectedDay) ? "Eating out tonight" : "Eating out"
         }

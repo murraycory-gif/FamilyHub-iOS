@@ -1,7 +1,10 @@
+import MapKit
 import SwiftUI
 import UIKit
 
 struct HubCard<Content: View>: View {
+    var fill: Color = AppTheme.card
+    var stroke: Color = AppTheme.cardBorder
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -10,10 +13,10 @@ struct HubCard<Content: View>: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.radiusL, style: .continuous)
-                    .fill(AppTheme.card)
+                    .fill(fill)
                     .overlay(
                         RoundedRectangle(cornerRadius: AppTheme.radiusL, style: .continuous)
-                            .stroke(AppTheme.cardBorder, lineWidth: 1)
+                            .stroke(stroke, lineWidth: stroke == AppTheme.blue ? 3 : 1)
                     )
             )
     }
@@ -402,6 +405,51 @@ struct PhotoCropper: View {
         }
         return cropped.jpegData(compressionQuality: 0.86)
     }
+}
+
+struct PlaceSnapshot: View {
+    let coordinate: CLLocationCoordinate2D
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            AppTheme.blueSoft
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+        }
+        .task(id: key) { await load() }
+    }
+
+    private var key: String {
+        String(format: "%.4f,%.4f", coordinate.latitude, coordinate.longitude)
+    }
+
+    private func load() async {
+        if let cached = PlaceSnapshotCache.image(for: key) {
+            image = cached
+            return
+        }
+        let options = MKMapSnapshotter.Options()
+        options.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 350, longitudinalMeters: 350)
+        options.size = CGSize(width: 480, height: 320)
+        options.pointOfInterestFilter = MKPointOfInterestFilter(including: [.restaurant, .cafe, .bakery])
+        guard let snapshot = try? await MKMapSnapshotter(options: options).start() else { return }
+        PlaceSnapshotCache.set(snapshot.image, for: key)
+        image = snapshot.image
+    }
+}
+
+enum PlaceSnapshotCache {
+    private static var images: [String: UIImage] = [:]
+    static func image(for key: String) -> UIImage? { images[key] }
+    static func set(_ image: UIImage, for key: String) { images[key] = image }
 }
 
 

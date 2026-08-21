@@ -4,15 +4,25 @@ import Foundation
 import MapKit
 
 enum PlaceMode: String, CaseIterable, Identifiable, Codable {
-    case takeout
     case sitdown
+    case takeout
+    case delivery
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .takeout: return "Takeout"
-        case .sitdown: return "Sit down"
+        case .sitdown: return "Eating out"
+        case .takeout: return "Take out"
+        case .delivery: return "Delivery"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .sitdown: return "fork.knife"
+        case .takeout: return "bag.fill"
+        case .delivery: return "bicycle"
         }
     }
 }
@@ -95,7 +105,7 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
 @MainActor
 final class PlacesSearch: ObservableObject {
     @Published var places: [NearbyPlace] = []
-    @Published var mode: PlaceMode = .takeout
+    @Published var mode: PlaceMode = .sitdown
     @Published var isLoading = false
     @Published var message: String?
     @Published var userLocation: CLLocation?

@@ -101,8 +101,9 @@ struct MealsView: View {
 
     private func kindLabel(_ plan: DinnerPlan?) -> String {
         guard let plan else { return "Tap to plan" }
-        if plan.placeKind == "takeout" { return "Eat out · Takeout" }
-        if plan.placeName != nil { return "Eat out" }
+        if plan.placeKind == "delivery" { return "Delivery" }
+        if plan.placeKind == "takeout" { return "Take out" }
+        if plan.placeName != nil { return "Eating out" }
         if let id = plan.recipeID, let recipe = store.recipe(id: id) {
             return recipe.kind.label
         }
@@ -250,12 +251,12 @@ struct TonightDinnerView: View {
                     .frame(height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
-            Text(isToday ? "Eating out tonight" : "Eating out")
+            Text(plan.placeKind == "delivery" ? "Delivery tonight" : plan.placeKind == "takeout" ? "Take out tonight" : "Eating out tonight")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
             Text(plan.placeName ?? "Restaurant")
                 .font(.system(size: 34, weight: .bold))
-            Text(plan.placeKind == "takeout" ? "Takeout" : "Sit down")
+            Text(PlaceMode(rawValue: plan.placeKind ?? "")?.title ?? "Eating out")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.blue)
                 .padding(.horizontal, 10)
@@ -365,12 +366,30 @@ struct MealChoiceSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
-                        NavigationLink(value: MealPath.eatOut) {
+                        NavigationLink(value: MealPath.eatOut(.sitdown)) {
                             DinnerChoiceCard(
-                                title: "Eat out",
-                                detail: "Restaurants near you",
-                                symbol: "bag.fill",
+                                title: "Eating out",
+                                detail: "Sit down near you",
+                                symbol: "fork.knife",
                                 photo: URL(string: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=60")
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink(value: MealPath.eatOut(.takeout)) {
+                            DinnerChoiceCard(
+                                title: "Take out",
+                                detail: "Pick it up and bring it home",
+                                symbol: "bag.fill",
+                                photo: URL(string: "https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=800&q=60")
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink(value: MealPath.eatOut(.delivery)) {
+                            DinnerChoiceCard(
+                                title: "Delivery",
+                                detail: "Brought to your door",
+                                symbol: "bicycle",
+                                photo: URL(string: "https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&w=800&q=60")
                             )
                         }
                         .buttonStyle(.plain)
@@ -415,7 +434,7 @@ struct MealChoiceSheet: View {
             }
             .navigationDestination(for: MealPath.self) { item in
                 switch item {
-                case .eatOut: EatOutPicker(day: day) { dismiss() }
+                case .eatOut(let mode): EatOutPicker(day: day, mode: mode) { dismiss() }
                 case .family: FamilyRecipePicker(day: day) { dismiss() }
                 case .recipes: CatalogRecipePicker(day: day) { dismiss() }
                 case .manual: ManualMealSheet(day: day) { dismiss() }
@@ -478,13 +497,15 @@ private struct DinnerChoiceCard: View {
 }
 
 private enum MealPath: Hashable {
-    case eatOut, family, recipes, manual
+    case eatOut(PlaceMode)
+    case family, recipes, manual
 }
 
 private struct EatOutPicker: View {
     @EnvironmentObject private var store: HubStore
     @StateObject private var places = PlacesSearch()
     let day: Date
+    var mode: PlaceMode = .sitdown
     var onDone: () -> Void
     @State private var areaQuery = ""
     @State private var opened: NearbyPlace?
@@ -494,13 +515,15 @@ private struct EatOutPicker: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 10) {
-                    Text("Eat")
+                    Text(mode == .delivery ? "Delivery" : mode == .takeout ? "Take" : "Eating")
                         .foregroundStyle(AppTheme.text)
-                    Text("Out")
-                        .foregroundStyle(AppTheme.blue)
+                    if mode != .delivery {
+                        Text(mode == .takeout ? "Out" : "Out")
+                            .foregroundStyle(AppTheme.blue)
+                    }
                 }
                 .font(.system(size: 36, weight: .bold))
-                Text("Search like Maps. Near \(places.areaName).")
+                Text(mode == .delivery ? "Places that can come to you. Near \(places.areaName)." : mode == .takeout ? "Pick it up near \(places.areaName)." : "Sit down near \(places.areaName).")
                     .foregroundStyle(AppTheme.textSecondary)
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
@@ -631,9 +654,10 @@ private struct EatOutPicker: View {
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $opened) { place in
-            PlaceInfoView(place: place, day: day, onDone: onDone)
+            PlaceInfoView(place: place, day: day, mode: mode, onDone: onDone)
         }
         .task {
+            places.mode = mode
             await places.useHere()
             if let here = places.userLocation { completer.setRegion(here) }
         }
@@ -1001,7 +1025,7 @@ struct PlaceThumb: View {
     var body: some View {
         ZStack {
             AppTheme.blueSoft
-            Image(systemName: mode == .takeout ? "bag.fill" : "fork.knife")
+            Image(systemName: mode.symbol)
                 .font(.title.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
         }
@@ -1042,6 +1066,7 @@ private struct PlaceInfoView: View {
     @Environment(\.openURL) private var openURL
     let place: NearbyPlace
     let day: Date
+    var mode: PlaceMode
     var onDone: () -> Void
 
     var body: some View {
@@ -1089,7 +1114,7 @@ private struct PlaceInfoView: View {
                         address: place.address,
                         phone: place.phone,
                         url: place.url?.absoluteString ?? "",
-                        kind: place.mode.rawValue,
+                        kind: mode.rawValue,
                         latitude: place.coordinate.latitude,
                         longitude: place.coordinate.longitude
                     )

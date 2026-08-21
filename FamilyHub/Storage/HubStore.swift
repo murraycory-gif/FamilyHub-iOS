@@ -111,7 +111,7 @@ final class HubStore: ObservableObject {
         upsertDinner(
             on: day,
             recipeID: nil,
-            note: kind == "takeout" ? "Takeout" : "Eat out",
+            note: PlaceMode(rawValue: kind)?.title ?? "Eating out",
             placeName: name,
             placeAddress: address,
             placePhone: phone,
