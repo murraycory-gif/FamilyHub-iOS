@@ -15,7 +15,7 @@ struct MealsView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
-        .sheet(item: pickDayBinding) { day in
+        .fullScreenCover(item: pickDayBinding) { day in
             MealChoiceSheet(day: day.date)
         }
     }
@@ -173,7 +173,6 @@ private struct MealChoiceSheet: View {
                 }
             }
         }
-        .presentationDetents([.large])
     }
 
     private var dayTitle: String {
@@ -417,7 +416,7 @@ private struct CatalogRecipePicker: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Recipes")
                     .font(.system(size: 28, weight: .bold))
-                Text("Tap a recipe to see ingredients and steps.")
+                Text("Tap a recipe to see the photo, ingredients, and steps.")
                     .foregroundStyle(AppTheme.textSecondary)
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
@@ -433,14 +432,12 @@ private struct CatalogRecipePicker: View {
                 }
                 ForEach(catalog.recipes) { recipe in
                     Button {
-                        Task {
-                            opened = await catalog.detail(id: recipe.id) ?? recipe
-                        }
+                        Task { opened = await catalog.detail(id: recipe.id) ?? recipe }
                     } label: {
                         HStack(spacing: 14) {
                             RecipePhoto(url: recipe.thumb)
-                                .frame(width: 72, height: 72)
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .frame(width: 88, height: 88)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(recipe.name)
                                     .font(.headline.weight(.bold))
@@ -457,7 +454,7 @@ private struct CatalogRecipePicker: View {
                                 .foregroundStyle(AppTheme.textTertiary)
                         }
                         .padding(12)
-                        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+                        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
                         .background(AppTheme.card)
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                         .overlay(
@@ -490,7 +487,7 @@ private struct CatalogRecipeDetail: View {
             VStack(alignment: .leading, spacing: 16) {
                 RecipePhoto(url: recipe.thumb)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 260)
+                    .frame(height: 280)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 Text(recipe.name)
                     .font(.system(size: 32, weight: .bold))
@@ -504,7 +501,7 @@ private struct CatalogRecipeDetail: View {
                         ForEach(recipe.ingredients, id: \.self) { line in
                             HStack(alignment: .top, spacing: 10) {
                                 Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
-                                Text(line).font(.body)
+                                Text(line)
                             }
                         }
                     }
@@ -517,7 +514,6 @@ private struct CatalogRecipeDetail: View {
                     Text("Directions")
                         .font(.title3.weight(.bold))
                     Text(recipe.instructions)
-                        .font(.body)
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(AppTheme.card)
@@ -550,100 +546,43 @@ private struct CatalogRecipeDetail: View {
     }
 }
 
+private final class RecipeImageCache {
+    static let shared = RecipeImageCache()
+    private var map: [URL: UIImage] = [:]
+    func image(for url: URL) -> UIImage? { map[url] }
+    func set(_ image: UIImage, for url: URL) { map[url] = image }
+}
+
 private struct RecipePhoto: View {
     let url: URL?
+    @State private var image: UIImage?
 
     var body: some View {
-        AsyncImage(url: url) { phase in
-            switch phase {
-            case .success(let image):
-                image.resizable().scaledToFill()
-            case .failure:
-                ZStack {
-                    AppTheme.blueSoft
-                    Image(systemName: "fork.knife").foregroundStyle(AppTheme.blue)
-                }
-            default:
-                ZStack {
-                    AppTheme.blueSoft
-                    ProgressView()
-                }
+        ZStack {
+            AppTheme.blueSoft
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else if url != nil {
+                ProgressView()
+            } else {
+                Image(systemName: "fork.knife").foregroundStyle(AppTheme.blue)
             }
         }
+        .task(id: url) { await load() }
     }
-}
-    @EnvironmentObject private var store: HubStore
-    @StateObject private var catalog = RecipeCatalog()
-    let day: Date
-    var onDone: () -> Void
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Recipes")
-                    .font(.system(size: 28, weight: .bold))
-                Text("Search a big cookbook. Tap one to set dinner.")
-                    .foregroundStyle(AppTheme.textSecondary)
-                HStack {
-                    Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                    TextField("Chicken, tacos, pasta…", text: $catalog.query)
-                        .textFieldStyle(.plain)
-                        .onSubmit { Task { await catalog.search() } }
-                    if catalog.isLoading { ProgressView() }
-                }
-                .padding(14)
-                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                if let message = catalog.message {
-                    Text(message).foregroundStyle(AppTheme.textSecondary)
-                }
-                ForEach(catalog.recipes) { recipe in
-                    Button {
-                        if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && !recipe.id.isEmpty }) {
-                            store.setDinner(on: day, recipeID: existing.id)
-                        } else {
-                            let saved = recipe.asHubRecipe()
-                            store.addRecipe(saved)
-                            store.setDinner(on: day, recipeID: saved.id)
-                        }
-                        onDone()
-                    } label: {
-                        HStack(spacing: 14) {
-                            AsyncImage(url: recipe.thumb) { image in
-                                image.resizable().scaledToFill()
-                            } placeholder: {
-                                AppTheme.blueSoft
-                            }
-                            .frame(width: 64, height: 64)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(recipe.name)
-                                    .font(.headline.weight(.bold))
-                                    .foregroundStyle(AppTheme.text)
-                                    .lineLimit(2)
-                                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(AppTheme.textSecondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer()
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(AppTheme.cardBorder, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(20)
+    private func load() async {
+        guard let url else { return }
+        if let cached = RecipeImageCache.shared.image(for: url) {
+            image = cached
+            return
         }
-        .background(AppTheme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
-        .task { await catalog.load() }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 20
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let loaded = UIImage(data: data) else { return }
+        RecipeImageCache.shared.set(loaded, for: url)
+        image = loaded
     }
 }
 
