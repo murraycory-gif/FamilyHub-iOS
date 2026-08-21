@@ -37,7 +37,22 @@ final class RecipeCatalog: ObservableObject {
         if categories.isEmpty {
             categories = ["All"] + ((try? await MealDB.categories()) ?? [])
         }
-        await search()
+        isLoading = true
+        message = nil
+        do {
+            recipes = try await MealDB.letters("abc")
+            if recipes.isEmpty { message = "No recipes right now." }
+        } catch {
+            message = "Could not load recipes right now."
+        }
+        isLoading = false
+        Task { await loadMore() }
+    }
+
+    func loadMore() async {
+        let have = Set(recipes.map(\.id))
+        let extra = (try? await MealDB.letters("defghijklmnopqrstuvwxyz", excluding: have)) ?? []
+        if !extra.isEmpty { recipes.append(contentsOf: extra) }
     }
 
     func search() async {
@@ -50,8 +65,8 @@ final class RecipeCatalog: ObservableObject {
                 recipes = try await MealDB.search(trimmed)
             } else if category != "All" {
                 recipes = try await MealDB.filter(category: category)
-            } else {
-                recipes = try await MealDB.featured()
+            } else if recipes.isEmpty {
+                recipes = try await MealDB.letters("abc")
             }
             if recipes.isEmpty { message = "No recipes for that search." }
         } catch {
@@ -67,16 +82,20 @@ final class RecipeCatalog: ObservableObject {
 enum MealDB {
     private static let root = "https://www.themealdb.com/api/json/v1/1"
 
-    static func featured() async throws -> [CatalogRecipe] {
-        var seen = Set<String>()
+    static func letters(_ alphabet: String, excluding: Set<String> = []) async throws -> [CatalogRecipe] {
+        var seen = excluding
         var result: [CatalogRecipe] = []
-        for letter in "abcdefghijklmnopqrstuvwxyz" {
+        for letter in alphabet {
             let batch = (try? await get("search.php?f=\(letter)")) ?? []
             for meal in batch where seen.insert(meal.id).inserted {
                 result.append(meal)
             }
         }
         return result
+    }
+
+    static func featured() async throws -> [CatalogRecipe] {
+        try await letters("abcdefghijklmnopqrstuvwxyz")
     }
 
     static func search(_ query: String) async throws -> [CatalogRecipe] {
@@ -148,7 +167,9 @@ private extension CatalogRecipe {
         name = meal.strMeal
         category = meal.strCategory ?? ""
         area = meal.strArea ?? ""
-        thumb = meal.strMealThumb.flatMap(URL.init(string:))
+        thumb = meal.strMealThumb.flatMap { raw in
+            URL(string: raw.replacingOccurrences(of: "http://", with: "https://"))
+        }
         instructions = meal.strInstructions ?? ""
         sourceURL = meal.strSource.flatMap(URL.init(string:))
         youtubeURL = meal.strYoutube.flatMap(URL.init(string:))

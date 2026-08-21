@@ -290,6 +290,7 @@ private struct FamilyRecipePicker: View {
     let day: Date
     var onDone: () -> Void
     @State private var showAdd = false
+    @State private var opened: Recipe?
 
     private var familyRecipes: [Recipe] {
         store.recipes.filter { $0.kind == .family || $0.kind == .cooked || $0.catalogID.isEmpty }
@@ -322,10 +323,7 @@ private struct FamilyRecipePicker: View {
                         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 }
                 ForEach(familyRecipes) { recipe in
-                    Button {
-                        store.setDinner(on: day, recipeID: recipe.id)
-                        onDone()
-                    } label: {
+                    Button { opened = recipe } label: {
                         mealRow(title: recipe.name, detail: recipe.kind.label)
                     }
                     .buttonStyle(.plain)
@@ -335,11 +333,245 @@ private struct FamilyRecipePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $opened) { recipe in
+            FamilyRecipeDetail(recipe: recipe, day: day, onDone: onDone)
+        }
         .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet() }
     }
 }
 
+private struct FamilyRecipeDetail: View {
+    @EnvironmentObject private var store: HubStore
+    let recipe: Recipe
+    let day: Date
+    var onDone: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
+                    RecipePhoto(url: url)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                Text(recipe.name)
+                    .font(.system(size: 32, weight: .bold))
+                Text(recipe.kind.label)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
+                if !recipe.notes.isEmpty {
+                    Text(recipe.notes)
+                }
+                if !recipe.ingredients.isEmpty {
+                    Text("Ingredients")
+                        .font(.title3.weight(.bold))
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(recipe.ingredients, id: \.self) { line in
+                            Text("· \(line)")
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                if !recipe.instructions.isEmpty {
+                    Text("Directions")
+                        .font(.title3.weight(.bold))
+                    Text(recipe.instructions)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                Button {
+                    store.setDinner(on: day, recipeID: recipe.id)
+                    onDone()
+                } label: {
+                    Text("Add for dinner")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 private struct CatalogRecipePicker: View {
+    @EnvironmentObject private var store: HubStore
+    @StateObject private var catalog = RecipeCatalog()
+    let day: Date
+    var onDone: () -> Void
+    @State private var opened: CatalogRecipe?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Recipes")
+                    .font(.system(size: 28, weight: .bold))
+                Text("Tap a recipe to see ingredients and steps.")
+                    .foregroundStyle(AppTheme.textSecondary)
+                HStack {
+                    Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+                    TextField("Chicken, tacos, pasta…", text: $catalog.query)
+                        .textFieldStyle(.plain)
+                        .onSubmit { Task { await catalog.search() } }
+                    if catalog.isLoading { ProgressView() }
+                }
+                .padding(14)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                if let message = catalog.message {
+                    Text(message).foregroundStyle(AppTheme.textSecondary)
+                }
+                ForEach(catalog.recipes) { recipe in
+                    Button {
+                        Task {
+                            opened = await catalog.detail(id: recipe.id) ?? recipe
+                        }
+                    } label: {
+                        HStack(spacing: 14) {
+                            RecipePhoto(url: recipe.thumb)
+                                .frame(width: 72, height: 72)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(recipe.name)
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(AppTheme.text)
+                                    .lineLimit(2)
+                                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(AppTheme.textTertiary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $opened) { recipe in
+            CatalogRecipeDetail(recipe: recipe, day: day, onDone: onDone)
+        }
+        .task { await catalog.load() }
+    }
+}
+
+private struct CatalogRecipeDetail: View {
+    @EnvironmentObject private var store: HubStore
+    let recipe: CatalogRecipe
+    let day: Date
+    var onDone: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                RecipePhoto(url: recipe.thumb)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 260)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                Text(recipe.name)
+                    .font(.system(size: 32, weight: .bold))
+                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
+                if !recipe.ingredients.isEmpty {
+                    Text("Ingredients")
+                        .font(.title3.weight(.bold))
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(recipe.ingredients, id: \.self) { line in
+                            HStack(alignment: .top, spacing: 10) {
+                                Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
+                                Text(line).font(.body)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                if !recipe.instructions.isEmpty {
+                    Text("Directions")
+                        .font(.title3.weight(.bold))
+                    Text(recipe.instructions)
+                        .font(.body)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                Button {
+                    if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && !recipe.id.isEmpty }) {
+                        store.setDinner(on: day, recipeID: existing.id)
+                    } else {
+                        let saved = recipe.asHubRecipe()
+                        store.addRecipe(saved)
+                        store.setDinner(on: day, recipeID: saved.id)
+                    }
+                    onDone()
+                } label: {
+                    Text("Add for dinner")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 8)
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct RecipePhoto: View {
+    let url: URL?
+
+    var body: some View {
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .success(let image):
+                image.resizable().scaledToFill()
+            case .failure:
+                ZStack {
+                    AppTheme.blueSoft
+                    Image(systemName: "fork.knife").foregroundStyle(AppTheme.blue)
+                }
+            default:
+                ZStack {
+                    AppTheme.blueSoft
+                    ProgressView()
+                }
+            }
+        }
+    }
+}
     @EnvironmentObject private var store: HubStore
     @StateObject private var catalog = RecipeCatalog()
     let day: Date
