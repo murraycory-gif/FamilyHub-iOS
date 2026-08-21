@@ -3,7 +3,7 @@ import CoreLocation
 import Foundation
 import MapKit
 
-enum PlaceMode: String, CaseIterable, Identifiable {
+enum PlaceMode: String, CaseIterable, Identifiable, Codable {
     case takeout
     case sitdown
 
@@ -17,16 +17,21 @@ enum PlaceMode: String, CaseIterable, Identifiable {
     }
 }
 
-struct NearbyPlace: Identifiable, Hashable {
+struct NearbyPlace: Identifiable, Hashable, Codable {
     var id: String
     var name: String
     var category: String
     var address: String
     var phone: String
     var url: URL?
-    var coordinate: CLLocationCoordinate2D
+    var latitude: Double
+    var longitude: Double
     var distance: CLLocationDistance?
     var mode: PlaceMode
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
 
     var distanceLabel: String? {
         guard let distance = distance else { return nil }
@@ -102,6 +107,10 @@ final class PlacesSearch: ObservableObject {
     private static var cacheLocation: CLLocation?
     private static var cacheName = ""
     private static var cachePlaces: [NearbyPlace] = []
+    private static var cacheURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("eatout-cache.json")
+    }
     private let takeoutNames = [
         "mcdonald", "burger king", "wendy", "taco bell", "kfc", "chick-fil-a", "chick fil a",
         "subway", "dunkin", "starbucks", "popeyes", "arby", "sonic", "dairy queen",
@@ -121,29 +130,19 @@ final class PlacesSearch: ObservableObject {
             let location = try await locator.current()
             userLocation = location
             searchCenter = location
-            if let cachedAt = Self.cacheLocation,
-               cachedAt.distance(from: location) < 2500,
-               Self.cachePlaces.isEmpty == false {
-                places = Self.cachePlaces
+            if let cached = loadCache(near: location) {
+                places = cached
                 areaName = Self.cacheName.isEmpty ? "Current location" : Self.cacheName
                 isLoading = false
-                Task { await refresh(around: location) }
+                Task { await reloadAll(around: location) }
                 return
             }
             areaName = "Current location"
             Task { await nameArea(location) }
-            await fillQuick(around: location)
-            isLoading = false
-            Task { await fillMore(around: location) }
+            await reloadAll(around: location)
         } catch {
             message = "Turn on location, or type a city or zip."
         }
-    }
-
-    private func refresh(around location: CLLocation) async {
-        Task { await nameArea(location) }
-        await fillQuick(around: location)
-        await fillMore(around: location)
     }
 
     private func nameArea(_ location: CLLocation) async {
@@ -180,9 +179,7 @@ final class PlacesSearch: ObservableObject {
                 .joined(separator: ", ")
             if areaName.isEmpty { areaName = trimmed }
             searchCenter = location
-            await fillQuick(around: location)
-            isLoading = false
-            Task { await fillMore(around: location) }
+            await reloadAll(around: location)
         } catch {
             message = "Could not find that city or zip."
         }
@@ -195,10 +192,7 @@ final class PlacesSearch: ObservableObject {
             return
         }
         if trimmed.isEmpty {
-            isLoading = true
-            await fillQuick(around: location)
-            isLoading = false
-            Task { await fillMore(around: location) }
+            await reloadAll(around: location)
             return
         }
         isLoading = true
@@ -225,55 +219,69 @@ final class PlacesSearch: ObservableObject {
         }
     }
 
-    private func fillQuick(around location: CLLocation) async {
+    private func reloadAll(around location: CLLocation) async {
         message = nil
+        async let restaurants = searchNamed("restaurants", around: location, requireFood: false)
+        async let fast = searchNamed("fast food", around: location, requireFood: false)
+        async let pizza = searchNamed("pizza", around: location, requireFood: false)
+        async let coffee = searchNamed("coffee", around: location, requireFood: false)
+        async let tacos = searchNamed("tacos", around: location, requireFood: false)
+        async let poi = searchPOIs(around: location)
+        async let osm = searchOSM(around: location)
+
         var seen = Set<String>()
         var result: [NearbyPlace] = []
-        if let named = try? await searchNamed("restaurants", around: location, requireFood: false) {
-            merge(named, into: &result, seen: &seen)
+        let batches = [
+            (try? await restaurants) ?? [],
+            (try? await fast) ?? [],
+            (try? await pizza) ?? [],
+            (try? await coffee) ?? [],
+            (try? await tacos) ?? [],
+            (try? await poi) ?? [],
+            (try? await osm) ?? []
+        ]
+        for batch in batches {
+            merge(batch, into: &result, seen: &seen)
         }
         places = sortedPlaces(result)
-        Self.cacheLocation = location
-        Self.cachePlaces = places
+        saveCache(places, near: location)
         if places.isEmpty {
-            message = "Looking for more places near \(areaName)…"
+            message = "No restaurants found near \(areaName)."
         }
     }
 
-    private func fillMore(around location: CLLocation) async {
-        var seen = Set(places.map(\.id))
-        for item in places {
-            seen.insert(item.name.lowercased() + String(format: "-%.3f-%.3f", item.coordinate.latitude, item.coordinate.longitude))
+    private func loadCache(near location: CLLocation) -> [NearbyPlace]? {
+        if let memoryAt = Self.cacheLocation,
+           memoryAt.distance(from: location) < 4000,
+           Self.cachePlaces.isEmpty == false {
+            return Self.cachePlaces.map { item in
+                var copy = item
+                copy.distance = location.distance(from: CLLocation(latitude: item.latitude, longitude: item.longitude))
+                return copy
+            }
         }
-        var result = places
-        async let fast = searchNamed("fast food", around: location, requireFood: false)
-        async let pizza = searchNamed("pizza", around: location, requireFood: false)
-        async let poi = searchPOIs(around: location)
+        guard let data = try? Data(contentsOf: Self.cacheURL),
+              let saved = try? JSONDecoder().decode(PlaceDiskCache.self, from: data) else { return nil }
+        let cachedAt = CLLocation(latitude: saved.lat, longitude: saved.lon)
+        guard cachedAt.distance(from: location) < 4000, saved.places.isEmpty == false else { return nil }
+        Self.cacheLocation = cachedAt
+        Self.cacheName = saved.areaName
+        Self.cachePlaces = saved.places
+        areaName = saved.areaName
+        return saved.places.map { item in
+            var copy = item
+            copy.distance = location.distance(from: CLLocation(latitude: item.latitude, longitude: item.longitude))
+            return copy
+        }
+    }
 
-        if let batch = try? await fast {
-            merge(batch, into: &result, seen: &seen)
-            places = sortedPlaces(result)
-        }
-        if let batch = try? await pizza {
-            merge(batch, into: &result, seen: &seen)
-            places = sortedPlaces(result)
-        }
-        if let batch = try? await poi {
-            merge(batch, into: &result, seen: &seen)
-            places = sortedPlaces(result)
-        }
-        if places.count < 12, let batch = try? await searchOSM(around: location) {
-            merge(batch, into: &result, seen: &seen)
-            places = sortedPlaces(result)
-        }
+    private func saveCache(_ items: [NearbyPlace], near location: CLLocation) {
         Self.cacheLocation = location
-        Self.cachePlaces = places
+        Self.cachePlaces = items
         Self.cacheName = areaName
-
-        if places.isEmpty {
-            message = "No restaurants found near \(areaName)."
-        } else {
-            message = nil
+        let saved = PlaceDiskCache(lat: location.coordinate.latitude, lon: location.coordinate.longitude, areaName: areaName, places: items)
+        if let data = try? JSONEncoder().encode(saved) {
+            try? data.write(to: Self.cacheURL, options: .atomic)
         }
     }
 
@@ -388,11 +396,19 @@ final class PlacesSearch: ObservableObject {
             address: address,
             phone: item.phoneNumber ?? "",
             url: item.url,
-            coordinate: coord,
+            latitude: coord.latitude,
+            longitude: coord.longitude,
             distance: distance,
             mode: takeout ? .takeout : .sitdown
         )
     }
+}
+
+private struct PlaceDiskCache: Codable {
+    var lat: Double
+    var lon: Double
+    var areaName: String
+    var places: [NearbyPlace]
 }
 
 private struct OSMResponse: Decodable {
@@ -447,7 +463,8 @@ private struct OSMElement: Decodable {
             address: address,
             phone: phone,
             url: website,
-            coordinate: CLLocationCoordinate2D(latitude: resolvedLat, longitude: resolvedLon),
+            latitude: resolvedLat,
+            longitude: resolvedLon,
             distance: distance,
             mode: takeout ? .takeout : .sitdown
         )
