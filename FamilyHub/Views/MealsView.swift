@@ -10,7 +10,9 @@ struct MealsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 title
-                weekGrid
+                HubPanel(symbol: "fork.knife", title: "This Week") {
+                    weekGrid
+                }
             }
             .padding(20)
         }
@@ -85,8 +87,10 @@ struct MealsView: View {
         Group {
             if let recipe, let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
                 RecipePhoto(url: url)
-            } else if let lat = plan?.placeLatitude, let lon = plan?.placeLongitude {
-                PlacePhoto(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+            } else if let plan, let name = plan.placeName {
+                PlaceHeroPhoto(name: name, address: plan.placeAddress, coordinate: plan.placeLatitude.flatMap { lat in
+                    plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
+                })
             } else {
                 ZStack {
                     AppTheme.blueSoft
@@ -245,12 +249,10 @@ struct TonightDinnerView: View {
 
     private func eatOutView(_ plan: DinnerPlan) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            if let lat = plan.placeLatitude, let lon = plan.placeLongitude {
-                PlacePhoto(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+            PlaceHeroPhoto(name: plan.placeName ?? "Restaurant", address: plan.placeAddress)
                     .frame(maxWidth: .infinity)
                     .frame(height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            }
             Text(plan.placeKind == "delivery" ? "Delivery tonight" : plan.placeKind == "takeout" ? "Take out tonight" : "Eating out tonight")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
@@ -1109,7 +1111,7 @@ private struct PlaceInfoView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                PlacePhoto(coordinate: place.coordinate)
+                PlaceHeroPhoto(name: place.name, address: place.address, coordinate: place.coordinate)
                     .frame(maxWidth: .infinity)
                     .frame(height: 240)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))

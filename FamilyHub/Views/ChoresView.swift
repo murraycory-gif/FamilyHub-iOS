@@ -9,6 +9,7 @@ struct ChoresView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                HubPageTitle(lead: "Chore", tail: "Board")
                 kidBalances
                 kidFilter
                 board
@@ -17,7 +18,7 @@ struct ChoresView: View {
             .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("Chores")
+        .navigationTitle("")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showAddChore = true } label: { Image(systemName: "plus") }
@@ -68,8 +69,7 @@ struct ChoresView: View {
     }
 
     private var board: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionLabel(title: "Assigned")
+            HubPanel(symbol: "checkmark.circle.fill", title: "Assigned") {
             let items = store.openAssignments(for: selectedKid)
             if items.isEmpty {
                 HubCard {
@@ -91,8 +91,7 @@ struct ChoresView: View {
     }
 
     private var catalog: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionLabel(title: "Chore catalog")
+            HubPanel(symbol: "list.bullet", title: "Chore Catalog") {
             if store.chores.isEmpty {
                 HubCard {
                     EmptyHint(

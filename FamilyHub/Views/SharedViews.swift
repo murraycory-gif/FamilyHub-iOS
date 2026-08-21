@@ -456,6 +456,7 @@ struct PlaceHeroPhoto: View {
     let name: String
     var address: String? = nil
     var coordinate: CLLocationCoordinate2D?
+    @State private var image: UIImage?
 
     var body: some View {
         Color.clear
@@ -482,9 +483,54 @@ struct PlaceHeroPhoto: View {
                         }
                     }
                     .padding(16)
+                    .opacity(image == nil ? 1 : 0)
+                    if let image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    }
                 }
             }
             .clipped()
+            .task(id: name + (address ?? "")) {
+                image = await PlaceImages.photo(name: name, address: address)
+            }
+    }
+}
+
+struct HubPageTitle: View {
+    let lead: String
+    var tail: String = ""
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(lead).foregroundStyle(AppTheme.text)
+            if !tail.isEmpty {
+                Text(tail).foregroundStyle(AppTheme.blue)
+            }
+        }
+        .font(.system(size: 36, weight: .bold))
+    }
+}
+
+struct HubPanel<Content: View>: View {
+    let symbol: String
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HubTileBanner(symbol: symbol, title: title)
+            content
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(AppTheme.blueSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
     }
 }
 

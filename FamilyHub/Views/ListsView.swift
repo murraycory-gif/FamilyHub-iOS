@@ -14,7 +14,10 @@ struct ListsView: View {
     @State private var memberFilter: UUID?
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            HubPageTitle(lead: kind == .reminders ? "Family" : "Family", tail: kind == .reminders ? "Reminders" : "To-dos")
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
             Picker("List", selection: $kind) {
                 ForEach(ListKind.allCases) { item in
                     Text(item.title).tag(item)
@@ -56,7 +59,7 @@ struct ListsView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("Lists")
+        .navigationTitle("")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showAdd = true } label: { Image(systemName: "plus") }
@@ -229,6 +232,7 @@ struct ShoppingListView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                HubPageTitle(lead: "Shopping", tail: "List")
                 addRow
                 if openItems.isEmpty && checkedItems.isEmpty {
                     HubCard {
@@ -312,7 +316,7 @@ struct ShoppingListView: View {
             .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(AppTheme.cardBorder, lineWidth: 1)
+                    .stroke(AppTheme.blue, lineWidth: 3)
             )
         }
         .buttonStyle(.plain)

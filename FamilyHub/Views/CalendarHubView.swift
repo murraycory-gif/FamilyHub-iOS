@@ -15,6 +15,7 @@ struct CalendarHubView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                HubPageTitle(lead: "Family", tail: "Calendar")
                 monthHeader
                 filterRow
                 weekdayHeader
@@ -28,6 +29,7 @@ struct CalendarHubView: View {
             .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 8) {
@@ -61,15 +63,25 @@ struct CalendarHubView: View {
     }
 
     private var monthHeader: some View {
-        HStack {
-            HubIconButton(symbol: "chevron.left", label: "Previous month") { shiftMonth(-1) }
-            Spacer()
-            Text(monthAnchor.formatted(.dateTime.month(.wide).year()))
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(AppTheme.text)
-            Spacer()
-            HubIconButton(symbol: "chevron.right", label: "Next month") { shiftMonth(1) }
+        HubTileBanner(symbol: "calendar", title: monthAnchor.formatted(.dateTime.month(.wide).year())) {
+            HStack(spacing: 8) {
+                Button { shiftMonth(-1) } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                        .frame(width: 28, height: 28)
+                        .background(.white, in: Circle())
+                }
+                Button { shiftMonth(1) } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                        .frame(width: 28, height: 28)
+                        .background(.white, in: Circle())
+                }
+            }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var filterRow: some View {
