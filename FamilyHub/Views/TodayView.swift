@@ -56,14 +56,6 @@ struct TodayView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 8) {
-                    dateButton
-                    profileButton
-                }
-            }
-        }
         .sheet(isPresented: $showMoreDates) {
             NavigationStack {
                 DatePicker("Day", selection: $selectedDay, displayedComponents: .date)
@@ -131,14 +123,18 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(greetingLead)
-                .foregroundStyle(AppTheme.text)
-            Text(greetingTail)
-                .foregroundStyle(AppTheme.blue)
+        HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(greetingLead)
+                    .foregroundStyle(AppTheme.text)
+                Text(greetingTail)
+                    .foregroundStyle(AppTheme.blue)
+            }
+            .font(.system(size: 34, weight: .bold))
+            Spacer(minLength: 12)
+            dateButton
+            profileButton
         }
-        .font(.system(size: 34, weight: .bold))
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var dateButton: some View {
@@ -157,11 +153,7 @@ struct TodayView: View {
             Divider()
             Button("More dates…") { showMoreDates = true }
         } label: {
-            pillButton(
-                symbol: "calendar",
-                caption: "Day",
-                title: shortDayName
-            )
+            filterBanner(symbol: "calendar", title: shortDayName)
         }
     }
 
@@ -184,38 +176,24 @@ struct TodayView: View {
                 }
             }
         } label: {
-            cleanPill(icon: { profileAvatar }) {
-                Text(shortProfileName)
-            }
+            filterBanner(symbol: "person.3.fill", title: shortProfileName)
         }
     }
 
-    private func pillButton(symbol: String, caption: String, title: String) -> some View {
-        cleanPill(icon: {
-            Image(systemName: symbol)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(AppTheme.blue)
-        }) {
-            Text(title)
-        }
-    }
-
-    private func cleanPill<Icon: View, Label: View>(
-        @ViewBuilder icon: () -> Icon,
-        @ViewBuilder label: () -> Label
-    ) -> some View {
+    private func filterBanner(symbol: String, title: String) -> some View {
         HStack(spacing: 8) {
-            icon()
-            label()
-                .font(.headline)
-                .foregroundStyle(AppTheme.text)
+            Image(systemName: symbol)
+                .font(.body.weight(.bold))
+            Text(title)
+                .font(.headline.weight(.bold))
+                .lineLimit(1)
             Image(systemName: "chevron.down")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.blue)
         }
+        .foregroundStyle(.white)
         .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(AppTheme.card, in: Capsule(style: .continuous))
+        .padding(.vertical, 12)
+        .background(AppTheme.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     @ViewBuilder
