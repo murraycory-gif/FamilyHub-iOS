@@ -54,7 +54,7 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
 
     override init() {
         super.init()
-        completer.resultTypes = [.address, .pointOfInterest, .query]
+        completer.resultTypes = [.pointOfInterest, .query]
         completer.delegate = self
     }
 
@@ -77,16 +77,13 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
         )
     }
 
-    nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        let mapped = completer.results.prefix(8).map {
+    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        suggestions = completer.results.prefix(8).map {
             AreaSuggestion(title: $0.title, subtitle: $0.subtitle)
-        }
-        Task { @MainActor in
-            self.suggestions = Array(mapped)
         }
     }
 
-    nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {}
+    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {}
 }
 
 @MainActor
@@ -102,7 +99,7 @@ final class PlacesSearch: ObservableObject {
     private let locator = LocationFinder()
     private let maxMeters: CLLocationDistance = 24140
     private let foodCategories: Set<MKPointOfInterestCategory> = [
-        .restaurant, .cafe, .bakery, .brewery, .winery, .nightlife
+        .restaurant, .cafe, .bakery, .brewery, .winery
     ]
     private let takeoutNames = [
         "mcdonald", "burger king", "wendy", "taco bell", "kfc", "chick-fil-a", "chick fil a",
@@ -123,7 +120,8 @@ final class PlacesSearch: ObservableObject {
             let location = try await locator.current()
             userLocation = location
             searchCenter = location
-            if let mark = try? await CLGeocoder().reverseGeocodeLocation(location).first {
+            if let marks = try? await CLGeocoder().reverseGeocodeLocation(location),
+               let mark = marks.first {
                 areaName = [mark.locality, mark.administrativeArea, mark.postalCode]
                     .compactMap { $0 }
                     .joined(separator: ", ")
@@ -189,7 +187,7 @@ final class PlacesSearch: ObservableObject {
             let response = try await MKLocalSearch(request: request).start()
             let mapped = response.mapItems.compactMap { mapItem($0, around: location, mapsStyle: true) }
             places = mapped.sorted { ($0.distance ?? .greatestFiniteMagnitude) < ($1.distance ?? .greatestFiniteMagnitude) }
-            if places.isEmpty { message = "No places matching “\(trimmed)” near \(areaName)." }
+            if places.isEmpty { message = "No places matching \"\(trimmed)\" near \(areaName)." }
         } catch {
             message = "Could not search Maps right now."
         }
@@ -211,19 +209,19 @@ final class PlacesSearch: ObservableObject {
             "mexican food", "chinese food", "thai food", "italian restaurant",
             "breakfast", "sandwiches", "barbecue", "wings", "seafood", "diner", "cafe"
         ]
-        await withTaskGroup(of: [NearbyPlace].self) { group in
-            group.addTask { (try? await self.searchPOIs(around: location)) ?? [] }
+        let extraPOI = (try? await searchPOIs(around: location)) ?? []
+        let extraNamed: [NearbyPlace] = await {
+            var batch: [NearbyPlace] = []
             for query in queries {
-                group.addTask { (try? await self.searchNamed(query, around: location)) ?? [] }
+                batch.append(contentsOf: (try? await searchNamed(query, around: location)) ?? [])
             }
-            for await batch in group {
-                for item in batch {
-                    let key = item.id
-                    let fuzzy = item.name.lowercased() + String(format: "-%.3f-%.3f", item.coordinate.latitude, item.coordinate.longitude)
-                    guard seen.insert(key).inserted, seen.insert(fuzzy).inserted else { continue }
-                    result.append(item)
-                }
-            }
+            return batch
+        }()
+        for item in extraPOI + extraNamed {
+            let key = item.id
+            let fuzzy = item.name.lowercased() + String(format: "-%.3f-%.3f", item.coordinate.latitude, item.coordinate.longitude)
+            guard seen.insert(key).inserted, seen.insert(fuzzy).inserted else { continue }
+            result.append(item)
         }
         places = result.sorted { ($0.distance ?? .greatestFiniteMagnitude) < ($1.distance ?? .greatestFiniteMagnitude) }
         if places.isEmpty {
