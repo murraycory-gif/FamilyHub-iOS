@@ -15,6 +15,7 @@ struct FamilyView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                pageTitle
                 householdCard
                 members
                 if !store.ledger.isEmpty {
@@ -64,6 +65,17 @@ struct FamilyView: View {
         }
     }
 
+    private var pageTitle: some View {
+        HStack(spacing: 10) {
+            Text("HUB")
+                .foregroundStyle(AppTheme.text)
+            Text("Profiles")
+                .foregroundStyle(AppTheme.blue)
+        }
+        .font(.system(size: 36, weight: .bold))
+        .padding(.bottom, 2)
+    }
+
     private var householdCard: some View {
         HStack(spacing: 18) {
             ZStack {
@@ -84,7 +96,15 @@ struct FamilyView: View {
             .shadow(color: AppTheme.blue.opacity(0.2), radius: 10, y: 4)
 
             VStack(alignment: .leading, spacing: 6) {
-                SectionLabel(title: "Household")
+                HStack(spacing: 6) {
+                    Text("HUB")
+                        .foregroundStyle(AppTheme.text)
+                    Text("Profiles")
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .font(.caption.weight(.semibold))
+                .tracking(1.4)
+                .textCase(.uppercase)
                 TextField("Family name", text: $household)
                     .font(.system(size: 32, weight: .bold))
                     .foregroundStyle(AppTheme.text)
