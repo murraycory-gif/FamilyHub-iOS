@@ -253,55 +253,16 @@ struct TonightDinnerView: View {
     }
 
     private func eatOutView(_ plan: DinnerPlan) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            PlaceHeroPhoto(
-                name: plan.placeName ?? "Restaurant",
-                address: plan.placeAddress,
-                coordinate: plan.placeLatitude.flatMap { lat in
-                    plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
-                },
-                website: plan.placeURL.flatMap(URL.init(string:))
-            )
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            Text(plan.placeKind == "delivery" ? "Delivery tonight" : plan.placeKind == "takeout" ? "Take out tonight" : "Eating out tonight")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(AppTheme.blue)
-            Text(plan.placeName ?? "Restaurant")
-                .font(.system(size: 34, weight: .bold))
-            Text(PlaceMode(rawValue: plan.placeKind ?? "")?.title ?? "Eating out")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.blue)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(AppTheme.blueSoft, in: Capsule())
-
-            VStack(spacing: 0) {
-                if let address = plan.placeAddress, !address.isEmpty {
-                    infoRow("mappin.and.ellipse", address)
-                }
-                if let phone = plan.placePhone, !phone.isEmpty {
-                    infoRow("phone.fill", phone)
-                }
-            }
-            .background(AppTheme.card)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-
-            HStack(spacing: 10) {
-                if let phone = plan.placePhone, !phone.isEmpty,
-                   let tel = URL(string: "tel:\(phone.filter(\.isNumber))") {
-                    actionPill("Call", "phone.fill") { openURL(tel) }
-                }
-                if let raw = plan.placeURL, let url = URL(string: raw) {
-                    actionPill("Menu", "menucard") { openURL(url) }
-                }
-                if let address = plan.placeAddress, !address.isEmpty,
-                   let maps = URL(string: "http://maps.apple.com/?q=\(address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? address)") {
-                    actionPill("Directions", "arrow.triangle.turn.up.right.diamond.fill") { openURL(maps) }
-                }
-            }
-        }
+        PlaceDetailView(
+            name: plan.placeName ?? "Restaurant",
+            address: plan.placeAddress,
+            phone: plan.placePhone,
+            website: plan.placeURL.flatMap(URL.init(string:)),
+            coordinate: plan.placeLatitude.flatMap { lat in
+                plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
+            },
+            kindTitle: plan.placeKind == "delivery" ? "Delivery Tonight" : plan.placeKind == "takeout" ? "Take Out" : "Eating Out"
+        )
     }
 
     private var noteView: some View {
@@ -1122,94 +1083,32 @@ private struct PlaceInfoView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                PlaceHeroPhoto(
+            PlaceDetailView(
+                name: place.name,
+                address: place.address,
+                phone: place.phone,
+                website: place.url,
+                coordinate: place.coordinate,
+                kindTitle: mode.title,
+                distance: place.distanceLabel,
+                confirmTitle: "Set as dinner"
+            ) {
+                store.setDinnerPlace(
+                    on: day,
                     name: place.name,
                     address: place.address,
-                    coordinate: place.coordinate,
-                    website: place.url
+                    phone: place.phone,
+                    url: place.url?.absoluteString ?? "",
+                    kind: mode.rawValue,
+                    latitude: place.coordinate.latitude,
+                    longitude: place.coordinate.longitude
                 )
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 240)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                Map(initialPosition: .region(MKCoordinateRegion(center: place.coordinate, latitudinalMeters: 600, longitudinalMeters: 600))) {
-                    Marker(place.name, coordinate: place.coordinate)
-                }
-                .frame(height: 180)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                Text(place.name)
-                    .font(.system(size: 32, weight: .bold))
-                Text(place.mode.title)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
-                VStack(spacing: 0) {
-                    if !place.address.isEmpty { row("mappin.and.ellipse", place.address) }
-                    if let distance = place.distanceLabel { row("location", distance) }
-                    if !place.phone.isEmpty { row("phone.fill", place.phone) }
-                    if let url = place.url { row("safari", url.host ?? "Website") }
-                }
-                .background(AppTheme.card)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                HStack(spacing: 10) {
-                    if !place.phone.isEmpty, let tel = URL(string: "tel:\(place.phone.filter(\.isNumber))") {
-                        pill("Call", "phone.fill") { openURL(tel) }
-                    }
-                    if let url = place.url {
-                        pill(place.mode == .takeout ? "Menu / order" : "Menu", "menucard") { openURL(url) }
-                    }
-                    pill("Directions", "arrow.triangle.turn.up.right.diamond.fill") {
-                        let item = MKMapItem(placemark: MKPlacemark(coordinate: place.coordinate))
-                        item.name = place.name
-                        item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
-                    }
-                }
-                Button {
-                    store.setDinnerPlace(
-                        on: day,
-                        name: place.name,
-                        address: place.address,
-                        phone: place.phone,
-                        url: place.url?.absoluteString ?? "",
-                        kind: mode.rawValue,
-                        latitude: place.coordinate.latitude,
-                        longitude: place.coordinate.longitude
-                    )
-                    onDone()
-                } label: {
-                    Text("Set as dinner")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppTheme.blue, in: Capsule())
-                }
-                .buttonStyle(.plain)
+                onDone()
             }
             .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func row(_ symbol: String, _ text: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol).foregroundStyle(AppTheme.blue).frame(width: 24)
-            Text(text)
-            Spacer()
-        }
-        .padding(16)
-    }
-
-    private func pill(_ title: String, _ symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: symbol)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(AppTheme.blue, in: Capsule())
-        }
-        .buttonStyle(.plain)
     }
 }
 
