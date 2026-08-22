@@ -1,24 +1,22 @@
 import Foundation
 import UIKit
 import UserNotifications
+import MessageUI
+import SwiftUI
 
 @MainActor
-final class HubPinger {
+final class HubPinger: ObservableObject {
     static let shared = HubPinger()
     private let sentKey = "familyhub.notify.sent.v1"
-    private let codeKey = "familyhub.notify.pendingCode"
     private let verifiedKey = "familyhub.notify.phoneVerified"
     var lastError: String?
+    @Published var phoneVerified: Bool
 
-    var pendingCode: String {
-        get { UserDefaults.standard.string(forKey: codeKey) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: codeKey) }
+    private init() {
+        phoneVerified = UserDefaults.standard.bool(forKey: verifiedKey)
     }
 
-    var phoneVerified: Bool {
-        get { UserDefaults.standard.bool(forKey: verifiedKey) }
-        set { UserDefaults.standard.set(newValue, forKey: verifiedKey) }
-    }
+    var canSendText: Bool { MFMessageComposeViewController.canSendText() }
 
     func refresh(_ store: HubStore) {
         Task { await schedule(store) }
@@ -26,10 +24,6 @@ final class HubPinger {
     }
 
     func sendTest(_ store: HubStore) {
-        if store.notifyPrefs.channel.usesText, !phoneVerified {
-            startConnect(store)
-            return
-        }
         Task {
             await deliver(
                 store,
@@ -40,40 +34,32 @@ final class HubPinger {
         }
     }
 
-    func startConnect(_ store: HubStore) {
+    func draft(_ store: HubStore, title: String, body: String) -> (to: [String], body: String)? {
         lastError = nil
-        let numbers = phones(in: store)
-        guard !numbers.isEmpty else {
-            lastError = "Enter a phone number first."
-            return
+        let to = phones(in: store)
+        guard !to.isEmpty else {
+            lastError = "Enter a 10-digit US phone number."
+            return nil
         }
-        let code = String(Int.random(in: 1000...9999))
-        pendingCode = code
-        phoneVerified = false
-        openMessages(
-            to: numbers,
-            body: "HUB code \(code). Open HUB and type YES or \(code) to confirm this number."
-        )
+        return (to, "\(title)\n\(body)")
     }
 
-    func confirmConnect(_ store: HubStore, reply: String) -> Bool {
-        let text = reply.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        let code = pendingCode.uppercased()
-        guard !text.isEmpty, text == "YES" || text == "Y" || (!code.isEmpty && text == code) else {
-            lastError = "Type YES or the 4-digit code from the text."
-            return false
-        }
+    func markConnected() {
         phoneVerified = true
-        pendingCode = ""
+        UserDefaults.standard.set(true, forKey: verifiedKey)
         lastError = nil
-        return true
+    }
+
+    func clearPhoneLink() {
+        phoneVerified = false
+        UserDefaults.standard.set(false, forKey: verifiedKey)
     }
 
     func schedule(_ store: HubStore) async {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
         let prefs = store.notifyPrefs
-        guard prefs.anyOn, prefs.channel.usesDevice else { return }
+        guard prefs.anyOn else { return }
         _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
 
         var requests: [UNNotificationRequest] = []
@@ -116,37 +102,36 @@ final class HubPinger {
 
     func fireDue(_ store: HubStore) async {
         let prefs = store.notifyPrefs
-        guard prefs.anyOn, prefs.channel.usesText, phoneVerified, !phones(in: store).isEmpty else { return }
+        guard prefs.anyOn else { return }
         let hour = Calendar.current.component(.hour, from: Date())
         if prefs.morningBrief, (6...9).contains(hour), mark("morning") {
-            await deliver(store, title: "Sunrise brief", body: morningBody(store), device: false)
+            await deliver(store, title: "Sunrise brief", body: morningBody(store), device: true)
         }
         if prefs.dinnerPing, (15...18).contains(hour), store.dinner(on: Date()) == nil, mark("dinner") {
-            await deliver(store, title: "What's for dinner?", body: dinnerBody(store), device: false)
+            await deliver(store, title: "What's for dinner?", body: dinnerBody(store), device: true)
         }
         if prefs.chorePing, (7...9).contains(hour), mark("chores") {
-            await deliver(store, title: "Chore check", body: choreBody(store), device: false)
+            await deliver(store, title: "Chore check", body: choreBody(store), device: true)
         }
         if prefs.billsPing, (7...9).contains(hour), mark("bills") {
-            await deliver(store, title: "Bills Due", body: billsBody(store), device: false)
+            await deliver(store, title: "Bills Due", body: billsBody(store), device: true)
         }
         if prefs.shoppingPing, (7...9).contains(hour), store.shoppingItems.contains(where: { !$0.isChecked }), mark("shop") {
-            await deliver(store, title: "Shopping list", body: shopBody(store), device: false)
+            await deliver(store, title: "Shopping list", body: shopBody(store), device: true)
         }
         if prefs.eventPings {
             let soon = store.events.filter {
                 $0.startAt > Date() && $0.startAt < Date().addingTimeInterval(35 * 60)
             }
             for event in soon where mark("event.\(event.id.uuidString)") {
-                await deliver(store, title: event.title, body: "Starts in 30 minutes.", device: false)
+                await deliver(store, title: event.title, body: "Starts in 30 minutes.", device: true)
             }
         }
     }
 
     func deliver(_ store: HubStore, title: String, body: String, device: Bool = true) async {
         lastError = nil
-        let prefs = store.notifyPrefs
-        if device, prefs.channel.usesDevice {
+        if device {
             let content = UNMutableNotificationContent()
             content.title = title
             content.body = body
@@ -156,19 +141,15 @@ final class HubPinger {
                 content: content,
                 trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
             )
-            try? await UNUserNotificationCenter.current().add(request)
-        }
-        if prefs.channel.usesText, phoneVerified {
-            let numbers = phones(in: store)
-            if numbers.isEmpty {
-                lastError = "Add a phone number, then tap Connect text."
-            } else {
-                openMessages(to: numbers, body: "\(title) — \(body)")
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                lastError = "Allow notifications for HUB in iPad Settings."
             }
         }
     }
 
-    private func phones(in store: HubStore) -> [String] {
+    func phones(in store: HubStore) -> [String] {
         var raw: [String] = [store.notifyPrefs.extraPhone]
         raw.append(store.signedInMember()?.phone ?? "")
         return Array(Set(raw.compactMap(Self.e164))).sorted()
@@ -182,15 +163,13 @@ final class HubPinger {
         return nil
     }
 
-    private func openMessages(to numbers: [String], body: String) {
-        let phone = numbers.first ?? ""
-        var parts = URLComponents(string: "sms:\(phone)")
-        parts?.queryItems = [URLQueryItem(name: "body", value: body)]
-        guard let url = parts?.url else {
-            lastError = "Could not open Messages."
-            return
-        }
-        UIApplication.shared.open(url)
+    static func prettyPhone(_ raw: String) -> String {
+        var digits = raw.filter(\.isNumber)
+        if digits.count == 11, digits.hasPrefix("1") { digits = String(digits.dropFirst()) }
+        let clipped = String(digits.prefix(10))
+        if clipped.count < 4 { return clipped }
+        if clipped.count < 7 { return "(\(clipped.prefix(3))) \(clipped.dropFirst(3))" }
+        return "(\(clipped.prefix(3))) \(clipped.dropFirst(3).prefix(3))-\(clipped.suffix(4))"
     }
 
     private func daily(_ id: String, hour: Int, minute: Int, title: String, body: String) -> UNNotificationRequest {
@@ -243,5 +222,36 @@ final class HubPinger {
         map[id] = day
         UserDefaults.standard.set(map, forKey: sentKey)
         return true
+    }
+}
+
+struct HubMessageSheet: UIViewControllerRepresentable {
+    let recipients: [String]
+    let body: String
+    var onFinish: (MessageComposeResult) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onFinish: onFinish)
+    }
+
+    func makeUIViewController(context: Context) -> MFMessageComposeViewController {
+        let vc = MFMessageComposeViewController()
+        vc.recipients = recipients
+        vc.body = body
+        vc.messageComposeDelegate = context.coordinator
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: MFMessageComposeViewController, context: Context) {}
+
+    final class Coordinator: NSObject, MFMessageComposeViewControllerDelegate {
+        let onFinish: (MessageComposeResult) -> Void
+        init(onFinish: @escaping (MessageComposeResult) -> Void) {
+            self.onFinish = onFinish
+        }
+        func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
+            controller.dismiss(animated: true)
+            onFinish(result)
+        }
     }
 }
