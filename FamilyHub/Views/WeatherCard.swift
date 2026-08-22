@@ -598,14 +598,17 @@ struct WeatherOutlookView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     hero
+                        .coachSpot("wxHero")
                     dayPager
                     detailsGrid
                     hourlyCard
                     dailyCard
+                        .coachSpot("wxDays")
                 }
                 .padding(20)
             }
             .background(AppTheme.bg.ignoresSafeArea())
+            .hubTour("weather", steps: HubTours.weather)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 50)
                     .onEnded { value in

@@ -261,6 +261,7 @@ struct TonightDinnerView: View {
                         }
                     }
                 }
+                .coachSpot("tonHeader")
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         dinnerBody
@@ -272,6 +273,7 @@ struct TonightDinnerView: View {
             .background(AppTheme.bg.ignoresSafeArea())
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .hubTour("tonight", steps: HubTours.tonight)
         }
     }
 
@@ -440,6 +442,7 @@ struct MealChoiceSheet: View {
                             .foregroundStyle(AppTheme.blue)
                     }
                     .font(.system(size: 36, weight: .bold))
+                    .coachSpot("pickTitle")
                     Text(dayTitle)
                         .font(.title2.weight(.bold))
                         .foregroundStyle(AppTheme.blue)
@@ -520,12 +523,14 @@ struct MealChoiceSheet: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    .coachSpot("pickGrid")
                 }
                 .padding(20)
             }
             .background(AppTheme.bg.ignoresSafeArea())
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .hubTour("dinnerPick", steps: HubTours.dinnerPick)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") {
@@ -629,6 +634,7 @@ private struct EatOutPicker: View {
                     }
                 }
                 .font(.system(size: 36, weight: .bold))
+                .coachSpot("eatHeader")
                 Text(mode == .delivery ? "Places that can come to you. Near \(places.areaName)." : mode == .takeout ? "Pick it up near \(places.areaName)." : "Sit down near \(places.areaName).")
                     .foregroundStyle(AppTheme.textSecondary)
                 HStack {
@@ -759,6 +765,7 @@ private struct EatOutPicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+        .hubTour("eatOut", steps: HubTours.eatOut)
         .navigationDestination(item: $opened) { place in
             PlaceInfoView(place: place, day: day, mode: mode, onDone: onDone)
         }
@@ -992,6 +999,7 @@ private struct CatalogRecipePicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "All", tail: "Recipes")
+                .coachSpot("recHeader")
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
                     Text("Tap a dinner. Photos load as you scroll.")
@@ -1015,6 +1023,7 @@ private struct CatalogRecipePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+        .hubTour("recipes", steps: HubTours.recipes)
         .navigationDestination(item: $opened) { recipe in
             CatalogRecipeDetail(recipe: recipe, day: day, onDone: onDone)
         }
@@ -1130,6 +1139,7 @@ private struct SidePicker: View {
                 }
                 .buttonStyle(.plain)
             }
+            .coachSpot("sideHeader")
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     Text("Tap a side. Photos load as you scroll.")
@@ -1166,6 +1176,7 @@ private struct SidePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+        .hubTour("sides", steps: HubTours.sides)
         .navigationDestination(item: $opened) { recipe in
             SideDetail(recipe: recipe, day: day, onDone: onDone)
         }

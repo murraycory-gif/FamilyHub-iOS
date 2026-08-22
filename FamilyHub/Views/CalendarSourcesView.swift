@@ -18,8 +18,10 @@ struct CalendarSourcesView: View {
                     brandRow
                     deviceAccess
                     BillsCalendarPicker()
+                        .coachSpot("srcBills")
                     if !store.calendarSources.isEmpty {
                         connected
+                            .coachSpot("srcList")
                     }
                     if let message = ingest.message {
                         Text(message)
@@ -30,6 +32,7 @@ struct CalendarSourcesView: View {
                 .padding(20)
             }
             .background(AppTheme.bg.ignoresSafeArea())
+            .hubTour("calendars", steps: HubTours.calendars)
             .navigationTitle("Calendars")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }

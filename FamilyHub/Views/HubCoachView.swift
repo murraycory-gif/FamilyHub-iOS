@@ -1,8 +1,8 @@
 import SwiftUI
 
-struct CoachRectsKey: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+struct CoachAnchorKey: PreferenceKey {
+    static var defaultValue: [String: Anchor<CGRect>] = [:]
+    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
@@ -16,25 +16,20 @@ struct CoachStep: Identifiable, Equatable {
 
 extension View {
     func coachSpot(_ id: String, active: Bool = true) -> some View {
-        background {
-            GeometryReader { geo in
-                Color.clear.preference(
-                    key: CoachRectsKey.self,
-                    value: active ? [id: geo.frame(in: .named("hubCoach"))] : [:]
-                )
-            }
-        }
+        anchorPreference(key: CoachAnchorKey.self, value: .bounds) { active ? [id: $0] : [:] }
+            .id(id)
     }
 
-    func hubTour(_ page: String, steps: [CoachStep]) -> some View {
-        modifier(HubTourModifier(page: page, steps: steps))
+    func hubTour(_ page: String, steps: [CoachStep], onStep: ((String) -> Void)? = nil) -> some View {
+        modifier(HubTourModifier(page: page, steps: steps, onStep: onStep))
     }
 }
 
 private struct HubTourModifier: ViewModifier {
     let page: String
     let steps: [CoachStep]
-    @AppStorage("familyhub.tours.v1") private var completed = ""
+    var onStep: ((String) -> Void)?
+    @AppStorage("familyhub.tours.v2") private var completed = ""
 
     private var done: Set<String> {
         Set(completed.split(separator: ",").map(String.init))
@@ -42,13 +37,21 @@ private struct HubTourModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .coordinateSpace(name: "hubCoach")
-            .overlayPreferenceValue(CoachRectsKey.self) { rects in
-                if !done.contains(page) {
-                    HubCoachLayer(rects: rects, steps: steps) {
-                        mark()
+            .overlayPreferenceValue(CoachAnchorKey.self) { anchors in
+                GeometryReader { geo in
+                    if !done.contains(page), !steps.isEmpty {
+                        let rects = Dictionary(uniqueKeysWithValues: anchors.map { ($0.key, geo[$0.value]) })
+                        HubCoachLayer(
+                            rects: rects,
+                            canvas: geo.size,
+                            steps: steps,
+                            onStep: onStep
+                        ) {
+                            mark()
+                        }
                     }
                 }
+                .allowsHitTesting(!done.contains(page))
             }
     }
 
@@ -61,65 +64,50 @@ private struct HubTourModifier: ViewModifier {
 
 struct HubCoachLayer: View {
     let rects: [String: CGRect]
+    let canvas: CGSize
     let steps: [CoachStep]
+    var onStep: ((String) -> Void)?
     var onDone: () -> Void
     @State private var step = 0
 
     var body: some View {
-        let current = steps[min(step, max(steps.count - 1, 0))]
+        let current = steps[min(step, steps.count - 1)]
         let hole = padded(rects[current.id])
-        GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                SpotlightDim(hole: hole)
-                    .ignoresSafeArea()
-                    .onTapGesture { advance() }
-                if hole != .null {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(AppTheme.blue, lineWidth: 3)
-                        .frame(width: hole.width, height: hole.height)
-                        .position(x: hole.midX, y: hole.midY)
-                        .allowsHitTesting(false)
-                }
-                if !steps.isEmpty {
-                    callout(for: hole, in: geo.size, step: current)
-                }
+        ZStack(alignment: .topLeading) {
+            SpotlightDim(hole: hole)
+                .onTapGesture { advance() }
+            if hole != .null {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(AppTheme.blue, lineWidth: 3)
+                    .frame(width: hole.width, height: hole.height)
+                    .offset(x: hole.minX, y: hole.minY)
+                    .allowsHitTesting(false)
             }
+            callout(for: hole, step: current)
         }
-        .allowsHitTesting(true)
+        .onAppear { onStep?(current.id) }
+        .onChange(of: step) { _, _ in
+            onStep?(steps[min(step, steps.count - 1)].id)
+        }
     }
 
     private func padded(_ rect: CGRect?) -> CGRect {
         guard let rect, rect.width > 8, rect.height > 8 else { return .null }
-        return rect.insetBy(dx: -8, dy: -8)
+        return rect.insetBy(dx: -4, dy: -4)
     }
 
-    private func callout(for hole: CGRect, in size: CGSize, step: CoachStep) -> some View {
-        let width = min(380, size.width - 32)
-        let putBelow: Bool = {
-            guard hole != .null else { return true }
-            let below = size.height - hole.maxY
-            return below >= 210 || below >= hole.minY
-        }()
-        let x: CGFloat = {
-            guard hole != .null else { return 16 }
-            return min(max(16, hole.midX - width / 2), size.width - width - 16)
-        }()
-        let arrowX: CGFloat = {
-            guard hole != .null else { return width / 2 }
-            return min(max(24, hole.midX - x), width - 24)
-        }()
-        let y: CGFloat = {
-            guard hole != .null else { return 80 }
-            if putBelow { return min(hole.maxY + 10, size.height - 220) }
-            return max(12, hole.minY - 200)
-        }()
+    private func callout(for hole: CGRect, step: CoachStep) -> some View {
+        let width = min(360, max(280, canvas.width - 40))
+        let bubbleH: CGFloat = 168
+        let margin: CGFloat = 12
+        let place = placement(hole: hole, width: width, height: bubbleH, margin: margin)
 
         return VStack(spacing: 0) {
-            if putBelow {
+            if place.arrow == .up {
                 CoachArrow()
                     .fill(AppTheme.card)
                     .frame(width: 22, height: 12)
-                    .offset(x: arrowX - width / 2)
+                    .offset(x: place.arrowX - width / 2)
             }
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
@@ -138,10 +126,12 @@ struct HubCoachLayer: View {
                     Text(step.title)
                         .font(.title3.weight(.bold))
                         .foregroundStyle(AppTheme.text)
+                        .lineLimit(1)
                 }
                 Text(step.detail)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Button("Skip") { onDone() }
                         .font(.headline.weight(.bold))
@@ -163,16 +153,62 @@ struct HubCoachLayer: View {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .stroke(AppTheme.blue, lineWidth: 3)
             )
-            if !putBelow {
+            .shadow(color: .black.opacity(0.2), radius: 16, y: 8)
+            if place.arrow == .down {
                 CoachArrow()
                     .fill(AppTheme.card)
                     .frame(width: 22, height: 12)
                     .rotationEffect(.degrees(180))
-                    .offset(x: arrowX - width / 2)
+                    .offset(x: place.arrowX - width / 2)
             }
         }
-        .offset(x: x, y: y)
+        .offset(x: place.x, y: place.y)
         .animation(.easeInOut(duration: 0.25), value: self.step)
+    }
+
+    private struct Place {
+        var x: CGFloat
+        var y: CGFloat
+        var arrow: Arrow
+        var arrowX: CGFloat
+        enum Arrow { case up, down, none }
+    }
+
+    private func placement(hole: CGRect, width: CGFloat, height: CGFloat, margin: CGFloat) -> Place {
+        let maxX = canvas.width - width - margin
+        func clampX(_ raw: CGFloat) -> CGFloat { min(max(margin, raw), max(margin, maxX)) }
+        func arrowX(for x: CGFloat) -> CGFloat {
+            guard hole != .null else { return width / 2 }
+            return min(max(24, hole.midX - x), width - 24)
+        }
+
+        if hole == .null {
+            return Place(x: clampX((canvas.width - width) / 2), y: canvas.height * 0.3, arrow: .none, arrowX: width / 2)
+        }
+
+        let belowY = hole.maxY + 10
+        let aboveY = hole.minY - height - 10
+        if belowY + height <= canvas.height - margin {
+            let x = clampX(hole.midX - width / 2)
+            return Place(x: x, y: belowY, arrow: .up, arrowX: arrowX(for: x))
+        }
+        if aboveY >= margin {
+            let x = clampX(hole.midX - width / 2)
+            return Place(x: x, y: aboveY, arrow: .down, arrowX: arrowX(for: x))
+        }
+        if hole.minX - 16 - width >= margin {
+            let x = hole.minX - 16 - width
+            let y = min(max(margin, hole.midY - height / 2), canvas.height - height - margin)
+            return Place(x: x, y: y, arrow: .none, arrowX: width / 2)
+        }
+        if hole.maxX + 16 + width <= canvas.width - margin {
+            let x = hole.maxX + 16
+            let y = min(max(margin, hole.midY - height / 2), canvas.height - height - margin)
+            return Place(x: x, y: y, arrow: .none, arrowX: width / 2)
+        }
+        let x = clampX(hole.midX - width / 2)
+        let y = min(max(margin, canvas.height - height - margin), canvas.height - height - margin)
+        return Place(x: x, y: y, arrow: .none, arrowX: width / 2)
     }
 
     private func advance() {
@@ -189,9 +225,8 @@ private struct SpotlightDim: View {
             if hole != .null {
                 path.addPath(Path(roundedRect: hole, cornerRadius: 22))
             }
-            context.fill(path, with: .color(.black.opacity(0.55)), style: FillStyle(eoFill: true))
+            context.fill(path, with: .color(.black.opacity(0.5)), style: FillStyle(eoFill: true))
         }
-        .allowsHitTesting(true)
     }
 }
 
@@ -209,7 +244,7 @@ private struct CoachArrow: Shape {
 enum HubTours {
     static let hub: [CoachStep] = [
         .init(id: "hub", symbol: "house.fill", title: "This is the Hub", detail: "The whole board. Agenda, weather, dinner, and family live on this one screen."),
-        .init(id: "agenda", symbol: "calendar", title: "On Today's Agenda", detail: "Today’s events for whoever is selected. Bills Due reminders show here for the family, not on each person’s calendar."),
+        .init(id: "agenda", symbol: "calendar", title: "On Today's Agenda", detail: "Today’s events and Bills Due for the family. Swipe this top row to change days."),
         .init(id: "weather", symbol: "cloud.sun.fill", title: "Weather", detail: "Tap for the full forecast. Location and units are in Settings."),
         .init(id: "dinner", symbol: "fork.knife", title: "What's For Dinner", detail: "Tap to plan tonight. Saved family recipes, TikTok links, and sides live here."),
         .init(id: "family", symbol: "person.3.fill", title: "Family cards", detail: "Tap a person to color the board. Tap an event on their card to open the calendar.")
@@ -228,7 +263,7 @@ enum HubTours {
     ]
 
     static let lists: [CoachStep] = [
-        .init(id: "listKind", symbol: "list.bullet.rectangle", title: "Reminders and to-dos", detail: "Flip between reminders and to-dos. Bills Due from your bills calendar lives here, not on the family calendar."),
+        .init(id: "listKind", symbol: "list.bullet.rectangle", title: "Reminders and to-dos", detail: "Flip between reminders and to-dos. Bills Due from your bills calendar lives here."),
         .init(id: "listBody", symbol: "checkmark.square", title: "The list", detail: "Tap an item to complete it. Use + to add one for anyone in the house.")
     ]
 
@@ -239,17 +274,48 @@ enum HubTours {
 
     static let meals: [CoachStep] = [
         .init(id: "mealHeader", symbol: "fork.knife", title: "Meal Planning", detail: "Two weeks of dinners. Tonight, tomorrow, and the rest of the plan."),
-        .init(id: "mealWeek", symbol: "square.grid.2x2.fill", title: "Pick a day", detail: "Tap a day to plan it. Swipe a filled day to clear it. Recipes you save stay in Family Recipes.")
+        .init(id: "mealWeek", symbol: "square.grid.2x2.fill", title: "Pick a day", detail: "Tap a day to plan it. Swipe a filled day to clear it.")
     ]
 
     static let settings: [CoachStep] = [
-        .init(id: "setHouse", symbol: "gearshape.fill", title: "Household", detail: "Open this box for HUB Profiles, calendars, who is signed in, and the family join code."),
-        .init(id: "setBills", symbol: "dollarsign.circle.fill", title: "Bills Due", detail: "If you have a bills calendar, pick it here. Those dates become Bills Due reminders and stay off family calendars."),
+        .init(id: "setHouse", symbol: "gearshape.fill", title: "Household", detail: "HUB Profiles, calendars, who is signed in, and the family join code."),
+        .init(id: "setBills", symbol: "dollarsign.circle.fill", title: "Bills Due", detail: "Pick your bills calendar here. Those dates become Bills Due reminders."),
         .init(id: "setWeather", symbol: "cloud.sun.fill", title: "Weather", detail: "Set the city and every measurement HUB should use.")
     ]
 
     static let family: [CoachStep] = [
         .init(id: "famHeader", symbol: "person.3.fill", title: "HUB Profiles", detail: "Everyone in the house. Each person has a color, photo, and their own profile."),
         .init(id: "famPeople", symbol: "person.crop.circle", title: "The people", detail: "Tap a person to open their profile. Add someone with the plus on a card.")
+    ]
+
+    static let weather: [CoachStep] = [
+        .init(id: "wxHero", symbol: "cloud.sun.fill", title: "Full forecast", detail: "Swipe between days. Hours, highs, and details for the day you picked."),
+        .init(id: "wxDays", symbol: "calendar", title: "Coming days", detail: "Tap a day or swipe to move through the week.")
+    ]
+
+    static let dinnerPick: [CoachStep] = [
+        .init(id: "pickTitle", symbol: "fork.knife", title: "What's For Dinner", detail: "Eating out, family recipes, the cookbook, or type a meal. Pick one path."),
+        .init(id: "pickGrid", symbol: "square.grid.2x2", title: "Your options", detail: "Family recipes save scans and TikTok links. Recipes is the full cookbook.")
+    ]
+
+    static let recipes: [CoachStep] = [
+        .init(id: "recHeader", symbol: "fork.knife.circle.fill", title: "All Recipes", detail: "Search and filter. Tap a dish for ingredients, cook method, and add for dinner.")
+    ]
+
+    static let sides: [CoachStep] = [
+        .init(id: "sideHeader", symbol: "leaf.fill", title: "Pick a side", detail: "Same layout as recipes. Skip if you don’t want a side tonight.")
+    ]
+
+    static let eatOut: [CoachStep] = [
+        .init(id: "eatHeader", symbol: "fork.knife", title: "Places nearby", detail: "Uses your city or ZIP. Tap a place for hours, menu, and to set it as dinner.")
+    ]
+
+    static let tonight: [CoachStep] = [
+        .init(id: "tonHeader", symbol: "fork.knife", title: "Dinner is set", detail: "Ingredients and steps. Delete or Change Meal live in the header.")
+    ]
+
+    static let calendars: [CoachStep] = [
+        .init(id: "srcBills", symbol: "dollarsign.circle.fill", title: "Bills Due", detail: "Pick the bills calendar so those dates become reminders, not family events."),
+        .init(id: "srcList", symbol: "calendar.badge.plus", title: "Connected calendars", detail: "Turn on iCloud, Google, or Outlook calendars and assign them to a person.")
     ]
 }

@@ -47,21 +47,19 @@ struct TodayView: View {
                             let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
                             HStack(alignment: .top, spacing: 12) {
                                 agenda(for: day)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(maxHeight: .infinity)
                                     .coachSpot("agenda", active: on)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 VStack(spacing: 12) {
                                     weatherTile(for: day)
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                                         .coachSpot("weather", active: on)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                                     shoppingTile
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 }
                                 .frame(maxWidth: .infinity)
                                 dinnerHomeTile(for: day)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(maxHeight: .infinity)
                                     .coachSpot("dinner", active: on)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                             }
                             .padding(.horizontal, 2)
                             .tag(day)

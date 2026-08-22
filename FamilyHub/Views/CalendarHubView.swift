@@ -11,6 +11,7 @@ struct CalendarHubView: View {
     @State private var showAdd = false
     @State private var showWho = false
     @State private var detail: CalendarEvent?
+    @State private var tourFocus = ""
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
 
@@ -45,6 +46,12 @@ struct CalendarHubView: View {
                         }
                         .onAppear { scrollToFocus(proxy) }
                         .onChange(of: router.focusedEventID) { _, _ in scrollToFocus(proxy) }
+                        .onChange(of: tourFocus) { _, id in
+                            guard !id.isEmpty else { return }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                withAnimation { proxy.scrollTo(id, anchor: .center) }
+                            }
+                        }
                     }
                 }
                 if showWho {
@@ -54,7 +61,9 @@ struct CalendarHubView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
-        .hubTour("calendar", steps: HubTours.calendar)
+        .hubTour("calendar", steps: HubTours.calendar) { id in
+            tourFocus = id
+        }
         .sheet(isPresented: $showAdd) {
             AddEventSheet(day: selectedDay)
         }

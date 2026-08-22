@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var store: HubStore
-    @AppStorage("familyhub.onboarding.completed.v3") private var onboardingCompleted = false
+    @AppStorage("familyhub.onboarding.completed.v4") private var onboardingCompleted = false
     @State private var showSplash = true
 
     var body: some View {

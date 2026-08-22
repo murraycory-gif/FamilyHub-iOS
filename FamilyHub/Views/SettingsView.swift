@@ -4,10 +4,12 @@ struct SettingsView: View {
     @EnvironmentObject private var store: HubStore
     @StateObject private var weather = WeatherLoader()
     @State private var open: Set<String> = ["household"]
+    @State private var tourFocus = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "HUB", tail: "Settings")
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     SettingsFold(
@@ -185,10 +187,25 @@ struct SettingsView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
+            .onChange(of: tourFocus) { _, id in
+                guard !id.isEmpty else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    withAnimation { proxy.scrollTo(id, anchor: .center) }
+                }
+            }
+            }
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
-        .hubTour("settings", steps: HubTours.settings)
+        .hubTour("settings", steps: HubTours.settings) { id in
+            tourFocus = id
+            switch id {
+            case "setHouse": open = ["household"]
+            case "setBills": open = ["bills"]
+            case "setWeather": open = ["weather"]
+            default: break
+            }
+        }
     }
 
     private func toggle(_ id: String) {
