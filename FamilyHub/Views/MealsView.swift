@@ -1206,9 +1206,8 @@ private struct DinnerReviewView: View {
     @EnvironmentObject private var router: HubRouter
     let day: Date
     var onDone: () -> Void
+    @State private var picking = false
     @State private var picked: Set<String> = []
-    @State private var added = false
-    @State private var confirmSkip = false
 
     private var servings: Int { store.dinner(on: day)?.servings ?? 4 }
     private var main: Recipe? { store.dinner(on: day).flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) } }
@@ -1218,122 +1217,135 @@ private struct DinnerReviewView: View {
     private var allKeys: [String] {
         mainLines.map { "main|\($0)" } + sideLines.map { "side|\($0)" }
     }
+    private var people: String { "\(servings) \(servings == 1 ? "person" : "people")" }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 10) {
-                    Text("Dinner")
-                        .foregroundStyle(AppTheme.text)
-                    Text("Review")
-                        .foregroundStyle(AppTheme.blue)
-                }
-                .font(.system(size: 36, weight: .bold))
-                Text("\(servings) \(servings == 1 ? "person" : "people"). Check what you need to buy.")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
-                HStack(alignment: .top, spacing: 14) {
-                    reviewColumn(title: "Main", recipe: main, lines: mainLines, prefix: "main")
-                    reviewColumn(title: "Side", recipe: side, lines: sideLines, prefix: "side")
-                }
-                .frame(minHeight: 320)
-                HStack(spacing: 12) {
-                    Button(picked.count == allKeys.count && !allKeys.isEmpty ? "Unselect all" : "Select all") {
-                        if picked.count == allKeys.count {
-                            picked.removeAll()
-                        } else {
-                            picked = Set(allKeys)
-                        }
-                    }
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(AppTheme.blueSoft, in: Capsule())
-                    .overlay(Capsule().stroke(AppTheme.blue, lineWidth: 2))
-                    Button {
-                        addPicked()
-                    } label: {
-                        Text(added ? "Added to shopping" : "Add selected")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background((picked.isEmpty ? AppTheme.textTertiary : (added ? AppTheme.todo : AppTheme.blue)), in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(picked.isEmpty)
-                }
-                Button(action: tapDone) {
-                    Text("Done")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppTheme.blue, in: Capsule())
-                }
-                .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: picking ? "Pick" : "Dinner", tail: picking ? "What you need" : "Is set")
+            if picking {
+                pickStep
+            } else {
+                chooseStep
             }
-            .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { picked = Set(allKeys) }
-        .hubConfirm(
-            "Skip the shopping list?",
-            isPresented: $confirmSkip,
-            message: "The meal stays on the calendar. You haven’t added any ingredients yet. Need to pick what to buy?",
-            confirm: "Don't add",
-            confirmColor: AppTheme.blue,
-            cancel: "Add ingredients",
-            onConfirm: goToHub
-        )
     }
 
-    private func tapDone() {
-        if allKeys.isEmpty || added {
-            goToHub()
-        } else {
-            confirmSkip = true
+    private var chooseStep: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("\(people). One tap to finish.")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                HStack(alignment: .top, spacing: 14) {
+                    dishCard(title: "Main", recipe: main, methodSide: false)
+                    dishCard(title: "Side", recipe: side, methodSide: true)
+                }
+                if allKeys.isEmpty {
+                    Button("Done — go to Hub", action: goToHub)
+                        .buttonStyle(HubFillButton())
+                } else {
+                    Button("Add everything to shopping", action: addAllAndFinish)
+                        .buttonStyle(HubFillButton())
+                    Button("I'll pick what I need") {
+                        picked = Set(allKeys)
+                        picking = true
+                    }
+                    .buttonStyle(HubOutlineButton())
+                    Button("Skip shopping", action: goToHub)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                }
+            }
+            .padding(20)
         }
     }
 
-    private func goToHub() {
-        confirmSkip = false
-        router.open(.today)
-        onDone()
+    private var pickStep: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Uncheck what you already have.")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    HStack(alignment: .top, spacing: 14) {
+                        pickColumn(title: "Main", recipe: main, lines: mainLines, prefix: "main")
+                        pickColumn(title: "Side", recipe: side, lines: sideLines, prefix: "side")
+                    }
+                }
+                .padding(20)
+            }
+            VStack(spacing: 10) {
+                Button("Add \(picked.count) \(picked.count == 1 ? "item" : "items") and finish") {
+                    addPicked()
+                    goToHub()
+                }
+                .buttonStyle(HubFillButton())
+                .disabled(picked.isEmpty)
+                .opacity(picked.isEmpty ? 0.45 : 1)
+                Button("Back") { picking = false }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+            .padding(.top, 8)
+            .background(AppTheme.bg)
+        }
     }
 
-    @ViewBuilder
-    private func reviewColumn(title: String, recipe: Recipe?, lines: [String], prefix: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private func dishCard(title: String, recipe: Recipe?, methodSide: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
             RecipePhoto(url: recipe.flatMap { URL(string: $0.imageURL) }, searchName: recipe?.name ?? title)
                 .frame(height: 160)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             Text(title)
                 .font(.caption.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
-            Text(recipe?.name ?? (prefix == "side" ? "No side" : store.dinnerTitle(on: day) ?? "Dinner"))
+            Text(recipe?.name ?? (methodSide ? "No side" : store.dinnerTitle(on: day) ?? "Dinner"))
                 .font(.title3.weight(.bold))
                 .lineLimit(2)
-            if let method = store.dinnerCookMethod(on: day, side: prefix == "side") {
+            if let method = store.dinnerCookMethod(on: day, side: methodSide) {
                 Text(method.label)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AppTheme.blue)
             }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+    }
+
+    private func pickColumn(title: String, recipe: Recipe?, lines: [String], prefix: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+            Text(recipe?.name ?? title)
+                .font(.title3.weight(.bold))
+                .lineLimit(2)
             if lines.isEmpty {
-                Text("No ingredients")
+                Text("Nothing to buy")
                     .foregroundStyle(AppTheme.textSecondary)
             } else {
                 ForEach(lines, id: \.self) { line in
                     let key = "\(prefix)|\(line)"
                     Button {
                         if picked.contains(key) { picked.remove(key) } else { picked.insert(key) }
-                        added = false
                     } label: {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: picked.contains(key) ? "checkmark.circle.fill" : "circle")
-                                .font(.title3)
+                                .font(.title2)
                                 .foregroundStyle(picked.contains(key) ? AppTheme.todo : AppTheme.blue)
                             Text(line)
                                 .font(.body.weight(.semibold))
@@ -1357,6 +1369,12 @@ private struct DinnerReviewView: View {
         )
     }
 
+    private func addAllAndFinish() {
+        picked = Set(allKeys)
+        addPicked()
+        goToHub()
+    }
+
     private func addPicked() {
         let mainID = main?.id
         let sideID = side?.id
@@ -1367,7 +1385,36 @@ private struct DinnerReviewView: View {
                 store.addShoppingItem(String(key.dropFirst(5)), fromDinner: day, recipeID: sideID)
             }
         }
-        added = true
+    }
+
+    private func goToHub() {
+        router.open(.today)
+        onDone()
+    }
+}
+
+private struct HubFillButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(AppTheme.blue, in: Capsule())
+            .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
+private struct HubOutlineButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline.weight(.bold))
+            .foregroundStyle(AppTheme.blue)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(AppTheme.blueSoft, in: Capsule())
+            .overlay(Capsule().stroke(AppTheme.blue, lineWidth: 2))
+            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }
 
