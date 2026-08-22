@@ -236,6 +236,7 @@ struct ShoppingListView: View {
     @EnvironmentObject private var store: HubStore
     @State private var draft = ""
     @FocusState private var adding: Bool
+    @State private var confirmClearAll = false
 
     private var openItems: [ShoppingItem] { store.shoppingItems.filter { !$0.isChecked } }
     private var checkedItems: [ShoppingItem] { store.shoppingItems.filter { $0.isChecked } }
@@ -243,7 +244,18 @@ struct ShoppingListView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HubPageTitle(lead: "Shopping", tail: "List")
+                HStack(alignment: .center, spacing: 12) {
+                    HubPageTitle(lead: "Shopping", tail: "List")
+                    Spacer()
+                    if !store.shoppingItems.isEmpty {
+                        Button("Clear all") { confirmClearAll = true }
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(AppTheme.blue, in: Capsule())
+                    }
+                }
                 addRow
                 if openItems.isEmpty && checkedItems.isEmpty {
                     HubCard {
@@ -280,6 +292,12 @@ struct ShoppingListView: View {
             .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .alert("Clear the whole list?", isPresented: $confirmClearAll) {
+            Button("Clear all", role: .destructive) { store.clearAllShopping() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes every item, including ones you haven’t checked off.")
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HubIconButton(symbol: "plus", label: "Add") { adding = true }

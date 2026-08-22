@@ -556,6 +556,11 @@ final class HubStore: ObservableObject {
         persist()
     }
 
+    func clearAllShopping() {
+        shoppingItems.removeAll()
+        persist()
+    }
+
     // MARK: Chores
 
     func addChore(_ chore: Chore) {
