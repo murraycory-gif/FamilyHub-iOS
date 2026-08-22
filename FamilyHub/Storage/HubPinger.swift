@@ -6,7 +6,19 @@ import UserNotifications
 final class HubPinger {
     static let shared = HubPinger()
     private let sentKey = "familyhub.notify.sent.v1"
+    private let codeKey = "familyhub.notify.pendingCode"
+    private let verifiedKey = "familyhub.notify.phoneVerified"
     var lastError: String?
+
+    var pendingCode: String {
+        get { UserDefaults.standard.string(forKey: codeKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: codeKey) }
+    }
+
+    var phoneVerified: Bool {
+        get { UserDefaults.standard.bool(forKey: verifiedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: verifiedKey) }
+    }
 
     func refresh(_ store: HubStore) {
         Task { await schedule(store) }
@@ -32,10 +44,8 @@ final class HubPinger {
             return
         }
         let code = String(Int.random(in: 1000...9999))
-        var prefs = store.notifyPrefs
-        prefs.pendingCode = code
-        prefs.phoneVerified = false
-        store.setNotifyPrefs(prefs)
+        pendingCode = code
+        phoneVerified = false
         openMessages(
             to: numbers,
             body: "HUB code \(code). Open HUB and type YES or \(code) to confirm this number."
@@ -44,15 +54,13 @@ final class HubPinger {
 
     func confirmConnect(_ store: HubStore, reply: String) -> Bool {
         let text = reply.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        let code = store.notifyPrefs.pendingCode.uppercased()
+        let code = pendingCode.uppercased()
         guard !text.isEmpty, text == "YES" || text == "Y" || (!code.isEmpty && text == code) else {
             lastError = "Type YES or the 4-digit code from the text."
             return false
         }
-        var prefs = store.notifyPrefs
-        prefs.phoneVerified = true
-        prefs.pendingCode = ""
-        store.setNotifyPrefs(prefs)
+        phoneVerified = true
+        pendingCode = ""
         lastError = nil
         return true
     }
@@ -104,7 +112,7 @@ final class HubPinger {
 
     func fireDue(_ store: HubStore) async {
         let prefs = store.notifyPrefs
-        guard prefs.anyOn, prefs.channel.usesText, prefs.phoneVerified, !phones(in: store).isEmpty else { return }
+        guard prefs.anyOn, prefs.channel.usesText, phoneVerified, !phones(in: store).isEmpty else { return }
         let hour = Calendar.current.component(.hour, from: Date())
         if prefs.morningBrief, (6...9).contains(hour), mark("morning") {
             await deliver(store, title: "Sunrise brief", body: morningBody(store), device: false)
@@ -146,7 +154,7 @@ final class HubPinger {
             )
             try? await UNUserNotificationCenter.current().add(request)
         }
-        if prefs.channel.usesText, prefs.phoneVerified {
+        if prefs.channel.usesText, phoneVerified {
             let numbers = phones(in: store)
             if numbers.isEmpty {
                 lastError = "Add a phone number, then tap Connect text."
