@@ -1631,7 +1631,6 @@ struct RecipePhoto: View {
     let url: URL?
     var searchName: String = ""
     @State private var image: UIImage?
-    @State private var tried = false
 
     var body: some View {
         Color.clear
@@ -1642,12 +1641,10 @@ struct RecipePhoto: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
-                    } else if tried {
-                        Image(systemName: "fork.knife")
-                            .font(.system(size: 36, weight: .bold))
-                            .foregroundStyle(AppTheme.blue.opacity(0.55))
                     } else {
-                        ProgressView()
+                        Image(systemName: "fork.knife")
+                            .font(.system(size: 34, weight: .bold))
+                            .foregroundStyle(AppTheme.blue.opacity(0.45))
                     }
                 }
             }
@@ -1665,7 +1662,6 @@ struct RecipePhoto: View {
                 if image == nil {
                     image = await RecipeImages.photo(url: url, name: searchName)
                 }
-                tried = true
             }
     }
 }
