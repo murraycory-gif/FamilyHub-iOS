@@ -310,7 +310,7 @@ struct TonightDinnerView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 if !skipShopping {
                     Button {
-                        for line in recipe.ingredients { store.addShoppingItem(line) }
+                        for line in recipe.ingredients { store.addShoppingItem(line, fromDinner: day, recipeID: recipe.id) }
                         addedToList = true
                     } label: {
                         Text(addedToList ? "Added to shopping" : "Add ingredients to shopping")
@@ -1089,7 +1089,7 @@ private struct ShoppingAskView: View {
                     .background(AppTheme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     Button {
-                        for line in ingredients { store.addShoppingItem(line) }
+                        for line in ingredients { store.addShoppingItem(line, fromDinner: day, recipeID: recipe?.id) }
                         added = true
                     } label: {
                         Text(added ? "Added to shopping" : "Add ingredients to shopping")

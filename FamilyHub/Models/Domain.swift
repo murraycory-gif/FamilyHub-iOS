@@ -467,9 +467,34 @@ struct ShoppingItem: Identifiable, Codable, Hashable {
     var name: String
     var isChecked: Bool
     var createdAt: Date
+    var sourceDay: Date?
+    var sourceRecipeID: UUID?
 
-    static func make(name: String) -> ShoppingItem {
-        ShoppingItem(id: UUID(), name: name, isChecked: false, createdAt: Date())
+    enum CodingKeys: String, CodingKey {
+        case id, name, isChecked, createdAt, sourceDay, sourceRecipeID
+    }
+
+    init(id: UUID, name: String, isChecked: Bool, createdAt: Date, sourceDay: Date? = nil, sourceRecipeID: UUID? = nil) {
+        self.id = id
+        self.name = name
+        self.isChecked = isChecked
+        self.createdAt = createdAt
+        self.sourceDay = sourceDay
+        self.sourceRecipeID = sourceRecipeID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        isChecked = try c.decodeIfPresent(Bool.self, forKey: .isChecked) ?? false
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        sourceDay = try c.decodeIfPresent(Date.self, forKey: .sourceDay)
+        sourceRecipeID = try c.decodeIfPresent(UUID.self, forKey: .sourceRecipeID)
+    }
+
+    static func make(name: String, sourceDay: Date? = nil, sourceRecipeID: UUID? = nil) -> ShoppingItem {
+        ShoppingItem(id: UUID(), name: name, isChecked: false, createdAt: Date(), sourceDay: sourceDay, sourceRecipeID: sourceRecipeID)
     }
 }
 

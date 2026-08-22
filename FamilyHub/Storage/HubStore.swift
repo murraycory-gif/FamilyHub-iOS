@@ -136,6 +136,7 @@ final class HubStore: ObservableObject {
     ) {
         let start = Calendar.current.startOfDay(for: day)
         if let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) {
+            removeDinnerShopping(on: start)
             dinners[idx].recipeID = recipeID
             dinners[idx].note = note
             dinners[idx].placeName = placeName
@@ -166,6 +167,9 @@ final class HubStore: ObservableObject {
     func setDinnerSide(on day: Date, recipeID: UUID?) {
         let start = Calendar.current.startOfDay(for: day)
         guard let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) else { return }
+        if let old = dinners[idx].sideRecipeID {
+            removeDinnerShopping(on: start, recipeID: old)
+        }
         dinners[idx].sideRecipeID = recipeID
         persist()
     }
@@ -176,8 +180,18 @@ final class HubStore: ObservableObject {
 
     func clearDinner(on day: Date) {
         let start = Calendar.current.startOfDay(for: day)
+        removeDinnerShopping(on: start)
         dinners.removeAll { Calendar.current.isDate($0.day, inSameDayAs: start) }
         persist()
+    }
+
+    func removeDinnerShopping(on day: Date, recipeID: UUID? = nil) {
+        let start = Calendar.current.startOfDay(for: day)
+        shoppingItems.removeAll { item in
+            guard let source = item.sourceDay, Calendar.current.isDate(source, inSameDayAs: start) else { return false }
+            if let recipeID { return item.sourceRecipeID == recipeID }
+            return true
+        }
     }
 
     func member(id: UUID) -> FamilyMember? {
@@ -519,10 +533,10 @@ final class HubStore: ObservableObject {
 
     // MARK: Shopping
 
-    func addShoppingItem(_ name: String) {
+    func addShoppingItem(_ name: String, fromDinner day: Date? = nil, recipeID: UUID? = nil) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        shoppingItems.insert(.make(name: trimmed), at: 0)
+        shoppingItems.insert(.make(name: trimmed, sourceDay: day.map { Calendar.current.startOfDay(for: $0) }, sourceRecipeID: recipeID), at: 0)
         persist()
     }
 
