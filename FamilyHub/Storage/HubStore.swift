@@ -18,6 +18,10 @@ final class HubStore: ObservableObject {
     @Published private(set) var recipes: [Recipe]
     @Published private(set) var dinners: [DinnerPlan]
     @Published private(set) var shoppingItems: [ShoppingItem]
+    @Published private(set) var ownerID: UUID?
+    @Published private(set) var joinCode: String
+    @Published private(set) var signedInMemberID: UUID?
+    @Published private(set) var notifyPrefs: HubNotifyPrefs
     @Published var errorMessage: String?
     @Published private(set) var familyPhotoData: Data?
     @Published private(set) var memberPhotos: [UUID: Data] = [:]
@@ -49,6 +53,10 @@ final class HubStore: ObservableObject {
         recipes = []
         dinners = []
         shoppingItems = []
+        ownerID = nil
+        joinCode = Self.makeJoinCode()
+        signedInMemberID = nil
+        notifyPrefs = .off
         familyPhotoData = nil
         loadOrSeed()
         familyPhotoData = try? Data(contentsOf: familyPhotoURL)
@@ -421,6 +429,53 @@ final class HubStore: ObservableObject {
         persist()
     }
 
+    func setNotifyPrefs(_ prefs: HubNotifyPrefs) {
+        notifyPrefs = prefs
+        persist()
+    }
+
+    func setSignedIn(_ id: UUID?) {
+        signedInMemberID = id
+        persist()
+    }
+
+    func setOwner(_ id: UUID) {
+        ownerID = id
+        if signedInMemberID == nil { signedInMemberID = id }
+        persist()
+    }
+
+    func refreshJoinCode() {
+        joinCode = Self.makeJoinCode()
+        persist()
+    }
+
+    var isOwnerDevice: Bool {
+        signedInMemberID == nil || signedInMemberID == ownerID
+    }
+
+    func signedInMember() -> FamilyMember? {
+        signedInMemberID.flatMap { member(id: $0) } ?? members.first
+    }
+
+    static func makeJoinCode() -> String {
+        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+        return String((0..<6).compactMap { _ in alphabet.randomElement() })
+    }
+
+    func addQuickMember(name: String, role: MemberRole, asOwner: Bool = false) -> FamilyMember {
+        let colors = ["1D4ED8", "DB2777", "16A34A", "D97706", "7C3AED", "0F766E", "C2410C"]
+        let color = colors[members.count % colors.count]
+        let person = FamilyMember.make(name: name, role: role, colorHex: color, symbol: role.defaultEmoji)
+        addMember(person)
+        if asOwner || ownerID == nil {
+            ownerID = person.id
+            signedInMemberID = person.id
+            persist()
+        }
+        return person
+    }
+
     func addHubWidget(_ kind: HubWidgetKind) {
         guard !hubWidgets.contains(where: { $0.kind == kind }) else { return }
         hubWidgets.append(.make(kind))
@@ -726,6 +781,13 @@ final class HubStore: ObservableObject {
         recipes = snapshot.recipes ?? SampleFamily.starterRecipes
         dinners = snapshot.dinners ?? []
         shoppingItems = snapshot.shoppingItems ?? []
+        ownerID = snapshot.ownerID ?? snapshot.members.first(where: { $0.role == .parent })?.id
+        joinCode = (snapshot.joinCode?.isEmpty == false) ? (snapshot.joinCode ?? Self.makeJoinCode()) : Self.makeJoinCode()
+        signedInMemberID = snapshot.signedInMemberID ?? ownerID
+        notifyPrefs = snapshot.notifyPrefs ?? .off
+        if snapshot.joinCode == nil {
+            persist()
+        }
     }
 
     private func persist() {
@@ -744,7 +806,11 @@ final class HubStore: ObservableObject {
             recipes: recipes,
             dinners: dinners,
             shoppingItems: shoppingItems,
-            units: units
+            units: units,
+            ownerID: ownerID,
+            joinCode: joinCode,
+            signedInMemberID: signedInMemberID,
+            notifyPrefs: notifyPrefs
         )
         do {
             let encoder = JSONEncoder()

@@ -461,6 +461,10 @@ struct HubSnapshot: Codable {
     var dinners: [DinnerPlan]?
     var shoppingItems: [ShoppingItem]?
     var units: HubUnits?
+    var ownerID: UUID?
+    var joinCode: String?
+    var signedInMemberID: UUID?
+    var notifyPrefs: HubNotifyPrefs?
 }
 
 struct ShoppingItem: Identifiable, Codable, Hashable {
@@ -1031,6 +1035,33 @@ enum TimeFormatUnit: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String { self == .twelve ? "12h" : "24h" }
     var name: String { self == .twelve ? "12-hour" : "24-hour" }
+}
+
+struct HubNotifyPrefs: Codable, Equatable {
+    var morningBrief: Bool
+    var eventPings: Bool
+    var dinnerPing: Bool
+    var chorePing: Bool
+    var shoppingPing: Bool
+
+    static let off = HubNotifyPrefs(
+        morningBrief: false,
+        eventPings: false,
+        dinnerPing: false,
+        chorePing: false,
+        shoppingPing: false
+    )
+
+    var anyOn: Bool {
+        morningBrief || eventPings || dinnerPing || chorePing || shoppingPing
+    }
+}
+
+struct HubCoachStep: Identifiable {
+    let id: Int
+    let title: String
+    let detail: String
+    let symbol: String
 }
 
 struct WeatherDay: Identifiable, Hashable {

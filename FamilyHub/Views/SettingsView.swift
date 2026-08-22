@@ -39,6 +39,8 @@ struct SettingsView: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            signedInRow
+                            inviteBox
                         }
                     }
                     SettingsFold(
@@ -177,6 +179,75 @@ struct SettingsView: View {
 
     private func toggle(_ id: String) {
         if open.contains(id) { open.remove(id) } else { open.insert(id) }
+    }
+
+    private var signedInRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("This iPad is signed in as")
+                .font(.headline.weight(.bold))
+            ForEach(store.members) { member in
+                Button {
+                    store.setSignedIn(member.id)
+                } label: {
+                    HStack(spacing: 12) {
+                        MemberAvatar(member: member, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(member.name)
+                                .font(.headline)
+                                .foregroundStyle(AppTheme.text)
+                            Text(member.id == store.ownerID ? "Owner" : member.role.label)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
+                        Spacer()
+                        if store.signedInMemberID == member.id {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(AppTheme.blue)
+                        }
+                    }
+                    .padding(12)
+                    .background(AppTheme.bg)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .background(AppTheme.bg)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var inviteBox: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Invite to this HUB")
+                .font(.headline.weight(.bold))
+            Text("Family uses this code, then picks their own profile. They see the same calendars, meals, and chores.")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            Text(store.joinCode)
+                .font(.system(size: 32, weight: .bold, design: .monospaced))
+                .foregroundStyle(AppTheme.blue)
+                .frame(maxWidth: .infinity)
+                .padding(16)
+                .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            HStack {
+                ShareLink(item: "Join our family HUB. Code: \(store.joinCode)") {
+                    Label("Share code", systemImage: "square.and.arrow.up")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                Button("New code") { store.refreshJoinCode() }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+                Spacer()
+            }
+        }
+        .padding(14)
+        .background(AppTheme.bg)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func measureRow<V: View>(_ title: String, @ViewBuilder chips: () -> V) -> some View {

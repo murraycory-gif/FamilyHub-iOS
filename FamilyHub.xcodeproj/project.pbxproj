@@ -39,6 +39,7 @@
 		A030 /* AmericanSides.swift in Sources */ = {isa = PBXBuildFile; fileRef = B030 /* AmericanSides.swift */; };
 		A031 /* CookPlaybook.swift in Sources */ = {isa = PBXBuildFile; fileRef = B031 /* CookPlaybook.swift */; };
 		A032 /* WorldKitchen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B032 /* WorldKitchen.swift */; };
+		A033 /* HubCoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B033 /* HubCoachView.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A904 /* RubikWetPaint-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B904 /* RubikWetPaint-Regular.ttf */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
@@ -89,6 +90,7 @@
 		B030 /* AmericanSides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmericanSides.swift; sourceTree = "<group>"; };
 		B031 /* CookPlaybook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CookPlaybook.swift; sourceTree = "<group>"; };
 		B032 /* WorldKitchen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldKitchen.swift; sourceTree = "<group>"; };
+		B033 /* HubCoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubCoachView.swift; sourceTree = "<group>"; };
 		B900 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B904 /* RubikWetPaint-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RubikWetPaint-Regular.ttf"; path = "Fonts/RubikWetPaint-Regular.ttf"; sourceTree = "<group>"; };
 		B901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -172,6 +174,7 @@
 				B028 /* PlaceDetailView.swift */,
 				B023 /* RecipeScan.swift */,
 				B024 /* HubLooksView.swift */,
+				B033 /* HubCoachView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -341,6 +344,7 @@
 				A030 /* AmericanSides.swift in Sources */,
 				A031 /* CookPlaybook.swift in Sources */,
 				A032 /* WorldKitchen.swift in Sources */,
+				A033 /* HubCoachView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
