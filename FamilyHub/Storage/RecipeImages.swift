@@ -142,7 +142,8 @@ enum RecipeImages {
             .replacingOccurrences(of: " at Home", with: "", options: .caseInsensitive)
         if trimmed != name { titles.append(trimmed) }
         if name.hasSuffix("s") { titles.append(String(name.dropLast())) }
-        return Array(NSOrderedSet(array: titles).array) as? [String] ?? titles
+        var seen = Set<String>()
+        return titles.filter { seen.insert($0).inserted }
     }
 
     private static func alias(_ name: String) -> String {
@@ -196,7 +197,6 @@ enum RecipeImages {
             "Honey Garlic Salmon": "Salmon",
             "Fish Tacos": "Fish taco",
             "Orange Chicken": "Orange chicken",
-            "Loaded Baked Potatoes": "Baked potato",
             "Cornbread": "Cornbread",
             "Caesar Salad": "Caesar salad",
             "Wedge Salad": "Wedge salad",
@@ -260,8 +260,7 @@ enum RecipeImages {
             "General Tso's at Home": "General Tso's chicken",
             "Hamburgers Helper Style Skillet": "Hamburger",
             "Cornbread Chili Bake": "Chili con carne",
-            "Pesto Pasta with Chicken": "Pesto",
-            "Chicken Fried Steak": "Chicken-fried steak"
+            "Pesto Pasta with Chicken": "Pesto"
         ]
         return map[name] ?? name
     }
@@ -345,6 +344,8 @@ enum RecipeImages {
 
 private extension String {
     var hashed: String {
-        String(abs(hashValue))
+        var hasher = Hasher()
+        hasher.combine(self)
+        return String(UInt64(bitPattern: Int64(hasher.finalize())))
     }
 }
