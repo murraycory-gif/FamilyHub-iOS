@@ -8,53 +8,42 @@ struct CalendarHubView: View {
     @State private var selectedDay = Date()
     @State private var filter: DayFilter = .family
     @State private var showAdd = false
-    @State private var showSources = false
+    @State private var showWho = false
+    @State private var detail: CalendarEvent?
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
 
     var body: some View {
-        ScrollViewReader { proxy in
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HubPageTitle(lead: "Family", tail: "Calendar")
-                monthHeader
-                filterRow
-                weekdayHeader
-                LazyVGrid(columns: columns, spacing: 4) {
-                    ForEach(CalendarMath.monthDays(containing: monthAnchor), id: \.self) { day in
-                        dayCell(day)
+        GeometryReader { geo in
+            ZStack {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            header
+                            monthHeader
+                            weekdayHeader
+                            monthGrid
+                            dayList
+                        }
+                        .padding(20)
                     }
+                    .onAppear { scrollToFocus(proxy) }
+                    .onChange(of: router.focusedEventID) { _, _ in scrollToFocus(proxy) }
                 }
-                dayList
+                if showWho {
+                    whoOverlay(width: min(560, geo.size.width - 72), height: min(640, geo.size.height - 80))
+                }
             }
-            .padding(20)
-        }
-        .onAppear { scrollToFocus(proxy) }
-        .onChange(of: router.focusedEventID) { _, _ in scrollToFocus(proxy) }
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 8) {
-                    HubIconButton(symbol: "calendar.badge.plus", label: "Calendars") {
-                        showSources = true
-                    }
-                    HubIconButton(symbol: "plus", label: "Add") {
-                        showAdd = true
-                    }
-                }
-            }
-        }
         .sheet(isPresented: $showAdd) {
             AddEventSheet(day: selectedDay)
         }
-        .sheet(isPresented: $showSources) {
-            CalendarSourcesView()
+        .sheet(item: $detail) { event in
+            EventDetailSheet(event: event)
         }
-        .onAppear {
-            applyRoute()
-        }
+        .onAppear { applyRoute() }
         .onChange(of: router.calendarFilter) { _, _ in applyRoute() }
         .onChange(of: router.calendarDay) { _, _ in applyRoute() }
         .onChange(of: router.focusedEventID) { _, _ in applyRoute() }
@@ -64,6 +53,88 @@ struct CalendarHubView: View {
         filter = router.calendarFilter
         selectedDay = router.calendarDay
         monthAnchor = router.calendarDay
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            HubPageTitle(lead: "Family", tail: "Calendar")
+            Spacer(minLength: 12)
+            Button { showWho = true } label: {
+                HubFilterBanner(symbol: "person.3.fill", title: whoTitle)
+            }
+            .buttonStyle(.plain)
+            Button { showAdd = true } label: {
+                HubFilterBanner(symbol: "plus", title: "Add", chevron: false)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var whoTitle: String {
+        switch filter {
+        case .family: return "Family"
+        case .member(let id): return store.member(id: id)?.name.split(separator: " ").first.map(String.init) ?? "Family"
+        }
+    }
+
+    private func whoOverlay(width: CGFloat, height: CGFloat) -> some View {
+        ZStack {
+            Color.black.opacity(0.38).ignoresSafeArea().onTapGesture { showWho = false }
+            VStack(spacing: 0) {
+                HubTileBanner(symbol: "person.3.fill", title: "Who's calendar")
+                ScrollView {
+                    VStack(spacing: 10) {
+                        whoRow(title: "Whole family", detail: store.householdName, selected: filter == .family, color: AppTheme.blue) {
+                            filter = .family
+                            showWho = false
+                        }
+                        ForEach(store.members) { member in
+                            whoRow(
+                                title: member.name,
+                                detail: member.role.label,
+                                selected: filter == .member(member.id),
+                                color: Color(hex: member.colorHex)
+                            ) {
+                                filter = .member(member.id)
+                                showWho = false
+                            }
+                        }
+                    }
+                    .padding(16)
+                }
+            }
+            .frame(width: width, height: height)
+            .background(AppTheme.bg)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(AppTheme.blue, lineWidth: 3))
+            .shadow(color: .black.opacity(0.25), radius: 30, y: 12)
+        }
+    }
+
+    private func whoRow(title: String, detail: String, selected: Bool, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(color)
+                    .frame(width: 6, height: 36)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.title2.weight(.bold)).foregroundStyle(AppTheme.text)
+                    Text(detail).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.textSecondary)
+                }
+                Spacer()
+                if selected {
+                    Image(systemName: "checkmark.circle.fill").font(.title2).foregroundStyle(AppTheme.blue)
+                }
+            }
+            .padding(16)
+            .background(selected ? AppTheme.blueSoft : AppTheme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(selected ? AppTheme.blue : AppTheme.cardBorder, lineWidth: selected ? 3 : 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var monthHeader: some View {
@@ -88,34 +159,30 @@ struct CalendarHubView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private var filterRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                FilterChip(title: "Family", color: AppTheme.forest, selected: filter == .family) {
-                    filter = .family
-                }
-                ForEach(store.members) { member in
-                    FilterChip(
-                        title: member.name,
-                        color: Color(hex: member.colorHex),
-                        selected: filter == .member(member.id)
-                    ) {
-                        filter = .member(member.id)
-                    }
-                }
+    private var weekdayHeader: some View {
+        LazyVGrid(columns: columns, spacing: 0) {
+            ForEach(Calendar.current.veryShortWeekdaySymbols, id: \.self) { day in
+                Text(day)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.textTertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
             }
         }
     }
 
-    private var weekdayHeader: some View {
-        LazyVGrid(columns: columns, spacing: 4) {
-            ForEach(Calendar.current.shortWeekdaySymbols, id: \.self) { day in
-                Text(day.prefix(2))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.textTertiary)
-                    .frame(maxWidth: .infinity)
+    private var monthGrid: some View {
+        LazyVGrid(columns: columns, spacing: 0) {
+            ForEach(CalendarMath.monthDays(containing: monthAnchor), id: \.self) { day in
+                dayCell(day)
             }
         }
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 2)
+        )
     }
 
     private func dayCell(_ day: Date) -> some View {
@@ -123,75 +190,119 @@ struct CalendarHubView: View {
         let inMonth = cal.isDate(day, equalTo: monthAnchor, toGranularity: .month)
         let selected = cal.isDate(day, inSameDayAs: selectedDay)
         let today = cal.isDateInToday(day)
-        let count = store.events(on: day, filter: filter).count
+        let events = store.events(on: day, filter: filter)
 
         return Button {
             selectedDay = day
         } label: {
-            VStack(spacing: 4) {
-                Text("\(cal.component(.day, from: day))")
-                    .font(.subheadline.weight(selected || today ? .bold : .regular))
-                Circle()
-                    .fill(count > 0 ? AppTheme.forest : Color.clear)
-                    .frame(width: 5, height: 5)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Text("\(cal.component(.day, from: day))")
+                        .font(.subheadline.weight(today || selected ? .bold : .regular))
+                        .foregroundStyle(today ? .white : (inMonth ? AppTheme.text : AppTheme.textTertiary))
+                        .frame(width: 28, height: 28)
+                        .background {
+                            if today {
+                                Circle().fill(AppTheme.blue)
+                            } else if selected {
+                                Circle().fill(AppTheme.blueSoft)
+                            }
+                        }
+                    Spacer(minLength: 0)
+                }
+                ForEach(events.prefix(3)) { event in
+                    Text(event.title)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(eventColor(event))
+                        .lineLimit(1)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(eventColor(event).opacity(0.14), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                }
+                if events.count > 3 {
+                    Text("+\(events.count - 3)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(AppTheme.textTertiary)
+                }
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selected ? AppTheme.forestSoft : Color.clear)
-            )
-            .foregroundStyle(inMonth ? AppTheme.text : AppTheme.textTertiary)
+            .padding(4)
+            .frame(maxWidth: .infinity, minHeight: 92, alignment: .top)
+            .background(selected && !today ? AppTheme.blueSoft.opacity(0.45) : Color.clear)
+            .overlay(Rectangle().stroke(AppTheme.cardBorder.opacity(0.45), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
+        .opacity(inMonth ? 1 : 0.45)
+    }
+
+    private func eventColor(_ event: CalendarEvent) -> Color {
+        if let member = event.memberID.flatMap(store.member(id:)) {
+            return Color(hex: member.colorHex)
+        }
+        return AppTheme.blue
     }
 
     private var dayList: some View {
         let events = store.events(on: selectedDay, filter: filter)
-        return VStack(alignment: .leading, spacing: 10) {
-            SectionLabel(title: selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(selectedDay.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                .font(.title2.weight(.bold))
             if events.isEmpty {
-                HubCard { Text("Nothing on this day.").foregroundStyle(AppTheme.textSecondary) }
+                Text("No events")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .padding(.vertical, 8)
             } else {
                 ForEach(events) { event in
-                    HubCard {
+                    Button { detail = event } label: {
                         HStack(alignment: .top, spacing: 12) {
-                            MemberDot(member: event.memberID.flatMap(store.member(id:)), size: 12)
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 6) {
-                                    Text(event.title).font(.headline)
-                                    if event.isImported, let source = event.sourceID.flatMap(store.source(id:)) {
-                                        Text(source.brand.title)
-                                            .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(AppTheme.blue)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .overlay(Capsule().stroke(AppTheme.cardBorder, lineWidth: 1))
-                                    }
+                            VStack(spacing: 0) {
+                                if event.allDay {
+                                    Text("all")
+                                    Text("day")
+                                } else {
+                                    Text(event.startAt.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute()))
+                                    Text(event.startAt.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).suffix(2))
                                 }
-                                Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
+                            .font(.caption.weight(.bold).monospacedDigit())
+                            .foregroundStyle(AppTheme.textSecondary)
+                            .frame(width: 44, alignment: .trailing)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(eventColor(event))
+                                .frame(width: 4)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(event.title)
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(AppTheme.text)
                                 if !event.location.isEmpty {
                                     Text(event.location)
-                                        .font(.caption)
+                                        .font(.subheadline)
                                         .foregroundStyle(AppTheme.textSecondary)
+                                }
+                                if let member = event.memberID.flatMap(store.member(id:)) {
+                                    Text(member.name)
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(eventColor(event))
                                 }
                             }
                             Spacer()
-                            Button(role: .destructive) {
-                                ingest.deleteEvent(event)
-                            } label: {
-                                Image(systemName: "trash")
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(AppTheme.textTertiary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(AppTheme.textTertiary)
                         }
+                        .padding(14)
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(event.id == router.focusedEventID ? AppTheme.blue : AppTheme.cardBorder, lineWidth: event.id == router.focusedEventID ? 3 : 1)
+                        )
                     }
+                    .buttonStyle(.plain)
                     .id(event.id)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(event.id == router.focusedEventID ? AppTheme.blue : Color.clear, lineWidth: 3)
-                    )
                 }
             }
         }
@@ -208,6 +319,82 @@ struct CalendarHubView: View {
         if let next = Calendar.current.date(byAdding: .month, value: value, to: monthAnchor) {
             monthAnchor = next
         }
+    }
+}
+
+struct EventDetailSheet: View {
+    @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var ingest: CalendarIngestor
+    @Environment(\.dismiss) private var dismiss
+    let event: CalendarEvent
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HubPageTitle(lead: "Event", tail: "Details")
+                    Text(event.title)
+                        .font(.system(size: 32, weight: .bold))
+                    HubPanel(symbol: "clock.fill", title: "When") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(event.startAt.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
+                                .font(.headline)
+                            Text(event.allDay ? "All day" : timeRange)
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                        }
+                    }
+                    if !event.location.isEmpty {
+                        HubPanel(symbol: "mappin.and.ellipse", title: "Location") {
+                            Text(event.location).font(.headline)
+                        }
+                    }
+                    HubPanel(symbol: "person.fill", title: "Who") {
+                        Text(event.memberID.flatMap(store.member(id:))?.name ?? store.householdName)
+                            .font(.headline)
+                    }
+                    if event.isImported, let source = event.sourceID.flatMap(store.source(id:)) {
+                        HubPanel(symbol: "calendar", title: "Calendar") {
+                            Text("\(source.brand.title) · \(source.account)")
+                                .font(.headline)
+                        }
+                    }
+                    if !event.notes.isEmpty {
+                        HubPanel(symbol: "note.text", title: "Notes") {
+                            Text(event.notes)
+                        }
+                    }
+                    Button(role: .destructive) {
+                        ingest.deleteEvent(event)
+                        dismiss()
+                    } label: {
+                        Label("Delete event", systemImage: "trash")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(AppTheme.chore, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(20)
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.foregroundStyle(AppTheme.blue)
+                }
+            }
+        }
+    }
+
+    private var timeRange: String {
+        let start = event.startAt.formatted(date: .omitted, time: .shortened)
+        if let end = event.endAt {
+            return "\(start) – \(end.formatted(date: .omitted, time: .shortened))"
+        }
+        return start
     }
 }
 
@@ -228,45 +415,57 @@ struct AddEventSheet: View {
     private var destinations: [DiscoveredCalendar] { ingest.writableCalendars() }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                TextField("Title", text: $title)
-                TextField("Location", text: $location)
-                Toggle("All day", isOn: $allDay)
-                DatePicker("Starts", selection: $start, displayedComponents: allDay ? [.date] : [.date, .hourAndMinute])
+        HubSheetStack(
+            lead: "New",
+            tail: "Event",
+            confirm: "Add",
+            confirmEnabled: !title.trimmingCharacters(in: .whitespaces).isEmpty,
+            onCancel: { dismiss() },
+            onConfirm: save
+        ) {
+            HubField(label: "Title") {
+                TextField("What's happening?", text: $title)
+            }
+            HubField(label: "Location") {
+                TextField("Where?", text: $location)
+            }
+            HubField(label: "When") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("All day", isOn: $allDay).tint(AppTheme.blue)
+                    DatePicker("Starts", selection: $start, displayedComponents: allDay ? [.date] : [.date, .hourAndMinute])
+                        .labelsHidden()
+                }
+            }
+            HubField(label: "Who") {
                 Picker("Who", selection: $memberID) {
                     Text("Whole family").tag(UUID?.none)
                     ForEach(store.members) { member in
                         Text(member.name).tag(Optional(member.id))
                     }
                 }
-                if !destinations.isEmpty {
-                    Picker("Save to", selection: $destinationID) {
+                .labelsHidden()
+            }
+            if !destinations.isEmpty {
+                HubField(label: "Save to") {
+                    Picker("Calendar", selection: $destinationID) {
                         Text("Choose calendar").tag(String?.none)
                         ForEach(destinations) { calendar in
                             Text("\(calendar.title) · \(calendar.account)").tag(Optional(calendar.eventKitID))
                         }
                     }
-                }
-                if let errorText {
-                    Text(errorText).foregroundStyle(AppTheme.chore)
+                    .labelsHidden()
                 }
             }
-            .navigationTitle("New event")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") { save() }
-                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
+            if let errorText {
+                Text(errorText).foregroundStyle(AppTheme.chore).font(.subheadline.weight(.semibold))
             }
-            .onAppear {
-                start = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: day) ?? day
-                destinationID = defaultDestination()
-            }
-            .onChange(of: memberID) { _, _ in
-                destinationID = defaultDestination()
-            }
+        }
+        .onAppear {
+            start = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: day) ?? day
+            destinationID = defaultDestination()
+        }
+        .onChange(of: memberID) { _, _ in
+            destinationID = defaultDestination()
         }
     }
 

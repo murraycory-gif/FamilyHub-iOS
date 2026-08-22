@@ -1036,12 +1036,12 @@ private struct FamilyFocusCard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accent, lineWidth: selected ? 5 : 3)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(accent, lineWidth: selected ? 3 : 2)
         )
-        .shadow(color: accent.opacity(selected ? 0.28 : 0.1), radius: selected ? 16 : 8, y: 6)
+        .shadow(color: accent.opacity(selected ? 0.18 : 0.06), radius: selected ? 8 : 3, y: 3)
         .contentShape(Rectangle())
         .onTapGesture { onSelect() }
         .sheet(isPresented: $showStudio) {
@@ -1104,12 +1104,12 @@ private struct MemberHomeCard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accent, lineWidth: selected ? 5 : 4)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(accent, lineWidth: selected ? 3 : 2)
         )
-        .shadow(color: accent.opacity(selected ? 0.3 : 0.12), radius: selected ? 16 : 8, y: 6)
+        .shadow(color: accent.opacity(selected ? 0.18 : 0.06), radius: selected ? 8 : 3, y: 3)
         .contentShape(Rectangle())
         .onTapGesture { onSelect() }
         .sheet(isPresented: $showStudio) {

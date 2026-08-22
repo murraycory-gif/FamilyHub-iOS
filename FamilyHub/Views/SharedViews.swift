@@ -590,4 +590,91 @@ extension HubTileBanner where Trailing == EmptyView {
     }
 }
 
+struct HubFilterBanner: View {
+    let symbol: String
+    let title: String
+    var chevron = true
+    @Environment(\.hubAccent) private var accent
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.body.weight(.bold))
+            Text(title)
+                .font(.headline.weight(.bold))
+                .lineLimit(1)
+            if chevron {
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.bold))
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+struct HubField<Content: View>: View {
+    var label: String = ""
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !label.isEmpty {
+                Text(label)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.textTertiary)
+                    .textCase(.uppercase)
+            }
+            content
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppTheme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(AppTheme.blue, lineWidth: 2)
+                )
+        }
+    }
+}
+
+struct HubSheetStack<Content: View>: View {
+    let lead: String
+    var tail: String = ""
+    var confirm: String = "Save"
+    var confirmEnabled = true
+    var onCancel: () -> Void
+    var onConfirm: () -> Void
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HubPageTitle(lead: lead, tail: tail)
+                    content
+                }
+                .padding(20)
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel).foregroundStyle(AppTheme.blue)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(confirm, action: onConfirm)
+                        .fontWeight(.bold)
+                        .foregroundStyle(AppTheme.blue)
+                        .disabled(!confirmEnabled)
+                }
+            }
+        }
+    }
+}
+
+
 

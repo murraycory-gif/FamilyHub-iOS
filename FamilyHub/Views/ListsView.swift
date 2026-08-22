@@ -175,49 +175,60 @@ struct AddListItemSheet: View {
     @State private var memberID: UUID?
 
     var body: some View {
-        NavigationStack {
-            Form {
+        HubSheetStack(
+            lead: "New",
+            tail: kind == .reminders ? "Reminder" : "To-do",
+            confirm: "Add",
+            confirmEnabled: !title.trimmingCharacters(in: .whitespaces).isEmpty,
+            onCancel: { dismiss() },
+            onConfirm: save
+        ) {
+            HubField(label: "Title") {
                 TextField("Title", text: $title)
-                if kind == .todos {
-                    TextField("Notes", text: $notes)
+            }
+            if kind == .todos {
+                HubField(label: "Notes") {
+                    TextField("Notes", text: $notes, axis: .vertical)
+                        .lineLimit(2...4)
                 }
-                Toggle("Has due date", isOn: $hasDue)
-                if hasDue {
-                    DatePicker("Due", selection: $dueAt)
+            }
+            HubField(label: "Due") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Has due date", isOn: $hasDue).tint(AppTheme.blue)
+                    if hasDue {
+                        DatePicker("Due", selection: $dueAt).labelsHidden()
+                    }
                 }
+            }
+            HubField(label: "Who") {
                 Picker("Who", selection: $memberID) {
                     Text("Whole family").tag(UUID?.none)
                     ForEach(store.members) { member in
                         Text(member.name).tag(Optional(member.id))
                     }
                 }
-            }
-            .navigationTitle(kind == .reminders ? "New reminder" : "New to-do")
-            .onAppear { memberID = defaultMember }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        if kind == .reminders {
-                            store.addReminder(.make(
-                                title: title.trimmingCharacters(in: .whitespaces),
-                                dueAt: hasDue ? dueAt : nil,
-                                memberID: memberID
-                            ))
-                        } else {
-                            store.addTodo(.make(
-                                title: title.trimmingCharacters(in: .whitespaces),
-                                notes: notes,
-                                dueAt: hasDue ? dueAt : nil,
-                                memberID: memberID
-                            ))
-                        }
-                        dismiss()
-                    }
-                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
+                .labelsHidden()
             }
         }
+        .onAppear { memberID = defaultMember }
+    }
+
+    private func save() {
+        if kind == .reminders {
+            store.addReminder(.make(
+                title: title.trimmingCharacters(in: .whitespaces),
+                dueAt: hasDue ? dueAt : nil,
+                memberID: memberID
+            ))
+        } else {
+            store.addTodo(.make(
+                title: title.trimmingCharacters(in: .whitespaces),
+                notes: notes,
+                dueAt: hasDue ? dueAt : nil,
+                memberID: memberID
+            ))
+        }
+        dismiss()
     }
 }
 

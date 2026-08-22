@@ -17,6 +17,16 @@ struct SettingsView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        NavigationLink {
+                            CalendarSourcesView()
+                        } label: {
+                            settingsRow(
+                                symbol: "calendar.badge.plus",
+                                title: "Calendars",
+                                detail: "iCloud, Google, Outlook, and other calendars"
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }

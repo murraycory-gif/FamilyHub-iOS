@@ -189,33 +189,38 @@ struct AddChoreSheet: View {
     @State private var cadence: ChoreCadence = .weekly
 
     var body: some View {
-        NavigationStack {
-            Form {
+        HubSheetStack(
+            lead: "New",
+            tail: "Chore",
+            confirm: "Add",
+            confirmEnabled: !title.trimmingCharacters(in: .whitespaces).isEmpty,
+            onCancel: { dismiss() },
+            onConfirm: {
+                store.addChore(.make(
+                    title: title.trimmingCharacters(in: .whitespaces),
+                    details: details,
+                    rewardCents: centsFrom(dollars),
+                    cadence: cadence
+                ))
+                dismiss()
+            }
+        ) {
+            HubField(label: "Chore") {
                 TextField("Chore name", text: $title)
+            }
+            HubField(label: "Details") {
                 TextField("Details", text: $details)
-                TextField("Reward ($)", text: $dollars)
-                    .keyboardType(.decimalPad)
+            }
+            HubField(label: "Reward") {
+                TextField("Reward ($)", text: $dollars).keyboardType(.decimalPad)
+            }
+            HubField(label: "Repeat") {
                 Picker("Repeat", selection: $cadence) {
                     ForEach(ChoreCadence.allCases) { item in
                         Text(item.label).tag(item)
                     }
                 }
-            }
-            .navigationTitle("New chore")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        store.addChore(.make(
-                            title: title.trimmingCharacters(in: .whitespaces),
-                            details: details,
-                            rewardCents: centsFrom(dollars),
-                            cadence: cadence
-                        ))
-                        dismiss()
-                    }
-                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
+                .labelsHidden()
             }
         }
     }
@@ -235,30 +240,34 @@ struct AssignChoreSheet: View {
     @State private var dueOn = Date()
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Text(chore.title).font(.headline)
+        HubSheetStack(
+            lead: "Assign",
+            tail: "Chore",
+            confirm: "Assign",
+            confirmEnabled: memberID != nil,
+            onCancel: { dismiss() },
+            onConfirm: {
+                if let memberID {
+                    store.assign(choreID: chore.id, to: memberID, dueOn: dueOn)
+                }
+                dismiss()
+            }
+        ) {
+            Text(chore.title)
+                .font(.title2.weight(.bold))
+            HubField(label: "Assign to") {
                 Picker("Assign to", selection: $memberID) {
                     ForEach(store.kids()) { kid in
                         Text(kid.name).tag(Optional(kid.id))
                     }
                 }
-                DatePicker("Due", selection: $dueOn, displayedComponents: .date)
+                .labelsHidden()
             }
-            .navigationTitle("Assign")
-            .onAppear { memberID = store.kids().first?.id }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Assign") {
-                        if let memberID {
-                            store.assign(choreID: chore.id, to: memberID, dueOn: dueOn)
-                        }
-                        dismiss()
-                    }
-                    .disabled(memberID == nil)
-                }
+            HubField(label: "Due") {
+                DatePicker("Due", selection: $dueOn, displayedComponents: .date)
+                    .labelsHidden()
             }
         }
+        .onAppear { memberID = store.kids().first?.id }
     }
 }
