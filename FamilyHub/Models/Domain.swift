@@ -586,7 +586,6 @@ enum CookMethod: String, Codable, CaseIterable, Identifiable, Hashable {
     case smoker
     case broiler
     case microwave
-    case noCook
 
     var id: String { rawValue }
 
@@ -602,7 +601,6 @@ enum CookMethod: String, Codable, CaseIterable, Identifiable, Hashable {
         case .smoker: return "Smoker"
         case .broiler: return "Broiler"
         case .microwave: return "Microwave"
-        case .noCook: return "No cook"
         }
     }
 
@@ -618,7 +616,6 @@ enum CookMethod: String, Codable, CaseIterable, Identifiable, Hashable {
         case .smoker: return "smoke.fill"
         case .broiler: return "sun.max.fill"
         case .microwave: return "wave.3.right"
-        case .noCook: return "leaf.fill"
         }
     }
 
@@ -644,14 +641,12 @@ enum CookMethod: String, Codable, CaseIterable, Identifiable, Hashable {
             return "Move the rack 6 inches from the broiler. Preheat on high. Broil, watching close, and flip once until browned and done."
         case .microwave:
             return "Use a microwave-safe dish. Cover loosely. Cook in short bursts, stirring between, until hot. Let it stand 1 minute."
-        case .noCook:
-            return "No heat. Chop, mix, and chill. Taste and adjust salt, acid, and crunch right before you serve."
         }
     }
 
     static func suggested(name: String, instructions: String = "") -> CookMethod {
         let text = (name + " " + instructions).lowercased()
-        if text.contains("salad") || text.contains("slaw") || text.contains("sandwich") { return .noCook }
+        if text.contains("salad") || text.contains("slaw") || text.contains("sandwich") { return .stovetop }
         if text.contains("grill") || text.contains("burger") || text.contains("steak") { return .grill }
         if text.contains("smoke") || text.contains("brisket") { return .smoker }
         if text.contains("crock") || text.contains("slow cook") { return .slowCooker }
