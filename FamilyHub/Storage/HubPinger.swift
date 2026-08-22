@@ -197,7 +197,7 @@ final class HubPinger {
     }
 
     private func morningBody(_ store: HubStore) -> String {
-        let events = store.events(on: Date(), filter: .family).prefix(3).map(\ .title)
+        let events = store.events(on: Date(), filter: .family).prefix(3).map(\.title)
         let dinner = store.dinnerTitle(on: Date()) ?? "Dinner not set"
         let lead = events.isEmpty ? "Clear calendar." : events.joined(separator: ", ")
         return "\(lead) \(dinner)."
@@ -216,7 +216,7 @@ final class HubPinger {
         let due = store.reminders.filter {
             $0.isBills && !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDateInToday($0) } ?? false)
         }
-        return due.isEmpty ? "No bills due today." : due.map(\ .title).prefix(3).joined(separator: ", ")
+        return due.isEmpty ? "No bills due today." : due.map(\.title).prefix(3).joined(separator: ", ")
     }
 
     private func shopBody(_ store: HubStore) -> String {
