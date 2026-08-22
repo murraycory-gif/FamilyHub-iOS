@@ -215,11 +215,32 @@ final class HubStore: ObservableObject {
 
     func removeDinnerShopping(on day: Date, recipeID: UUID? = nil) {
         let start = Calendar.current.startOfDay(for: day)
-        shoppingItems.removeAll { item in
-            guard let source = item.sourceDay, Calendar.current.isDate(source, inSameDayAs: start) else { return false }
-            if let recipeID { return item.sourceRecipeID == recipeID }
-            return true
+        let plan = dinner(on: start)
+        let recipeIDs: Set<UUID> = {
+            if let recipeID { return [recipeID] }
+            return Set([plan?.recipeID, plan?.sideRecipeID].compactMap { $0 })
+        }()
+        var names = Set<String>()
+        let servings = plan?.servings ?? 4
+        for id in recipeIDs {
+            guard let recipe = recipe(id: id) else { continue }
+            for line in recipe.ingredients {
+                names.insert(Self.shopKey(line))
+            }
+            for line in IngredientScale.lines(recipe.ingredients, servings: servings) {
+                names.insert(Self.shopKey(line))
+            }
         }
+        shoppingItems.removeAll { item in
+            if let rid = item.sourceRecipeID, recipeIDs.contains(rid) { return true }
+            if let source = item.sourceDay, Calendar.current.isDate(source, inSameDayAs: start) { return true }
+            if item.sourceDay == nil, names.contains(Self.shopKey(item.name)) { return true }
+            return false
+        }
+    }
+
+    private static func shopKey(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     func member(id: UUID) -> FamilyMember? {

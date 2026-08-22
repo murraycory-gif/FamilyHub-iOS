@@ -567,9 +567,23 @@ struct TodayView: View {
         let plan = store.dinner(on: day)
         let recipe = plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
         let title = store.dinnerTitle(on: day)
-        return Button { showDinner = true } label: {
-            VStack(spacing: 0) {
-                HubTileBanner(symbol: "fork.knife", title: "What's For Dinner")
+        return VStack(spacing: 0) {
+            HubTileBanner(symbol: "fork.knife", title: "What's For Dinner") {
+                if plan != nil {
+                    Button {
+                        store.clearDinner(on: day)
+                    } label: {
+                        Image(systemName: "trash.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(7)
+                            .background(.white.opacity(0.22), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Delete dinner")
+                }
+            }
+            Button { showDinner = true } label: {
                 ZStack(alignment: .bottom) {
                     dinnerPhoto(plan: plan, recipe: recipe)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -599,16 +613,16 @@ struct TodayView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
-            .background(AppTheme.blueSoft)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(accent, lineWidth: 3)
-            )
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .background(AppTheme.blueSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(accent, lineWidth: 3)
+        )
     }
 
     @ViewBuilder
