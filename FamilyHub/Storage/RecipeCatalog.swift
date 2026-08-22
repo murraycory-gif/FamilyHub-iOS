@@ -114,6 +114,7 @@ final class RecipeCatalog: ObservableObject {
             }
         }
         if recipes.isEmpty { message = "No recipes in that category yet." }
+        RecipeImages.prefetch(recipes)
     }
 
     private static let asian = ["Chinese", "Japanese", "Thai", "Indian", "Korean", "Vietnamese", "Filipino"]

@@ -121,6 +121,7 @@ final class SideCatalog: ObservableObject {
         default:
             recipes = AmericanSides.recipes.filter { $0.category == category }
         }
+        RecipeImages.prefetch(recipes)
     }
 
     private func streamMore() async {

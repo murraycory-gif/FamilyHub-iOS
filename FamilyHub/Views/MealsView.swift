@@ -1554,7 +1554,6 @@ struct RecipePhoto: View {
     let url: URL?
     var searchName: String = ""
     @State private var image: UIImage?
-    @State private var finished = false
 
     var body: some View {
         Color.clear
@@ -1565,18 +1564,25 @@ struct RecipePhoto: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
-                    } else if !finished && (url != nil || !searchName.isEmpty) {
-                        ProgressView()
                     } else {
-                        Image(systemName: "fork.knife").foregroundStyle(AppTheme.blue)
+                        ProgressView()
                     }
                 }
             }
             .clipped()
             .contentShape(Rectangle())
+            .onAppear {
+                if image == nil {
+                    image = RecipeImages.cachedImage(url: url, name: searchName)
+                }
+            }
             .task(id: "\(url?.absoluteString ?? "")-\(searchName)") {
-                image = await RecipeImages.photo(url: url, name: searchName)
-                finished = true
+                if image == nil {
+                    image = RecipeImages.cachedImage(url: url, name: searchName)
+                }
+                if image == nil {
+                    image = await RecipeImages.photo(url: url, name: searchName)
+                }
             }
     }
 }

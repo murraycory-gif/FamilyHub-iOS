@@ -6,29 +6,87 @@ enum RecipeImages {
     private static let lock = NSLock()
     private static let version = "v4"
 
+    static func cachedImage(url: URL?, name: String) -> UIImage? {
+        let dish = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cached(cacheKey(dish, url))
+    }
+
+    static func prefetch(_ recipes: [CatalogRecipe]) {
+        let batch = Array(recipes.prefix(40))
+        Task.detached(priority: .utility) {
+            await withTaskGroup(of: Void.self) { group in
+                for chunkStart in stride(from: 0, to: batch.count, by: 8) {
+                    let end = min(chunkStart + 8, batch.count)
+                    for recipe in batch[chunkStart..<end] {
+                        group.addTask {
+                            _ = await photo(url: recipe.thumb, name: recipe.name)
+                        }
+                    }
+                    await group.waitForAll()
+                }
+            }
+        }
+    }
+
     static func photo(url: URL?, name: String) async -> UIImage? {
         let dish = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let key = cacheKey(dish, url)
         if let cached = cached(key) { return cached }
 
-        if let url, !isUnsplash(url), let image = await download(url.absoluteString, timeout: 4) {
+        if let url, !isUnsplash(url), let image = await download(url.absoluteString, timeout: 3) {
             store(image, key: key)
             return image
         }
         guard !dish.isEmpty else { return nil }
-        if let image = await wikipedia(dish) {
-            store(image, key: key)
-            return image
-        }
-        if let image = await mealDB(alias(dish)) {
-            store(image, key: key)
-            return image
-        }
-        if let image = await mealDB(dish) {
+        if let image = await firstPhoto(dish) {
             store(image, key: key)
             return image
         }
         return nil
+    }
+
+    private static func firstPhoto(_ name: String) async -> UIImage? {
+        let title = alias(name)
+        return await withTaskGroup(of: Shot.self) { group in
+            var pending = 2
+            group.addTask { .from(await mealDB(title)) }
+            group.addTask { .from(await wikipediaExact(title)) }
+            if title != name {
+                pending += 1
+                group.addTask { .from(await wikipediaExact(name)) }
+            }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(4))
+                return .timeout
+            }
+            while let shot = await group.next() {
+                switch shot {
+                case .photo(let image):
+                    group.cancelAll()
+                    return image
+                case .timeout:
+                    group.cancelAll()
+                    return nil
+                case .miss:
+                    pending -= 1
+                    if pending <= 0 {
+                        group.cancelAll()
+                        return nil
+                    }
+                }
+            }
+            return nil
+        }
+    }
+
+    private enum Shot {
+        case photo(UIImage)
+        case miss
+        case timeout
+        static func from(_ image: UIImage?) -> Shot {
+            if let image { return .photo(image) }
+            return .miss
+        }
     }
 
     private static func cacheKey(_ name: String, _ url: URL?) -> String {
@@ -40,52 +98,22 @@ enum RecipeImages {
         (url.host ?? "").contains("unsplash.com")
     }
 
-    private static func wikipedia(_ name: String) async -> UIImage? {
-        for title in wikiTitles(name) {
-            let slug = title.replacingOccurrences(of: " ", with: "_")
-                .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
-            guard let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(slug)"),
-                  let json = await json(url, agent: true)
-            else { continue }
-            let pageTitle = (json["title"] as? String) ?? title
-            let kind = json["type"] as? String
-            if kind == "disambiguation" { continue }
-            guard fits(pageTitle, dish: title) else { continue }
-            if let thumb = json["thumbnail"] as? [String: Any],
-               let source = thumb["source"] as? String,
-               let image = await download(source) {
-                return image
-            }
-            if let original = json["originalimage"] as? [String: Any],
-               let source = original["source"] as? String,
-               let image = await download(source) {
-                return image
-            }
-        }
-        var comps = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
-        comps.queryItems = [
-            URLQueryItem(name: "action", value: "query"),
-            URLQueryItem(name: "list", value: "search"),
-            URLQueryItem(name: "srsearch", value: "\(alias(name)) dish"),
-            URLQueryItem(name: "srlimit", value: "5"),
-            URLQueryItem(name: "format", value: "json")
-        ]
-        guard let searchURL = comps.url,
-              let searchJSON = await json(searchURL, agent: true),
-              let queryObj = searchJSON["query"] as? [String: Any],
-              let hits = queryObj["search"] as? [[String: Any]]
+    private static func wikipediaExact(_ title: String) async -> UIImage? {
+        let slug = title.replacingOccurrences(of: " ", with: "_")
+            .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
+        guard let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(slug)"),
+              let json = await json(url, agent: true)
         else { return nil }
-        for hit in hits {
-            guard let title = hit["title"] as? String, fits(title, dish: alias(name)) else { continue }
-            let slug = title.replacingOccurrences(of: " ", with: "_")
-                .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
-            if let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(slug)"),
-               let page = await json(url, agent: true),
-               let thumb = page["thumbnail"] as? [String: Any],
-               let source = thumb["source"] as? String,
-               let image = await download(source) {
-                return image
-            }
+        if json["type"] as? String == "disambiguation" { return nil }
+        if let thumb = json["thumbnail"] as? [String: Any],
+           let source = thumb["source"] as? String,
+           let image = await download(source, timeout: 3) {
+            return image
+        }
+        if let original = json["originalimage"] as? [String: Any],
+           let source = original["source"] as? String,
+           let image = await download(source, timeout: 3) {
+            return image
         }
         return nil
     }
@@ -96,26 +124,14 @@ enum RecipeImages {
               let json = await json(url),
               let meals = json["meals"] as? [[String: Any]]
         else { return nil }
-        for meal in meals.prefix(8) {
+        for meal in meals.prefix(3) {
             let title = meal["strMeal"] as? String ?? ""
             guard fits(title, dish: name) else { continue }
-            if let thumb = meal["strMealThumb"] as? String, let image = await download(thumb) {
+            if let thumb = meal["strMealThumb"] as? String, let image = await download(thumb, timeout: 3) {
                 return image
             }
         }
         return nil
-    }
-
-    private static func wikiTitles(_ name: String) -> [String] {
-        var titles = [alias(name), name, "\(name) (food)"]
-        let trimmed = name
-            .replacingOccurrences(of: "Classic ", with: "", options: .caseInsensitive)
-            .replacingOccurrences(of: "Homemade ", with: "", options: .caseInsensitive)
-            .replacingOccurrences(of: " at Home", with: "", options: .caseInsensitive)
-        if trimmed != name { titles.append(trimmed) }
-        if name.hasSuffix("s") { titles.append(String(name.dropLast())) }
-        var seen = Set<String>()
-        return titles.filter { seen.insert($0).inserted }
     }
 
     private static func alias(_ name: String) -> String {
@@ -322,7 +338,7 @@ enum RecipeImages {
     private static func data(_ url: URL, agent: Bool = true) async -> Data? {
         var request = URLRequest(url: url)
         request.timeoutInterval = 8
-        if agent { request.setValue("HUB/1.0 (family hub recipe photos)", forHTTPHeaderField: "User-Agent") }
+        if agent { request.setValue("FamilyHub/1.0 (recipe photos; ios family hub)", forHTTPHeaderField: "User-Agent") }
         return try? await URLSession.shared.data(for: request).0
     }
 }
