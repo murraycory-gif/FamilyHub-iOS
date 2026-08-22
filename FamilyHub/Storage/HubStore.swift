@@ -525,6 +525,11 @@ final class HubStore: ObservableObject {
                     )
                 )
             }
+            if let idx = calendarSources.firstIndex(where: { $0.eventKitID == item.eventKitID }),
+               !calendarSources[idx].useChosen,
+               CalendarSource.looksLikeBills(calendarSources[idx].title) {
+                calendarSources[idx].use = .billsDue
+            }
         }
         let liveIDs = Set(discovered.map(\.eventKitID))
         let stale = calendarSources.filter { source in
@@ -533,6 +538,7 @@ final class HubStore: ObservableObject {
         }
         for source in stale {
             events.removeAll { $0.sourceID == source.id }
+            reminders.removeAll { $0.sourceID == source.id }
             calendarSources.removeAll { $0.id == source.id }
         }
         persist()
@@ -550,6 +556,19 @@ final class HubStore: ObservableObject {
         calendarSources[idx].isEnabled = enabled
         if !enabled {
             events.removeAll { $0.sourceID == id }
+            reminders.removeAll { $0.sourceID == id }
+        }
+        persist()
+    }
+
+    func setSourceUse(_ id: UUID, use: CalendarHubUse) {
+        guard let idx = calendarSources.firstIndex(where: { $0.id == id }) else { return }
+        calendarSources[idx].use = use
+        calendarSources[idx].useChosen = true
+        if use == .billsDue {
+            events.removeAll { $0.sourceID == id }
+        } else {
+            reminders.removeAll { $0.sourceID == id }
         }
         persist()
     }
@@ -566,6 +585,20 @@ final class HubStore: ObservableObject {
     func removeCalendarSource(_ id: UUID) {
         calendarSources.removeAll { $0.id == id }
         events.removeAll { $0.sourceID == id }
+        reminders.removeAll { $0.sourceID == id }
+        persist()
+    }
+
+    func replaceImportedReminders(sourceID: UUID, with incoming: [ReminderItem]) {
+        let keptComplete = Set(reminders.filter { $0.sourceID == sourceID && $0.isCompleted }.compactMap(\.externalID))
+        reminders.removeAll { $0.sourceID == sourceID }
+        var next = incoming
+        for i in next.indices {
+            if let ext = next[i].externalID, keptComplete.contains(ext) {
+                next[i].isCompleted = true
+            }
+        }
+        reminders.append(contentsOf: next)
         persist()
     }
 

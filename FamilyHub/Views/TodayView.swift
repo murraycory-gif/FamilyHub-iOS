@@ -744,7 +744,11 @@ struct TodayView: View {
             items.append(.event(event))
         }
         for reminder in store.reminders where !reminder.isCompleted {
-            guard matchesProfile(reminder.memberID) else { continue }
+            if reminder.isBills {
+                guard profile == .family else { continue }
+            } else {
+                guard matchesProfile(reminder.memberID) else { continue }
+            }
             if let due = reminder.dueAt, cal.isDate(due, inSameDayAs: day) {
                 items.append(.reminder(reminder))
             }
@@ -820,6 +824,7 @@ struct TodayView: View {
     }
 
     private func assigneeName(for item: HubDayItem) -> String {
+        if item.detail == "Bills Due" { return "Bills Due" }
         if let id = item.memberID, let member = store.member(id: id) {
             return member.name
         }
@@ -827,6 +832,7 @@ struct TodayView: View {
     }
 
     private func assigneeColor(for item: HubDayItem) -> Color {
+        if item.detail == "Bills Due" { return AppTheme.reminder }
         if let id = item.memberID, let member = store.member(id: id) {
             return Color(hex: member.colorHex)
         }
@@ -1029,7 +1035,7 @@ private struct HubDayItem: Identifiable {
             id: "r-\(item.id)",
             kind: .reminder,
             title: item.title,
-            detail: "",
+            detail: item.isBills ? "Bills Due" : "",
             timeLabel: item.dueAt?.formatted(date: .omitted, time: .shortened) ?? "Due",
             sortDate: item.dueAt ?? Date(),
             memberID: item.memberID

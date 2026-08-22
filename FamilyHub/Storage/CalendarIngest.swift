@@ -196,7 +196,14 @@ final class CalendarIngestor: ObservableObject {
                 } else {
                     continue
                 }
-                hub.replaceImportedEvents(sourceID: source.id, with: events)
+                if source.use == .billsDue {
+                    let bills = events.map { ReminderItem.bill(from: $0, sourceID: source.id) }
+                    hub.replaceImportedReminders(sourceID: source.id, with: bills)
+                    hub.replaceImportedEvents(sourceID: source.id, with: [])
+                } else {
+                    hub.replaceImportedEvents(sourceID: source.id, with: events)
+                    hub.replaceImportedReminders(sourceID: source.id, with: [])
+                }
                 hub.markSourceSynced(source.id)
                 imported += events.count
             } catch {

@@ -83,40 +83,67 @@ struct ListsView: View {
     @ViewBuilder
     private var reminderList: some View {
         let items = store.reminders.filter { memberFilter == nil || $0.memberID == memberFilter }
+        let bills = items.filter(\.isBills)
+        let rest = items.filter { !$0.isBills }
         if items.isEmpty {
             HubCard {
                 EmptyHint(symbol: "bell", title: "No reminders", detail: "Add permission slips, trash night, fees.")
             }
         } else {
-            ForEach(items) { item in
-                HubCard {
-                    HStack(alignment: .top, spacing: 12) {
-                        Button { store.toggleReminder(item.id) } label: {
-                            Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                                .font(.title3)
-                                .foregroundStyle(AppTheme.forest)
-                        }
-                        .buttonStyle(.plain)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.title)
-                                .font(.headline)
-                                .strikethrough(item.isCompleted)
-                                .foregroundStyle(item.isCompleted ? AppTheme.textTertiary : AppTheme.text)
-                            if let due = item.dueAt {
-                                Text(due.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundStyle(AppTheme.textSecondary)
-                            }
-                        }
-                        Spacer()
-                        MemberDot(member: item.memberID.flatMap(store.member(id:)))
-                        Button { store.deleteReminder(item.id) } label: {
-                            Image(systemName: "trash")
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(AppTheme.textTertiary)
+            if !bills.isEmpty {
+                Text("Bills Due")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+                ForEach(bills) { item in
+                    reminderRow(item)
+                }
+            }
+            if !rest.isEmpty {
+                if !bills.isEmpty {
+                    Text("Reminders")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.text)
+                        .padding(.top, 8)
+                }
+                ForEach(rest) { item in
+                    reminderRow(item)
+                }
+            }
+        }
+    }
+
+    private func reminderRow(_ item: ReminderItem) -> some View {
+        HubCard {
+            HStack(alignment: .top, spacing: 12) {
+                Button { store.toggleReminder(item.id) } label: {
+                    Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(AppTheme.reminder)
+                }
+                .buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 4) {
+                    if item.isBills {
+                        Text("BILLS DUE")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(AppTheme.reminder)
+                    }
+                    Text(item.title)
+                        .font(.headline)
+                        .strikethrough(item.isCompleted)
+                        .foregroundStyle(item.isCompleted ? AppTheme.textTertiary : AppTheme.text)
+                    if let due = item.dueAt {
+                        Text(due.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
                 }
+                Spacer()
+                MemberDot(member: item.memberID.flatMap(store.member(id:)))
+                Button { store.deleteReminder(item.id) } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(AppTheme.textTertiary)
             }
         }
     }

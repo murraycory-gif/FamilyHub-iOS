@@ -359,9 +359,63 @@ struct ReminderItem: Identifiable, Codable, Hashable {
     var dueAt: Date?
     var isCompleted: Bool
     var memberID: UUID?
+    var listName: String
+    var sourceID: UUID?
+    var externalID: String?
+
+    var isBills: Bool { listName.caseInsensitiveCompare("Bills Due") == .orderedSame }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, dueAt, isCompleted, memberID, listName, sourceID, externalID
+    }
+
+    init(
+        id: UUID,
+        title: String,
+        dueAt: Date?,
+        isCompleted: Bool,
+        memberID: UUID?,
+        listName: String = "",
+        sourceID: UUID? = nil,
+        externalID: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.dueAt = dueAt
+        self.isCompleted = isCompleted
+        self.memberID = memberID
+        self.listName = listName
+        self.sourceID = sourceID
+        self.externalID = externalID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        dueAt = try c.decodeIfPresent(Date.self, forKey: .dueAt)
+        isCompleted = try c.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
+        memberID = try c.decodeIfPresent(UUID.self, forKey: .memberID)
+        listName = try c.decodeIfPresent(String.self, forKey: .listName) ?? ""
+        sourceID = try c.decodeIfPresent(UUID.self, forKey: .sourceID)
+        externalID = try c.decodeIfPresent(String.self, forKey: .externalID)
+    }
 
     static func make(title: String, dueAt: Date? = nil, memberID: UUID? = nil) -> ReminderItem {
         ReminderItem(id: UUID(), title: title, dueAt: dueAt, isCompleted: false, memberID: memberID)
+    }
+
+    static func bill(from event: CalendarEvent, sourceID: UUID) -> ReminderItem {
+        ReminderItem(
+            id: UUID(),
+            title: event.title,
+            dueAt: event.startAt,
+            isCompleted: false,
+            memberID: nil,
+            listName: "Bills Due",
+            sourceID: sourceID,
+            externalID: event.externalID
+        )
     }
 }
 
@@ -837,6 +891,20 @@ enum CalendarBrand: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum CalendarHubUse: String, Codable, CaseIterable, Identifiable {
+    case familyCalendar
+    case billsDue
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .familyCalendar: return "Family calendar"
+        case .billsDue: return "Bills Due (reminders)"
+        }
+    }
+}
+
 struct CalendarSource: Identifiable, Codable, Hashable {
     var id: UUID
     var brand: CalendarBrand
@@ -848,6 +916,61 @@ struct CalendarSource: Identifiable, Codable, Hashable {
     var memberID: UUID?
     var lastSyncedAt: Date?
     var colorHex: String
+    var use: CalendarHubUse
+    var useChosen: Bool
+
+    init(
+        id: UUID,
+        brand: CalendarBrand,
+        title: String,
+        account: String,
+        isEnabled: Bool,
+        eventKitID: String?,
+        icsURL: String?,
+        memberID: UUID?,
+        lastSyncedAt: Date?,
+        colorHex: String,
+        use: CalendarHubUse,
+        useChosen: Bool
+    ) {
+        self.id = id
+        self.brand = brand
+        self.title = title
+        self.account = account
+        self.isEnabled = isEnabled
+        self.eventKitID = eventKitID
+        self.icsURL = icsURL
+        self.memberID = memberID
+        self.lastSyncedAt = lastSyncedAt
+        self.colorHex = colorHex
+        self.use = use
+        self.useChosen = useChosen
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, brand, title, account, isEnabled, eventKitID, icsURL, memberID, lastSyncedAt, colorHex, use, useChosen
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        brand = try c.decode(CalendarBrand.self, forKey: .brand)
+        title = try c.decode(String.self, forKey: .title)
+        account = try c.decodeIfPresent(String.self, forKey: .account) ?? ""
+        isEnabled = try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
+        eventKitID = try c.decodeIfPresent(String.self, forKey: .eventKitID)
+        icsURL = try c.decodeIfPresent(String.self, forKey: .icsURL)
+        memberID = try c.decodeIfPresent(UUID.self, forKey: .memberID)
+        lastSyncedAt = try c.decodeIfPresent(Date.self, forKey: .lastSyncedAt)
+        colorHex = try c.decodeIfPresent(String.self, forKey: .colorHex) ?? "3B82F6"
+        use = try c.decodeIfPresent(CalendarHubUse.self, forKey: .use) ?? (Self.looksLikeBills(title) ? .billsDue : .familyCalendar)
+        useChosen = try c.decodeIfPresent(Bool.self, forKey: .useChosen) ?? false
+    }
+
+    static func looksLikeBills(_ title: String) -> Bool {
+        let hay = title.lowercased()
+        return hay.contains("bill")
+    }
 
     static func make(
         brand: CalendarBrand,
@@ -867,7 +990,9 @@ struct CalendarSource: Identifiable, Codable, Hashable {
             icsURL: icsURL,
             memberID: nil,
             lastSyncedAt: nil,
-            colorHex: colorHex
+            colorHex: colorHex,
+            use: looksLikeBills(title) ? .billsDue : .familyCalendar,
+            useChosen: false
         )
     }
 }

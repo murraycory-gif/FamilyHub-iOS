@@ -161,15 +161,33 @@ struct CalendarSourcesView: View {
                     .tint(AppTheme.ice)
                 }
                 Picker("Show as", selection: Binding(
-                    get: { source.memberID },
-                    set: { store.setSourceMember(source.id, memberID: $0) }
+                    get: { source.use },
+                    set: {
+                        store.setSourceUse(source.id, use: $0)
+                        ingest.scheduleSync(quiet: true)
+                    }
                 )) {
-                    Text("Whole family").tag(UUID?.none)
-                    ForEach(store.members) { member in
-                        Text(member.name).tag(Optional(member.id))
+                    ForEach(CalendarHubUse.allCases) { use in
+                        Text(use.label).tag(use)
                     }
                 }
                 .pickerStyle(.menu)
+                if source.use == .familyCalendar {
+                    Picker("On whose calendar", selection: Binding(
+                        get: { source.memberID },
+                        set: { store.setSourceMember(source.id, memberID: $0) }
+                    )) {
+                        Text("Whole family").tag(UUID?.none)
+                        ForEach(store.members) { member in
+                            Text(member.name).tag(Optional(member.id))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } else {
+                    Text("Bills Due reminders — not on family calendars.")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
                 if let synced = source.lastSyncedAt {
                     Text("Synced \(synced.formatted(date: .abbreviated, time: .shortened))")
                         .font(.caption2)
