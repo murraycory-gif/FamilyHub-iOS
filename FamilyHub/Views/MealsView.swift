@@ -484,7 +484,7 @@ struct MealChoiceSheet: View {
                                 title: "Eating out",
                                 detail: "Sit down near you",
                                 symbol: "fork.knife",
-                                photoQuery: "Steak dinner"
+                                imageName: "DinnerEatOut"
                             )
                         }
                         .buttonStyle(.plain)
@@ -493,7 +493,7 @@ struct MealChoiceSheet: View {
                                 title: "Take out",
                                 detail: "Pick it up and bring it home",
                                 symbol: "bag.fill",
-                                photoQuery: "Take-out"
+                                imageName: "DinnerTakeout"
                             )
                         }
                         .buttonStyle(.plain)
@@ -502,7 +502,7 @@ struct MealChoiceSheet: View {
                                 title: "Delivery",
                                 detail: "Brought to your door",
                                 symbol: "bicycle",
-                                photoQuery: "Pizza"
+                                imageName: "DinnerDelivery"
                             )
                         }
                         .buttonStyle(.plain)
@@ -511,7 +511,7 @@ struct MealChoiceSheet: View {
                                 title: "Family recipes",
                                 detail: "Scan, type, or paste a TikTok link",
                                 symbol: "book.closed.fill",
-                                photoQuery: "Cookbook"
+                                imageName: "DinnerFamily"
                             )
                         }
                         .buttonStyle(.plain)
@@ -520,7 +520,7 @@ struct MealChoiceSheet: View {
                                 title: "Recipes",
                                 detail: "American and world cookbook",
                                 symbol: "fork.knife.circle.fill",
-                                photoQuery: "Roast chicken"
+                                imageName: "DinnerRecipes"
                             )
                         }
                         .buttonStyle(.plain)
@@ -529,7 +529,7 @@ struct MealChoiceSheet: View {
                                 title: "Enter a meal",
                                 detail: "Type it yourself",
                                 symbol: "square.and.pencil",
-                                photoQuery: "Home cooking"
+                                imageName: "DinnerManual"
                             )
                         }
                         .buttonStyle(.plain)
@@ -576,11 +576,13 @@ private struct DinnerChoiceCard: View {
     let title: String
     let detail: String
     let symbol: String
-    var photoQuery: String = ""
+    let imageName: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RecipePhoto(url: nil, searchName: photoQuery.isEmpty ? title : photoQuery)
+            Image(imageName)
+                .resizable()
+                .scaledToFill()
                 .frame(maxWidth: .infinity)
                 .frame(height: 148)
                 .clipped()
