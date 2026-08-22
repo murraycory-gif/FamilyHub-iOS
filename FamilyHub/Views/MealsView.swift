@@ -286,7 +286,7 @@ struct TonightDinnerView: View {
     }
 
     private func cookView(_ recipe: Recipe, heading: String, side: Bool) -> some View {
-        let method = store.dinnerCookMethod(on: day, side: side) ?? CookMethod.suggested(name: recipe.name, instructions: recipe.instructions)
+        let method = store.dinnerCookMethod(on: day, side: side) ?? CookPlaybook.suggested(name: recipe.name, instructions: recipe.instructions)
         return VStack(alignment: .leading, spacing: 16) {
             RecipePhoto(url: URL(string: recipe.imageURL), searchName: recipe.name)
                 .frame(maxWidth: .infinity)
@@ -299,11 +299,19 @@ struct TonightDinnerView: View {
                 .font(.system(size: 34, weight: .bold))
             Text("How you’ll cook it")
                 .font(.title3.weight(.bold))
-            CookMethodPicker(method: Binding(
-                get: { store.dinnerCookMethod(on: day, side: side) ?? method },
-                set: { store.setDinnerCookMethod(on: day, method: $0, side: side) }
-            ))
-            CookDirectionsCard(method: store.dinnerCookMethod(on: day, side: side) ?? method, steps: recipe.instructions)
+            CookMethodPicker(
+                method: Binding(
+                    get: { store.dinnerCookMethod(on: day, side: side) ?? method },
+                    set: { store.setDinnerCookMethod(on: day, method: $0, side: side) }
+                ),
+                name: recipe.name,
+                instructions: recipe.instructions
+            )
+            CookDirectionsCard(
+                method: store.dinnerCookMethod(on: day, side: side) ?? method,
+                name: recipe.name,
+                steps: recipe.instructions
+            )
             if !recipe.ingredients.isEmpty {
                 Text("What you need")
                     .font(.title3.weight(.bold))
@@ -860,8 +868,8 @@ private struct FamilyRecipeDetail: View {
                 }
                 Text("How you’ll cook it")
                     .font(.title3.weight(.bold))
-                CookMethodPicker(method: $method)
-                CookDirectionsCard(method: method, steps: recipe.instructions)
+                CookMethodPicker(method: $method, name: recipe.name, category: recipe.kind.label, instructions: recipe.instructions)
+                CookDirectionsCard(method: method, name: recipe.name, steps: recipe.instructions)
                 Button {
                     store.setDinner(on: day, recipeID: recipe.id, servings: servings, cookMethod: method)
                     onDone()
@@ -879,7 +887,7 @@ private struct FamilyRecipeDetail: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { method = CookMethod.suggested(name: recipe.name, instructions: recipe.instructions) }
+        .onAppear { method = CookPlaybook.suggested(name: recipe.name, instructions: recipe.instructions) }
     }
 }
 
@@ -1000,8 +1008,8 @@ private struct CatalogRecipeDetail: View {
                 }
                 Text("How you’ll cook it")
                     .font(.title3.weight(.bold))
-                CookMethodPicker(method: $method)
-                CookDirectionsCard(method: method, steps: recipe.instructions)
+                CookMethodPicker(method: $method, name: recipe.name, category: recipe.category, instructions: recipe.instructions)
+                CookDirectionsCard(method: method, name: recipe.name, steps: recipe.instructions)
                 Button {
                     if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && !recipe.id.isEmpty }) {
                         store.setDinner(on: day, recipeID: existing.id, servings: servings, cookMethod: method)
@@ -1025,7 +1033,7 @@ private struct CatalogRecipeDetail: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { method = CookMethod.suggested(name: recipe.name, instructions: recipe.instructions) }
+        .onAppear { method = CookPlaybook.suggested(name: recipe.name, instructions: recipe.instructions) }
     }
 }
 
@@ -1153,8 +1161,8 @@ private struct SideDetail: View {
                 }
                 Text("How you’ll cook it")
                     .font(.title3.weight(.bold))
-                CookMethodPicker(method: $method)
-                CookDirectionsCard(method: method, steps: recipe.instructions)
+                CookMethodPicker(method: $method, name: recipe.name, category: recipe.category, instructions: recipe.instructions)
+                CookDirectionsCard(method: method, name: recipe.name, steps: recipe.instructions)
                 Button {
                     if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && $0.kind == .side }) {
                         store.setDinnerSide(on: day, recipeID: existing.id, cookMethod: method)
@@ -1178,7 +1186,7 @@ private struct SideDetail: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { method = CookMethod.suggested(name: recipe.name, instructions: recipe.instructions) }
+        .onAppear { method = CookPlaybook.suggested(name: recipe.name, instructions: recipe.instructions) }
     }
 }
 
@@ -1374,12 +1382,18 @@ private struct ServingsStepper: View {
 
 private struct CookMethodPicker: View {
     @Binding var method: CookMethod
+    var name: String
+    var category: String = ""
+    var instructions: String = ""
 
+    private var allowed: [CookMethod] {
+        CookPlaybook.methods(name: name, category: category, instructions: instructions)
+    }
     private let columns = [GridItem(.adaptive(minimum: 118), spacing: 10)]
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 10) {
-            ForEach(CookMethod.allCases) { item in
+            ForEach(allowed) { item in
                 Button {
                     method = item
                 } label: {
@@ -1402,11 +1416,20 @@ private struct CookMethodPicker: View {
                 .buttonStyle(.plain)
             }
         }
+        .onAppear { clamp() }
+        .onChange(of: name) { _, _ in clamp() }
+    }
+
+    private func clamp() {
+        if !allowed.contains(method) {
+            method = allowed.first ?? .oven
+        }
     }
 }
 
 private struct CookDirectionsCard: View {
     let method: CookMethod
+    var name: String
     var steps: String = ""
 
     var body: some View {
@@ -1417,15 +1440,8 @@ private struct CookDirectionsCard: View {
                 Text("Cook it — \(method.label)")
                     .font(.title3.weight(.bold))
             }
-            Text(method.howTo)
+            Text(CookPlaybook.directions(name: name, method: method, recipeSteps: steps))
                 .font(.body.weight(.semibold))
-            if !steps.isEmpty {
-                Text("Recipe steps")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
-                    .padding(.top, 4)
-                Text(steps)
-            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
