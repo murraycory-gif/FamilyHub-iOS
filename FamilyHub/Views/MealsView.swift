@@ -232,6 +232,10 @@ struct TonightDinnerView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: "What's For", tail: "Dinner") {
+                    HubHeaderPill(title: "Close") {
+                        dismiss()
+                        router.open(.today)
+                    }
                     if plan != nil {
                         HubHeaderPill(title: "Delete", color: AppTheme.chore) {
                             store.clearDinner(on: day)
@@ -415,6 +419,7 @@ struct TonightDinnerView: View {
 
 struct MealChoiceSheet: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
     @Environment(\.dismiss) private var dismiss
     let day: Date
     var onComplete: () -> Void = {}
@@ -518,8 +523,13 @@ struct MealChoiceSheet: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }.foregroundStyle(AppTheme.blue)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") {
+                        router.open(.today)
+                        onComplete()
+                    }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
                 }
             }
             .navigationDestination(for: MealPath.self) { item in
