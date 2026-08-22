@@ -620,42 +620,28 @@ private struct SettingsFold<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button(action: onToggle) {
-                HStack(spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(AppTheme.blue)
-                        Image(systemName: symbol)
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.white)
-                    }
-                    .frame(width: 48, height: 48)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(title)
-                            .font(.title2.weight(.bold))
-                            .foregroundStyle(AppTheme.text)
+                HubTileBanner(symbol: symbol, title: title) {
+                    HStack(spacing: 8) {
                         Text(subtitle)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
+                            .font(.caption.weight(.bold))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .opacity(0.9)
+                        Image(systemName: "chevron.down")
+                            .font(.headline.weight(.bold))
+                            .rotationEffect(.degrees(isOpen ? 180 : 0))
                     }
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(AppTheme.blue)
-                        .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
-                .padding(16)
-                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             if isOpen {
                 content
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(AppTheme.card)
+        .background(AppTheme.blueSoft)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
