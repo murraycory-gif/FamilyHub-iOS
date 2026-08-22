@@ -26,6 +26,10 @@ final class HubPinger {
     }
 
     func sendTest(_ store: HubStore) {
+        if store.notifyPrefs.channel.usesText, !phoneVerified {
+            startConnect(store)
+            return
+        }
         Task {
             await deliver(
                 store,

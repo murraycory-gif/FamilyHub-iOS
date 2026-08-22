@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var open: Set<String> = ["profiles"]
     @State private var tourFocus = ""
     @State private var testNote: String?
+    @State private var confirmReply = ""
     @State private var pendingDelete: FamilyMember?
     @State private var showAddProfile = false
 
@@ -381,7 +382,7 @@ struct SettingsView: View {
 
             Text("How they go out")
                 .font(.headline.weight(.bold))
-            Text("This iPad is a lock-screen ping. Text opens Messages with the number you enter — tap Send. That’s the whole connection.")
+            Text("This iPad is a lock-screen ping. Text: HUB opens Messages — you tap Send — then type YES here. Apple will not let an app send SMS by itself.")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.textSecondary)
             HStack(spacing: 8) {
@@ -403,6 +404,10 @@ struct SettingsView: View {
                     get: { store.notifyPrefs.extraPhone },
                     set: {
                         var next = store.notifyPrefs
+                        if next.extraPhone != $0 {
+                            HubPinger.shared.phoneVerified = false
+                            HubPinger.shared.pendingCode = ""
+                        }
                         next.extraPhone = $0
                         store.setNotifyPrefs(next)
                     }
@@ -410,17 +415,43 @@ struct SettingsView: View {
                 .keyboardType(.phonePad)
                 .textFieldStyle(.roundedBorder)
                 .font(.title3.weight(.semibold))
-                Button("Connect text") {
-                    HubPinger.shared.sendTest(store)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                        testNote = HubPinger.shared.lastError ?? "Messages is open. Send that first text — you’re connected."
+                if HubPinger.shared.phoneVerified {
+                    Text("Connected to \(store.notifyPrefs.extraPhone)")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                } else {
+                    Button("Connect text") {
+                        HubPinger.shared.startConnect(store)
+                        confirmReply = ""
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            testNote = HubPinger.shared.lastError ?? "Send that text, then type YES."
+                        }
+                    }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(AppTheme.blue, in: Capsule())
+                    if !HubPinger.shared.pendingCode.isEmpty {
+                        TextField("Type YES or the code", text: $confirmReply)
+                            .textInputAutocapitalization(.characters)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.title3.weight(.semibold))
+                        Button("Confirm") {
+                            if HubPinger.shared.confirmConnect(store, reply: confirmReply) {
+                                testNote = "Number connected."
+                                confirmReply = ""
+                            } else {
+                                testNote = HubPinger.shared.lastError
+                            }
+                        }
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(AppTheme.blue, in: Capsule())
                     }
                 }
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(AppTheme.blue, in: Capsule())
             }
 
             if store.notifyPrefs.channel.usesDevice {
