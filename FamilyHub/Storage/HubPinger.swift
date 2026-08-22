@@ -1,8 +1,6 @@
 import Foundation
 import UIKit
 import UserNotifications
-import MessageUI
-import SwiftUI
 
 @MainActor
 final class HubPinger: ObservableObject {
@@ -11,12 +9,11 @@ final class HubPinger: ObservableObject {
     private let verifiedKey = "familyhub.notify.phoneVerified"
     var lastError: String?
     @Published var phoneVerified: Bool
+    @Published var sending = false
 
     private init() {
         phoneVerified = UserDefaults.standard.bool(forKey: verifiedKey)
     }
-
-    var canSendText: Bool { MFMessageComposeViewController.canSendText() }
 
     func refresh(_ store: HubStore) {
         Task { await schedule(store) }
@@ -25,23 +22,12 @@ final class HubPinger: ObservableObject {
 
     func sendTest(_ store: HubStore) {
         Task {
-            await deliver(
-                store,
-                title: "HUB test",
-                body: "If you got this, pings are working.",
-                device: true
-            )
+            await deliver(store, title: "HUB test", body: "If you got this, pings are working.", device: true)
         }
     }
 
-    func draft(_ store: HubStore, title: String, body: String) -> (to: [String], body: String)? {
-        lastError = nil
-        let to = phones(in: store)
-        guard !to.isEmpty else {
-            lastError = "Enter a 10-digit US phone number."
-            return nil
-        }
-        return (to, "\(title)\n\(body)")
+    func sendTestText(_ store: HubStore) async {
+        await sendRemoteSMS(store, body: "HUB: this is a test. If you got this, texts are working.")
     }
 
     func markConnected() {
@@ -53,6 +39,52 @@ final class HubPinger: ObservableObject {
     func clearPhoneLink() {
         phoneVerified = false
         UserDefaults.standard.set(false, forKey: verifiedKey)
+    }
+
+    func sendRemoteSMS(_ store: HubStore, body: String) async {
+        lastError = nil
+        sending = true
+        defer { sending = false }
+        let prefs = store.notifyPrefs
+        guard prefs.textReady else {
+            lastError = "HUB needs its own sender number once. Apple will not let this iPad text you as HUB."
+            return
+        }
+        guard let to = phones(in: store).first else {
+            lastError = "Enter a 10-digit US phone number."
+            return
+        }
+        guard let from = Self.e164(prefs.twilioFrom) else {
+            lastError = "HUB’s sender number isn’t valid."
+            return
+        }
+        let sid = prefs.twilioSID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let token = prefs.twilioToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: "https://api.twilio.com/2010-04-01/Accounts/\(sid)/Messages.json") else {
+            lastError = "Could not reach the text service."
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let login = Data("\(sid):\(token)".utf8).base64EncodedString()
+        request.setValue("Basic \(login)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = form([
+            "To": to,
+            "From": from,
+            "Body": body
+        ])
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if (200...299).contains(code) {
+                markConnected()
+                return
+            }
+            lastError = twilioMessage(data) ?? "Text did not send (\(code))."
+        } catch {
+            lastError = "Could not send. Check the network and sender setup."
+        }
     }
 
     func schedule(_ store: HubStore) async {
@@ -147,6 +179,9 @@ final class HubPinger: ObservableObject {
                 lastError = "Allow notifications for HUB in iPad Settings."
             }
         }
+        if store.notifyPrefs.channel.usesText, store.notifyPrefs.textReady {
+            await sendRemoteSMS(store, body: "\(title): \(body)")
+        }
     }
 
     func phones(in store: HubStore) -> [String] {
@@ -223,35 +258,28 @@ final class HubPinger: ObservableObject {
         UserDefaults.standard.set(map, forKey: sentKey)
         return true
     }
-}
 
-struct HubMessageSheet: UIViewControllerRepresentable {
-    let recipients: [String]
-    let body: String
-    var onFinish: (MessageComposeResult) -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onFinish: onFinish)
+    private func form(_ pairs: [String: String]) -> Data {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        let query = pairs.map { key, value in
+            let k = key.addingPercentEncoding(withAllowedCharacters: allowed) ?? key
+            let v = value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+            return "\(k)=\(v)"
+        }.joined(separator: "&")
+        return Data(query.utf8)
     }
 
-    func makeUIViewController(context: Context) -> MFMessageComposeViewController {
-        let vc = MFMessageComposeViewController()
-        vc.recipients = recipients
-        vc.body = body
-        vc.messageComposeDelegate = context.coordinator
-        return vc
-    }
-
-    func updateUIViewController(_ uiViewController: MFMessageComposeViewController, context: Context) {}
-
-    final class Coordinator: NSObject, MFMessageComposeViewControllerDelegate {
-        let onFinish: (MessageComposeResult) -> Void
-        init(onFinish: @escaping (MessageComposeResult) -> Void) {
-            self.onFinish = onFinish
+    private func twilioMessage(_ data: Data) -> String? {
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        let raw = json?["message"] as? String
+        let code = json?["code"] as? Int
+        if code == 21608 || code == 21610 {
+            return "Trial accounts can only text numbers you verify with the text service."
         }
-        func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
-            controller.dismiss(animated: true)
-            onFinish(result)
+        if code == 21211 {
+            return "That phone number isn’t valid."
         }
+        return raw
     }
 }

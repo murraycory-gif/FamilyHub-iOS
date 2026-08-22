@@ -13,7 +13,6 @@ struct SettingsView: View {
     @State private var pendingDelete: FamilyMember?
     @State private var showAddProfile = false
     @State private var editing: FamilyMember?
-    @State private var textDraft: (to: [String], body: String)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -263,26 +262,6 @@ struct SettingsView: View {
         .sheet(item: $editing) { member in
             EditMemberSheet(member: member)
         }
-        .sheet(isPresented: Binding(
-            get: { textDraft != nil },
-            set: { if !$0 { textDraft = nil } }
-        )) {
-            if let draft = textDraft {
-                HubMessageSheet(recipients: draft.to, body: draft.body) { result in
-                    textDraft = nil
-                    switch result {
-                    case .sent:
-                        HubPinger.shared.markConnected()
-                        testNote = "Sent. You’re connected."
-                    case .cancelled:
-                        testNote = "Send was cancelled."
-                    default:
-                        testNote = "Couldn’t send. Sign into Messages on this iPad, then try again."
-                    }
-                }
-                .ignoresSafeArea()
-            }
-        }
         .hubConfirm(
             "Delete \(pendingDelete?.name ?? "this profile")?",
             isPresented: Binding(
@@ -397,7 +376,7 @@ struct SettingsView: View {
 
             Text("How they go out")
                 .font(.headline.weight(.bold))
-            Text("This iPad always gets a lock-screen ping. Text is optional — enter a number, tap Send, and you’re connected.")
+            Text("This iPad gets lock-screen pings. Text is HUB sending a real SMS to your phone — not you messaging yourself.")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.textSecondary)
             HStack(spacing: 8) {
@@ -446,7 +425,7 @@ struct SettingsView: View {
 
     private var textSetupBox: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("1. Phone number")
+            Text("Your phone")
                 .font(.headline.weight(.bold))
             TextField("(555) 123-4567", text: Binding(
                 get: { store.notifyPrefs.extraPhone },
@@ -469,51 +448,90 @@ struct SettingsView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.chore)
             }
-            Text("2. Send one text")
+
+            Text("HUB’s sender")
                 .font(.headline.weight(.bold))
+                .padding(.top, 4)
+            Text("Apple will not let this iPad send a text as HUB. Add HUB’s own number once. Then HUB texts you.")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            labeledField("Number texts come from", store.notifyPrefs.twilioFrom) { value in
+                var next = store.notifyPrefs
+                next.twilioFrom = HubPinger.prettyPhone(value)
+                store.setNotifyPrefs(next)
+            }
+            labeledField("Account ID", store.notifyPrefs.twilioSID) { value in
+                var next = store.notifyPrefs
+                next.twilioSID = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                store.setNotifyPrefs(next)
+            }
+            labeledField("Secret key", store.notifyPrefs.twilioToken, secret: true) { value in
+                var next = store.notifyPrefs
+                next.twilioToken = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                store.setNotifyPrefs(next)
+            }
+            if store.notifyPrefs.textReady {
+                Text("Sender is ready.")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+
             if pinger.phoneVerified {
-                Text("Connected to \(store.notifyPrefs.extraPhone)")
+                Text("Last text reached \(store.notifyPrefs.extraPhone)")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(AppTheme.blue)
-                Button("Send a test text") {
-                    startText(title: "HUB test", body: "If you got this, text pings are working.")
-                }
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(AppTheme.blue, in: Capsule())
-            } else if pinger.canSendText {
-                Text("Messages opens with your number filled in. Tap Send. That’s it.")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
-                Button("Send setup text") {
-                    startText(
-                        title: "HUB",
-                        body: "You’re connected to the family HUB. You’ll get pings here."
-                    )
-                }
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(AppTheme.blue, in: Capsule())
-            } else {
-                Text("This iPad can’t send texts until Messages is signed in (Settings → Messages). Lock-screen pings still work.")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
             }
+            Button {
+                Task {
+                    await HubPinger.shared.sendTestText(store)
+                    testNote = HubPinger.shared.lastError ?? "Sent. Check your phone — it should be from HUB, not you."
+                }
+            } label: {
+                HStack {
+                    if pinger.sending { ProgressView().tint(.white) }
+                    Text(pinger.sending ? "Sending…" : "Text me")
+                }
+            }
+            .font(.headline.weight(.bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(AppTheme.blue, in: Capsule())
+            .disabled(pinger.sending)
         }
         .padding(14)
         .background(AppTheme.bg, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onAppear {
+            let pretty = HubPinger.prettyPhone(store.notifyPrefs.extraPhone)
+            if pretty != store.notifyPrefs.extraPhone {
+                var next = store.notifyPrefs
+                next.extraPhone = pretty
+                store.setNotifyPrefs(next)
+            }
+        }
     }
 
-    private func startText(title: String, body: String) {
-        if let draft = HubPinger.shared.draft(store, title: title, body: body) {
-            textDraft = draft
-            testNote = nil
-        } else {
-            testNote = HubPinger.shared.lastError
+    private func labeledField(_ title: String, _ value: String, secret: Bool = false, onChange: @escaping (String) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.textSecondary)
+            if secret {
+                SecureField("Paste once", text: Binding(
+                    get: { value },
+                    set: onChange
+                ))
+                .textFieldStyle(.roundedBorder)
+                .textContentType(.password)
+            } else {
+                TextField("", text: Binding(
+                    get: { value },
+                    set: onChange
+                ))
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            }
         }
     }
 
