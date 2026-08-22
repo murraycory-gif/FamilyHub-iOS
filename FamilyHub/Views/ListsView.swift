@@ -29,6 +29,7 @@ struct ListsView: View {
             .padding(.top, 4)
             .padding(.bottom, 8)
             .background(AppTheme.bg)
+            .coachSpot("listKind")
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -60,9 +61,11 @@ struct ListsView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 28)
             }
+            .coachSpot("listBody")
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
+        .hubTour("lists", steps: HubTours.lists)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showAdd = true } label: { Image(systemName: "plus") }
@@ -251,9 +254,11 @@ struct ShoppingListView: View {
                     HubHeaderPill(title: "Clear all") { confirmClearAll = true }
                 }
             }
+            .coachSpot("shopHeader")
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     addRow
+                        .coachSpot("shopAdd")
                 if openItems.isEmpty && checkedItems.isEmpty {
                     HubCard {
                         EmptyHint(
@@ -290,6 +295,7 @@ struct ShoppingListView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .hubTour("shopping", steps: HubTours.shopping)
         .hubConfirm(
             "Clear the whole list?",
             isPresented: $confirmClearAll,

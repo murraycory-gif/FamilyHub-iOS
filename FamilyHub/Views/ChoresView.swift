@@ -12,9 +12,12 @@ struct ChoresView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     kidBalances
+                        .coachSpot("chorePay")
                     kidFilter
                     board
+                        .coachSpot("choreBoard")
                     catalog
+                        .coachSpot("choreCatalog")
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -22,6 +25,7 @@ struct ChoresView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
+        .hubTour("chores", steps: HubTours.chores)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showAddChore = true } label: { Image(systemName: "plus") }

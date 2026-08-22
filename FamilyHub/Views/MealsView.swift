@@ -11,6 +11,7 @@ struct MealsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "Meal", tail: "Planning")
+                .coachSpot("mealHeader")
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HubPanel(symbol: "fork.knife", title: "Next 2 Weeks", trailing: {
@@ -23,6 +24,7 @@ struct MealsView: View {
                     }) {
                         weekGrid
                     }
+                    .coachSpot("mealWeek")
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -30,6 +32,7 @@ struct MealsView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
+        .hubTour("meals", steps: HubTours.meals)
         .fullScreenCover(item: $pickLaunch) { item in
             DinnerLaunchView(item: item) {
                 pickLaunch = nil

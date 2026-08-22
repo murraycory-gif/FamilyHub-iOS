@@ -15,10 +15,12 @@ struct FamilyView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "HUB", tail: "Profiles")
+                .coachSpot("famHeader")
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     householdCard
                     members
+                        .coachSpot("famPeople")
                     if !store.ledger.isEmpty {
                         ledger
                     }
@@ -29,6 +31,7 @@ struct FamilyView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
+        .hubTour("family", steps: HubTours.family)
         .onAppear { household = store.householdName }
         .onDisappear { store.setHouseholdName(household) }
         .sheet(isPresented: $showAdd) { EditMemberSheet(member: nil) }

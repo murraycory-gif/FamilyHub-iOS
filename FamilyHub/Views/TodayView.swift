@@ -22,7 +22,6 @@ struct TodayView: View {
     @State private var showAddShopping = false
     @State private var shoppingDraft = ""
     @State private var showDinnerLaunch: DinnerLaunch?
-    @AppStorage("familyhub.coach.completed.v2") private var coachCompleted = false
 
     private var accent: Color {
         switch profile {
@@ -94,14 +93,7 @@ struct TodayView: View {
         }
         .environment(\.hubAccent, accent)
         .background(AppTheme.bg.ignoresSafeArea())
-        .coordinateSpace(name: "hubCoach")
-        .overlayPreferenceValue(CoachRectsKey.self) { rects in
-            if !coachCompleted {
-                HubCoachLayer(rects: rects) {
-                    withAnimation { coachCompleted = true }
-                }
-            }
-        }
+        .hubTour("hub", steps: HubTours.hub)
         .onAppear { selectedDay = Calendar.current.startOfDay(for: selectedDay) }
         .fullScreenCover(item: $showDinnerLaunch) { item in
             DinnerLaunchView(item: item) {

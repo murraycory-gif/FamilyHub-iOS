@@ -28,6 +28,7 @@ struct CalendarHubView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    .coachSpot("calHeader")
                     ScrollViewReader { proxy in
                         ScrollView {
                             VStack(alignment: .leading, spacing: 16) {
@@ -35,7 +36,9 @@ struct CalendarHubView: View {
                                 colorLegend
                                 weekdayHeader
                                 monthGrid
+                                    .coachSpot("calGrid")
                                 dayList
+                                    .coachSpot("calList")
                             }
                             .padding(.horizontal, 20)
                             .padding(.bottom, 20)
@@ -51,6 +54,7 @@ struct CalendarHubView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
+        .hubTour("calendar", steps: HubTours.calendar)
         .sheet(isPresented: $showAdd) {
             AddEventSheet(day: selectedDay)
         }

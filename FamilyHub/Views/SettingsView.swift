@@ -43,6 +43,7 @@ struct SettingsView: View {
                             inviteBox
                         }
                     }
+                    .coachSpot("setHouse")
                     SettingsFold(
                         symbol: "cloud.sun.fill",
                         title: "Weather",
@@ -168,6 +169,7 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    .coachSpot("setWeather")
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -175,6 +177,7 @@ struct SettingsView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
+        .hubTour("settings", steps: HubTours.settings)
     }
 
     private func toggle(_ id: String) {
