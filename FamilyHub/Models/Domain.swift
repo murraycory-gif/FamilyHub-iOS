@@ -227,6 +227,85 @@ struct CalendarEvent: Identifiable, Codable, Hashable {
     /// FamilyHub-created events have no source.
     var sourceID: UUID?
     var externalID: String?
+    var url: String
+    var attendees: [String]
+    var organizer: String
+    var calendarName: String
+    var alertLabel: String
+    var recurrenceLabel: String
+    var statusLabel: String
+    var latitude: Double?
+    var longitude: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, startAt, endAt, allDay, location, notes, memberID, sourceID, externalID
+        case url, attendees, organizer, calendarName, alertLabel, recurrenceLabel, statusLabel, latitude, longitude
+    }
+
+    init(
+        id: UUID,
+        title: String,
+        startAt: Date,
+        endAt: Date? = nil,
+        allDay: Bool = false,
+        location: String = "",
+        notes: String = "",
+        memberID: UUID? = nil,
+        sourceID: UUID? = nil,
+        externalID: String? = nil,
+        url: String = "",
+        attendees: [String] = [],
+        organizer: String = "",
+        calendarName: String = "",
+        alertLabel: String = "",
+        recurrenceLabel: String = "",
+        statusLabel: String = "",
+        latitude: Double? = nil,
+        longitude: Double? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.startAt = startAt
+        self.endAt = endAt
+        self.allDay = allDay
+        self.location = location
+        self.notes = notes
+        self.memberID = memberID
+        self.sourceID = sourceID
+        self.externalID = externalID
+        self.url = url
+        self.attendees = attendees
+        self.organizer = organizer
+        self.calendarName = calendarName
+        self.alertLabel = alertLabel
+        self.recurrenceLabel = recurrenceLabel
+        self.statusLabel = statusLabel
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        startAt = try c.decode(Date.self, forKey: .startAt)
+        endAt = try c.decodeIfPresent(Date.self, forKey: .endAt)
+        allDay = try c.decodeIfPresent(Bool.self, forKey: .allDay) ?? false
+        location = try c.decodeIfPresent(String.self, forKey: .location) ?? ""
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        memberID = try c.decodeIfPresent(UUID.self, forKey: .memberID)
+        sourceID = try c.decodeIfPresent(UUID.self, forKey: .sourceID)
+        externalID = try c.decodeIfPresent(String.self, forKey: .externalID)
+        url = try c.decodeIfPresent(String.self, forKey: .url) ?? ""
+        attendees = try c.decodeIfPresent([String].self, forKey: .attendees) ?? []
+        organizer = try c.decodeIfPresent(String.self, forKey: .organizer) ?? ""
+        calendarName = try c.decodeIfPresent(String.self, forKey: .calendarName) ?? ""
+        alertLabel = try c.decodeIfPresent(String.self, forKey: .alertLabel) ?? ""
+        recurrenceLabel = try c.decodeIfPresent(String.self, forKey: .recurrenceLabel) ?? ""
+        statusLabel = try c.decodeIfPresent(String.self, forKey: .statusLabel) ?? ""
+        latitude = try c.decodeIfPresent(Double.self, forKey: .latitude)
+        longitude = try c.decodeIfPresent(Double.self, forKey: .longitude)
+    }
 
     static func make(
         title: String,
@@ -237,7 +316,16 @@ struct CalendarEvent: Identifiable, Codable, Hashable {
         notes: String = "",
         memberID: UUID? = nil,
         sourceID: UUID? = nil,
-        externalID: String? = nil
+        externalID: String? = nil,
+        url: String = "",
+        attendees: [String] = [],
+        organizer: String = "",
+        calendarName: String = "",
+        alertLabel: String = "",
+        recurrenceLabel: String = "",
+        statusLabel: String = "",
+        latitude: Double? = nil,
+        longitude: Double? = nil
     ) -> CalendarEvent {
         CalendarEvent(
             id: UUID(),
@@ -249,7 +337,16 @@ struct CalendarEvent: Identifiable, Codable, Hashable {
             notes: notes,
             memberID: memberID,
             sourceID: sourceID,
-            externalID: externalID
+            externalID: externalID,
+            url: url,
+            attendees: attendees,
+            organizer: organizer,
+            calendarName: calendarName,
+            alertLabel: alertLabel,
+            recurrenceLabel: recurrenceLabel,
+            statusLabel: statusLabel,
+            latitude: latitude,
+            longitude: longitude
         )
     }
 

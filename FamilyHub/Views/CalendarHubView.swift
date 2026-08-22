@@ -1,3 +1,4 @@
+import MapKit
 import SwiftUI
 
 struct CalendarHubView: View {
@@ -326,6 +327,7 @@ struct EventDetailSheet: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var ingest: CalendarIngestor
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     let event: CalendarEvent
 
     var body: some View {
@@ -335,6 +337,11 @@ struct EventDetailSheet: View {
                     HubPageTitle(lead: "Event", tail: "Details")
                     Text(event.title)
                         .font(.system(size: 32, weight: .bold))
+                    if !event.statusLabel.isEmpty, event.statusLabel.lowercased() != "confirmed" {
+                        Text(event.statusLabel)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(event.statusLabel.lowercased() == "canceled" ? AppTheme.chore : AppTheme.reminder)
+                    }
                     HubPanel(symbol: "clock.fill", title: "When") {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(event.startAt.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
@@ -342,21 +349,82 @@ struct EventDetailSheet: View {
                             Text(event.allDay ? "All day" : timeRange)
                                 .font(.title3.weight(.bold))
                                 .foregroundStyle(AppTheme.blue)
+                            if !event.recurrenceLabel.isEmpty {
+                                Text(event.recurrenceLabel)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
+                            if !event.alertLabel.isEmpty {
+                                Text(event.alertLabel)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
                         }
                     }
-                    if !event.location.isEmpty {
+                    if !event.location.isEmpty || event.latitude != nil {
                         HubPanel(symbol: "mappin.and.ellipse", title: "Location") {
-                            Text(event.location).font(.headline)
+                            VStack(alignment: .leading, spacing: 10) {
+                                if !event.location.isEmpty {
+                                    Text(event.location).font(.headline)
+                                }
+                                if let lat = event.latitude, let lon = event.longitude {
+                                    Map(initialPosition: .region(MKCoordinateRegion(
+                                        center: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+                                        latitudinalMeters: 600,
+                                        longitudinalMeters: 600
+                                    ))) {
+                                        Marker(event.title, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+                                    }
+                                    .frame(height: 160)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                }
+                                Button("Directions") {
+                                    if let lat = event.latitude, let lon = event.longitude {
+                                        let item = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)))
+                                        item.name = event.title
+                                        item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
+                                    } else if let maps = URL(string: "http://maps.apple.com/?q=\(event.location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? event.location)") {
+                                        openURL(maps)
+                                    }
+                                }
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                            }
                         }
                     }
                     HubPanel(symbol: "person.fill", title: "Who") {
-                        Text(event.memberID.flatMap(store.member(id:))?.name ?? store.householdName)
-                            .font(.headline)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(event.memberID.flatMap(store.member(id:))?.name ?? store.householdName)
+                                .font(.headline)
+                            if !event.organizer.isEmpty {
+                                Text("Organizer: \(event.organizer)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
+                            ForEach(event.attendees, id: \.self) { person in
+                                Text(person)
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                        }
                     }
                     if event.isImported, let source = event.sourceID.flatMap(store.source(id:)) {
                         HubPanel(symbol: "calendar", title: "Calendar") {
-                            Text("\(source.brand.title) · \(source.account)")
+                            VStack(alignment: .leading, spacing: 4) {
+                                if !event.calendarName.isEmpty {
+                                    Text(event.calendarName).font(.headline)
+                                }
+                                Text("\(source.brand.title) · \(source.account)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
+                        }
+                    }
+                    if !event.url.isEmpty, let link = URL(string: event.url) {
+                        HubPanel(symbol: "link", title: "Link") {
+                            Button(event.url) { openURL(link) }
                                 .font(.headline)
+                                .foregroundStyle(AppTheme.blue)
+                                .lineLimit(2)
                         }
                     }
                     if !event.notes.isEmpty {

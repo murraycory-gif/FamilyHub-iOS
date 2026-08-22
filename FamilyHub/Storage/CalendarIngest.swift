@@ -336,17 +336,91 @@ enum EventKitBridge {
         let end = Calendar.current.date(byAdding: .day, value: 180, to: Date()) ?? Date()
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: [calendar])
         return store.events(matching: predicate).map { event in
-            CalendarEvent.make(
+            let people = (event.attendees ?? []).compactMap { person -> String? in
+                let name = person.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if !name.isEmpty { return name }
+                return person.url?.absoluteString.replacingOccurrences(of: "mailto:", with: "")
+            }
+            let geo = event.structuredLocation?.geoLocation?.coordinate
+            let place = [event.structuredLocation?.title, event.location]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first { !$0.isEmpty } ?? ""
+            return CalendarEvent.make(
                 title: event.title ?? "Event",
                 startAt: event.startDate,
                 endAt: event.endDate,
                 allDay: event.isAllDay,
-                location: event.location ?? "",
+                location: place,
                 notes: event.notes ?? "",
                 memberID: memberID,
                 sourceID: sourceID,
-                externalID: event.eventIdentifier
+                externalID: event.eventIdentifier,
+                url: event.url?.absoluteString ?? "",
+                attendees: people,
+                organizer: event.organizer?.name ?? "",
+                calendarName: event.calendar.title,
+                alertLabel: alarmLabel(event),
+                recurrenceLabel: recurrenceLabel(event),
+                statusLabel: statusLabel(event),
+                latitude: geo?.latitude,
+                longitude: geo?.longitude
             )
+        }
+    }
+
+    private static func alarmLabel(_ event: EKEvent) -> String {
+        guard let alarm = event.alarms?.first else { return "" }
+        let minutes = Int((-alarm.relativeOffset / 60).rounded())
+        if minutes == 0 { return "At time of event" }
+        if minutes < 60 { return "\(minutes) min before" }
+        if minutes < 1440 {
+            let hours = minutes / 60
+            return hours == 1 ? "1 hour before" : "\(hours) hours before"
+        }
+        let days = minutes / 1440
+        return days == 1 ? "1 day before" : "\(days) days before"
+    }
+
+    private static func recurrenceLabel(_ event: EKEvent) -> String {
+        guard let rule = event.recurrenceRules?.first else { return "" }
+        let interval = max(rule.interval, 1)
+        switch rule.frequency {
+        case .daily:
+            return interval == 1 ? "Repeats daily" : "Repeats every \(interval) days"
+        case .weekly:
+            let days = rule.daysOfTheWeek?.map { weekdayName($0.dayOfTheWeek) }.joined(separator: ", ")
+            if interval == 1 {
+                return days?.isEmpty == false ? "Repeats weekly on \(days!)" : "Repeats weekly"
+            }
+            return "Repeats every \(interval) weeks"
+        case .monthly:
+            return interval == 1 ? "Repeats monthly" : "Repeats every \(interval) months"
+        case .yearly:
+            return interval == 1 ? "Repeats yearly" : "Repeats every \(interval) years"
+        @unknown default:
+            return "Repeats"
+        }
+    }
+
+    private static func weekdayName(_ day: EKWeekday) -> String {
+        switch day {
+        case .sunday: return "Sun"
+        case .monday: return "Mon"
+        case .tuesday: return "Tue"
+        case .wednesday: return "Wed"
+        case .thursday: return "Thu"
+        case .friday: return "Fri"
+        case .saturday: return "Sat"
+        @unknown default: return ""
+        }
+    }
+
+    private static func statusLabel(_ event: EKEvent) -> String {
+        switch event.status {
+        case .tentative: return "Tentative"
+        case .canceled: return "Canceled"
+        case .confirmed: return "Confirmed"
+        default: return ""
         }
     }
 
@@ -384,9 +458,16 @@ enum ICSParser {
             let keyPart = String(line[..<colon])
             let value = String(line[line.index(after: colon)...])
             let key = keyPart.split(separator: ";").first.map(String.init)?.uppercased() ?? keyPart
-            block[key] = value
+            if key == "ATTENDEE" {
+                let name = attendeeName(keyPart, value: value)
+                let existing = block["ATTENDEES"] ?? ""
+                block["ATTENDEES"] = existing.isEmpty ? name : existing + "\n" + name
+            } else {
+                block[key] = value
+            }
             if key == "DTSTART" { block["DTSTART_RAW"] = keyPart + ":" + value }
             if key == "DTEND" { block["DTEND_RAW"] = keyPart + ":" + value }
+            if key == "ORGANIZER" { block["ORGANIZER_RAW"] = keyPart + ":" + value }
         }
         return events
     }
@@ -423,6 +504,7 @@ enum ICSParser {
         guard let start = parseDate(startRaw) else { return nil }
         let end = (block["DTEND_RAW"] ?? block["DTEND"]).flatMap(parseDate)
         let uid = block["UID"] ?? title + start.date.description
+        let geo = parseGeo(block["GEO"])
         let base = CalendarEvent.make(
             title: unescape(title),
             startAt: start.date,
@@ -432,7 +514,21 @@ enum ICSParser {
             notes: unescape(block["DESCRIPTION"] ?? ""),
             memberID: memberID,
             sourceID: sourceID,
-            externalID: uid
+            externalID: uid,
+            url: unescape(block["URL"] ?? ""),
+            attendees: (block["ATTENDEES"] ?? "").split(separator: "\n").map(String.init).filter { !$0.isEmpty },
+            organizer: {
+                let raw = block["ORGANIZER_RAW"] ?? ""
+                let cn = cnName(raw)
+                if !cn.isEmpty { return cn }
+                return (block["ORGANIZER"] ?? "").replacingOccurrences(of: "mailto:", with: "")
+            }(),
+            calendarName: "",
+            alertLabel: "",
+            recurrenceLabel: block["RRULE"] == nil ? "" : "Repeats",
+            statusLabel: (block["STATUS"] ?? "").capitalized,
+            latitude: geo?.0,
+            longitude: geo?.1
         )
         guard let rrule = block["RRULE"] else { return [base] }
         return expand(base, rule: rrule, now: now)
@@ -483,5 +579,25 @@ enum ICSParser {
             .replacingOccurrences(of: "\\,", with: ",")
             .replacingOccurrences(of: "\\;", with: ";")
             .replacingOccurrences(of: "\\\\", with: "\\")
+    }
+
+    private static func attendeeName(_ keyPart: String, value: String) -> String {
+        let cn = cnName(keyPart + ":" + value)
+        if !cn.isEmpty { return cn }
+        return value.replacingOccurrences(of: "mailto:", with: "")
+    }
+
+    private static func cnName(_ raw: String) -> String {
+        guard let range = raw.range(of: "CN=", options: .caseInsensitive) else { return "" }
+        let rest = String(raw[range.upperBound...])
+        let end = rest.firstIndex(where: { $0 == ";" || $0 == ":" }) ?? rest.endIndex
+        return unescape(String(rest[..<end])).trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+    }
+
+    private static func parseGeo(_ raw: String?) -> (Double, Double)? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let bits = raw.split(whereSeparator: { $0 == ";" || $0 == "," }).compactMap { Double($0) }
+        guard bits.count >= 2 else { return nil }
+        return (bits[0], bits[1])
     }
 }
