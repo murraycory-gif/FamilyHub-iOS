@@ -258,8 +258,10 @@ struct TonightDinnerView: View {
             MealChoiceSheet(day: day) {
                 showPicker = false
                 dismiss()
+                router.open(.today)
             }
             .environmentObject(store)
+            .environmentObject(router)
         }
         .onAppear {
             if store.dinner(on: day) == nil { showPicker = true }
@@ -1199,10 +1201,12 @@ private struct SideDetail: View {
 
 private struct DinnerReviewView: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
     let day: Date
     var onDone: () -> Void
     @State private var picked: Set<String> = []
     @State private var added = false
+    @State private var confirmSkip = false
 
     private var servings: Int { store.dinner(on: day)?.servings ?? 4 }
     private var main: Recipe? { store.dinner(on: day).flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) } }
@@ -1258,7 +1262,7 @@ private struct DinnerReviewView: View {
                     .buttonStyle(.plain)
                     .disabled(picked.isEmpty)
                 }
-                Button(action: onDone) {
+                Button(action: tapDone) {
                     Text("Done")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
@@ -1273,6 +1277,25 @@ private struct DinnerReviewView: View {
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { picked = Set(allKeys) }
+        .alert("Skip the shopping list?", isPresented: $confirmSkip) {
+            Button("Don't add") { finish() }
+            Button("Add ingredients", role: .cancel) {}
+        } message: {
+            Text("You haven’t added any ingredients from this meal. Are you sure you don’t need anything from the store?")
+        }
+    }
+
+    private func tapDone() {
+        if allKeys.isEmpty || added {
+            finish()
+        } else {
+            confirmSkip = true
+        }
+    }
+
+    private func finish() {
+        router.open(.today)
+        onDone()
     }
 
     @ViewBuilder
