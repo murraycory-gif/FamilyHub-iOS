@@ -242,9 +242,12 @@ enum SocialRecipeImport {
     }
 
     private static func decode(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "&", with: "&")
-            .replacingOccurrences(of: "&#39;", with: "'")
-            .replacingOccurrences(of: """, with: "\"")
+        let amp = "&" + "amp;"
+        let quot = "&" + "quot;"
+        let apos = "&#39;"
+        return value
+            .replacingOccurrences(of: amp, with: "&")
+            .replacingOccurrences(of: apos, with: "'")
+            .replacingOccurrences(of: quot, with: "\"")
     }
 }
