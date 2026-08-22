@@ -432,6 +432,7 @@ final class HubStore: ObservableObject {
     func setNotifyPrefs(_ prefs: HubNotifyPrefs) {
         notifyPrefs = prefs
         persist()
+        HubPinger.shared.refresh(self)
     }
 
     func setSignedIn(_ id: UUID?) {

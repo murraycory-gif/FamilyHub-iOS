@@ -34,7 +34,10 @@ struct FamilyHubApp: App {
                 RootView()
                     .environmentObject(store)
                     .environmentObject(ingest)
-                    .onAppear { ingest.attach(store) }
+                    .onAppear {
+                        ingest.attach(store)
+                        HubPinger.shared.refresh(store)
+                    }
             }
             .background(launch.ignoresSafeArea())
             .preferredColorScheme(.light)

@@ -1163,6 +1163,32 @@ enum TimeFormatUnit: String, Codable, CaseIterable, Identifiable {
     var name: String { self == .twelve ? "12-hour" : "24-hour" }
 }
 
+enum NotifyChannel: String, Codable, CaseIterable, Identifiable {
+    case device, text, both
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .device: return "This iPad"
+        case .text: return "Text"
+        case .both: return "iPad + text"
+        }
+    }
+    var usesDevice: Bool { self != .text }
+    var usesText: Bool { self != .device }
+}
+
+enum NotifyWho: String, Codable, CaseIterable, Identifiable {
+    case me, owner, everyone
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .me: return "Me on this iPad"
+        case .owner: return "The owner"
+        case .everyone: return "Everyone with a phone"
+        }
+    }
+}
+
 struct HubNotifyPrefs: Codable, Equatable {
     var morningBrief: Bool
     var eventPings: Bool
@@ -1170,9 +1196,16 @@ struct HubNotifyPrefs: Codable, Equatable {
     var chorePing: Bool
     var shoppingPing: Bool
     var billsPing: Bool
+    var channel: NotifyChannel
+    var who: NotifyWho
+    var extraPhone: String
+    var twilioSID: String
+    var twilioToken: String
+    var twilioFrom: String
 
     enum CodingKeys: String, CodingKey {
         case morningBrief, eventPings, dinnerPing, chorePing, shoppingPing, billsPing
+        case channel, who, extraPhone, twilioSID, twilioToken, twilioFrom
     }
 
     init(
@@ -1181,7 +1214,13 @@ struct HubNotifyPrefs: Codable, Equatable {
         dinnerPing: Bool,
         chorePing: Bool,
         shoppingPing: Bool,
-        billsPing: Bool = false
+        billsPing: Bool = false,
+        channel: NotifyChannel = .device,
+        who: NotifyWho = .me,
+        extraPhone: String = "",
+        twilioSID: String = "",
+        twilioToken: String = "",
+        twilioFrom: String = ""
     ) {
         self.morningBrief = morningBrief
         self.eventPings = eventPings
@@ -1189,6 +1228,12 @@ struct HubNotifyPrefs: Codable, Equatable {
         self.chorePing = chorePing
         self.shoppingPing = shoppingPing
         self.billsPing = billsPing
+        self.channel = channel
+        self.who = who
+        self.extraPhone = extraPhone
+        self.twilioSID = twilioSID
+        self.twilioToken = twilioToken
+        self.twilioFrom = twilioFrom
     }
 
     init(from decoder: Decoder) throws {
@@ -1199,6 +1244,12 @@ struct HubNotifyPrefs: Codable, Equatable {
         chorePing = try c.decodeIfPresent(Bool.self, forKey: .chorePing) ?? false
         shoppingPing = try c.decodeIfPresent(Bool.self, forKey: .shoppingPing) ?? false
         billsPing = try c.decodeIfPresent(Bool.self, forKey: .billsPing) ?? false
+        channel = try c.decodeIfPresent(NotifyChannel.self, forKey: .channel) ?? .device
+        who = try c.decodeIfPresent(NotifyWho.self, forKey: .who) ?? .me
+        extraPhone = try c.decodeIfPresent(String.self, forKey: .extraPhone) ?? ""
+        twilioSID = try c.decodeIfPresent(String.self, forKey: .twilioSID) ?? ""
+        twilioToken = try c.decodeIfPresent(String.self, forKey: .twilioToken) ?? ""
+        twilioFrom = try c.decodeIfPresent(String.self, forKey: .twilioFrom) ?? ""
     }
 
     static let off = HubNotifyPrefs(
@@ -1212,6 +1263,10 @@ struct HubNotifyPrefs: Codable, Equatable {
 
     var anyOn: Bool {
         morningBrief || eventPings || dinnerPing || chorePing || shoppingPing || billsPing
+    }
+
+    var textReady: Bool {
+        !twilioSID.isEmpty && !twilioToken.isEmpty && !twilioFrom.isEmpty
     }
 }
 
