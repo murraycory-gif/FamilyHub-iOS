@@ -40,23 +40,29 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 14) {
                     header
-                    HStack(alignment: .top, spacing: 12) {
-                        agenda
-                            .frame(maxWidth: .infinity)
-                            .frame(maxHeight: .infinity)
-                        VStack(spacing: 12) {
-                            weatherTile
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            shoppingTile
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    TabView(selection: dayPage) {
+                        ForEach(swipeDays, id: \.self) { day in
+                            HStack(alignment: .top, spacing: 12) {
+                                agenda(for: day)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(maxHeight: .infinity)
+                                VStack(spacing: 12) {
+                                    weatherTile(for: day)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    shoppingTile
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                }
+                                .frame(maxWidth: .infinity)
+                                dinnerHomeTile(for: day)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(maxHeight: .infinity)
+                            }
+                            .padding(.horizontal, 2)
+                            .tag(day)
                         }
-                        .frame(maxWidth: .infinity)
-                        dinnerHomeTile
-                            .frame(maxWidth: .infinity)
-                            .frame(maxHeight: .infinity)
                     }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
                     .frame(maxHeight: .infinity)
-                    .simultaneousGesture(daySwipe)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 2)
@@ -81,6 +87,7 @@ struct TodayView: View {
         }
         .environment(\.hubAccent, accent)
         .background(AppTheme.bg.ignoresSafeArea())
+        .onAppear { selectedDay = Calendar.current.startOfDay(for: selectedDay) }
         .fullScreenCover(isPresented: $showDinner) {
             TonightDinnerView(day: selectedDay)
                 .environmentObject(store)
@@ -327,8 +334,19 @@ struct TodayView: View {
     }
 
     private var upcomingDays: [Date] {
+        swipeDays
+    }
+
+    private var swipeDays: [Date] {
         let start = Calendar.current.startOfDay(for: Date())
-        return (0..<7).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
+        return (0..<21).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
+    }
+
+    private var dayPage: Binding<Date> {
+        Binding(
+            get: { Calendar.current.startOfDay(for: selectedDay) },
+            set: { selectedDay = Calendar.current.startOfDay(for: $0) }
+        )
     }
 
     private func menuDayLabel(_ day: Date) -> String {
@@ -361,11 +379,14 @@ struct TodayView: View {
         return selectedDay.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 
-    private var agenda: some View {
-        VStack(alignment: .leading, spacing: 0) {
+    private var agenda: some View { agenda(for: selectedDay) }
+
+    private func agenda(for day: Date) -> some View {
+        let items = itemsOn(day)
+        return VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(
                 symbol: "calendar",
-                title: Calendar.current.isDateInToday(selectedDay) ? "On Today's Agenda" : "On the Agenda"
+                title: Calendar.current.isDateInToday(day) ? "On Today's Agenda" : "On the Agenda"
             ) {
                 Text(profileTitle)
                     .font(.subheadline.weight(.bold))
@@ -374,14 +395,14 @@ struct TodayView: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text(dayHeadline)
+                    Text(headline(for: day))
                         .font(.headline)
                     Spacer()
-                    Text("\(dayItems.count)")
+                    Text("\(items.count)")
                         .font(.caption.weight(.semibold).monospacedDigit())
                         .foregroundStyle(AppTheme.textTertiary)
                 }
-                if dayItems.isEmpty {
+                if items.isEmpty {
                     Text(emptyDayCopy)
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
@@ -390,9 +411,9 @@ struct TodayView: View {
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 0) {
-                            ForEach(dayItems) { item in
+                            ForEach(items) { item in
                                 dayRow(item)
-                                if item.id != dayItems.last?.id {
+                                if item.id != items.last?.id {
                                     Divider().overlay(AppTheme.cardBorder)
                                 }
                             }
@@ -410,16 +431,17 @@ struct TodayView: View {
                 .stroke(accent, lineWidth: 3)
         )
         .frame(maxHeight: .infinity)
-        .simultaneousGesture(daySwipe)
     }
 
-    private var weatherTile: some View {
+    private var weatherTile: some View { weatherTile(for: selectedDay) }
+
+    private func weatherTile(for day: Date) -> some View {
         HubWeatherTile(
             placeLabel: store.weatherPlace?.label ?? "Chicago",
             now: weather.now,
-            day: weather.forecastDay(on: selectedDay),
-            hours: weather.hoursOn(selectedDay),
-            isToday: Calendar.current.isDateInToday(selectedDay),
+            day: weather.forecastDay(on: day),
+            hours: weather.hoursOn(day),
+            isToday: Calendar.current.isDateInToday(day),
             isLoading: weather.isLoading,
             onOpen: { showWeatherOutlook = true },
             onChangePlace: { showWeatherPlace = true }
@@ -536,13 +558,14 @@ struct TodayView: View {
             )
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(daySwipe)
     }
 
-    private var dinnerHomeTile: some View {
-        let plan = store.dinner(on: selectedDay)
+    private var dinnerHomeTile: some View { dinnerHomeTile(for: selectedDay) }
+
+    private func dinnerHomeTile(for day: Date) -> some View {
+        let plan = store.dinner(on: day)
         let recipe = plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
-        let title = store.dinnerTitle(on: selectedDay)
+        let title = store.dinnerTitle(on: day)
         return Button { showDinner = true } label: {
             VStack(spacing: 0) {
                 HubTileBanner(symbol: "fork.knife", title: "What's For Dinner")
@@ -579,7 +602,6 @@ struct TodayView: View {
             )
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(daySwipe)
     }
 
     @ViewBuilder
@@ -635,11 +657,13 @@ struct TodayView: View {
         .buttonStyle(.plain)
     }
 
-    private var dayHeadline: String {
-        if Calendar.current.isDateInToday(selectedDay) { return "Today" }
-        if Calendar.current.isDateInTomorrow(selectedDay) { return "Tomorrow" }
-        return selectedDay.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    private func headline(for day: Date) -> String {
+        if Calendar.current.isDateInToday(day) { return "Today" }
+        if Calendar.current.isDateInTomorrow(day) { return "Tomorrow" }
+        return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
     }
+
+    private var dayHeadline: String { headline(for: selectedDay) }
 
     private var emptyDayCopy: String {
         switch profile {
@@ -663,26 +687,28 @@ struct TodayView: View {
         return nil
     }
 
-    private var dayItems: [HubDayItem] {
+    private var dayItems: [HubDayItem] { itemsOn(selectedDay) }
+
+    private func itemsOn(_ day: Date) -> [HubDayItem] {
         var items: [HubDayItem] = []
         let cal = Calendar.current
-        for event in store.events(on: selectedDay, filter: dayFilter) {
+        for event in store.events(on: day, filter: dayFilter) {
             items.append(.event(event))
         }
         for reminder in store.reminders where !reminder.isCompleted {
             guard matchesProfile(reminder.memberID) else { continue }
-            if let due = reminder.dueAt, cal.isDate(due, inSameDayAs: selectedDay) {
+            if let due = reminder.dueAt, cal.isDate(due, inSameDayAs: day) {
                 items.append(.reminder(reminder))
             }
         }
         for todo in store.todos where !todo.isCompleted {
             guard matchesProfile(todo.memberID) else { continue }
-            if let due = todo.dueAt, cal.isDate(due, inSameDayAs: selectedDay) {
+            if let due = todo.dueAt, cal.isDate(due, inSameDayAs: day) {
                 items.append(.todo(todo))
             }
         }
         for assignment in store.openAssignments(for: focusedMemberID) {
-            if cal.isDate(assignment.dueOn, inSameDayAs: selectedDay) {
+            if cal.isDate(assignment.dueOn, inSameDayAs: day) {
                 let title = store.chore(id: assignment.choreID)?.title ?? "Chore"
                 items.append(.chore(assignment, title: title))
             }
@@ -784,7 +810,6 @@ struct TodayView: View {
             .background(Color(hex: "FFF7ED"), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(daySwipe)
     }
 
     private func dinnerEyebrow(_ plan: DinnerPlan?) -> String {
@@ -995,8 +1020,6 @@ private struct FamilyFocusCard: View {
                 eventCount: events.count,
                 ring: accent
             ) { showStudio = true }
-            .contentShape(Rectangle())
-            .onTapGesture { onSelect() }
 
             DayStatusRow(
                 chores: store.openAssignments(for: nil).filter { $0.status == .pending && Calendar.current.isDate($0.dueOn, inSameDayAs: day) }.count,
@@ -1019,6 +1042,8 @@ private struct FamilyFocusCard: View {
                 .stroke(accent, lineWidth: selected ? 5 : 3)
         )
         .shadow(color: accent.opacity(selected ? 0.28 : 0.1), radius: selected ? 16 : 8, y: 6)
+        .contentShape(Rectangle())
+        .onTapGesture { onSelect() }
         .sheet(isPresented: $showStudio) {
             BannerStudio(title: "Family", current: store.familyPhotoData) { data in
                 store.setFamilyPhoto(data)
@@ -1067,8 +1092,6 @@ private struct MemberHomeCard: View {
                 eventCount: events.count,
                 ring: accent
             ) { showStudio = true }
-            .contentShape(Rectangle())
-            .onTapGesture { onSelect() }
 
             DayStatusRow(chores: chores.count, reminders: reminders.count, todos: todos.count)
                 .padding(.horizontal, 12)
@@ -1087,6 +1110,8 @@ private struct MemberHomeCard: View {
                 .stroke(accent, lineWidth: selected ? 5 : 4)
         )
         .shadow(color: accent.opacity(selected ? 0.3 : 0.12), radius: selected ? 16 : 8, y: 6)
+        .contentShape(Rectangle())
+        .onTapGesture { onSelect() }
         .sheet(isPresented: $showStudio) {
             BannerStudio(title: firstName, current: store.photo(for: member)) { data in
                 store.setMemberPhoto(member.id, data: data)
@@ -1272,7 +1297,9 @@ private struct EventScroll: View {
                         .foregroundStyle(AppTheme.textTertiary)
                         .textCase(.uppercase)
                     ForEach(events) { event in
-                        Button { onEvent(event) } label: {
+                        Button {
+                            onEvent(event)
+                        } label: {
                             HStack(alignment: .top, spacing: 8) {
                                 Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
                                     .font(.subheadline.weight(.bold).monospacedDigit())
@@ -1285,6 +1312,7 @@ private struct EventScroll: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 4)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)

@@ -13,6 +13,7 @@ struct CalendarHubView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HubPageTitle(lead: "Family", tail: "Calendar")
@@ -27,6 +28,9 @@ struct CalendarHubView: View {
                 dayList
             }
             .padding(20)
+        }
+        .onAppear { scrollToFocus(proxy) }
+        .onChange(of: router.focusedEventID) { _, _ in scrollToFocus(proxy) }
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
@@ -183,12 +187,20 @@ struct CalendarHubView: View {
                             .foregroundStyle(AppTheme.textTertiary)
                         }
                     }
+                    .id(event.id)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(event.id == router.focusedEventID ? AppTheme.blue : Color.clear, lineWidth: 2)
+                            .stroke(event.id == router.focusedEventID ? AppTheme.blue : Color.clear, lineWidth: 3)
                     )
                 }
             }
+        }
+    }
+
+    private func scrollToFocus(_ proxy: ScrollViewProxy) {
+        guard let id = router.focusedEventID else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation { proxy.scrollTo(id, anchor: .center) }
         }
     }
 
