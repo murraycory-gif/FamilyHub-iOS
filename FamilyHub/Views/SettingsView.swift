@@ -4,9 +4,11 @@ import UserNotifications
 struct SettingsView: View {
     @EnvironmentObject private var store: HubStore
     @StateObject private var weather = WeatherLoader()
-    @State private var open: Set<String> = ["household"]
+    @State private var open: Set<String> = ["profiles"]
     @State private var tourFocus = ""
     @State private var testNote: String?
+    @State private var pendingDelete: FamilyMember?
+    @State private var showAddProfile = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -15,39 +17,56 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     SettingsFold(
-                        symbol: "gearshape.fill",
-                        title: "Household",
-                        subtitle: "Family, this iPad, and invites",
-                        isOpen: open.contains("household")
+                        symbol: "person.3.fill",
+                        title: "Profiles",
+                        subtitle: store.members.map(\.name).joined(separator: ", "),
+                        isOpen: open.contains("profiles")
                     ) {
-                        toggle("household")
+                        toggle("profiles")
                     } content: {
-                        VStack(spacing: 10) {
-                            NavigationLink {
-                                FamilyView()
-                            } label: {
-                                settingsRow(
-                                    symbol: "person.3.fill",
-                                    title: "HUB Profiles",
-                                    detail: "Everyone in the house — names, photos, roles"
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            NavigationLink {
-                                CalendarSourcesView()
-                            } label: {
-                                settingsRow(
-                                    symbol: "calendar.badge.plus",
-                                    title: "Calendars",
-                                    detail: "iCloud, Google, Outlook, and other calendars"
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            signedInRow
-                            inviteBox
-                        }
+                        profilesBox
                     }
-                    .coachSpot("setHouse")
+                    .coachSpot("setProfiles")
+                    SettingsFold(
+                        symbol: "ipad",
+                        title: "This iPad",
+                        subtitle: store.signedInMember()?.name ?? "Pick who is using this iPad",
+                        isOpen: open.contains("device")
+                    ) {
+                        toggle("device")
+                    } content: {
+                        signedInRow
+                    }
+                    SettingsFold(
+                        symbol: "person.badge.plus",
+                        title: "Invite",
+                        subtitle: "Code \(store.joinCode)",
+                        isOpen: open.contains("invite")
+                    ) {
+                        toggle("invite")
+                    } content: {
+                        inviteBox
+                    }
+                    SettingsFold(
+                        symbol: "calendar.badge.plus",
+                        title: "Calendars",
+                        subtitle: "\(store.calendarSources.filter(\.isEnabled).count) connected",
+                        isOpen: open.contains("calendars")
+                    ) {
+                        toggle("calendars")
+                    } content: {
+                        NavigationLink {
+                            CalendarSourcesView()
+                        } label: {
+                            settingsRow(
+                                symbol: "calendar.badge.plus",
+                                title: "Open calendars",
+                                detail: "iCloud, Google, Outlook, and other calendars"
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .coachSpot("setCalendars")
                     SettingsFold(
                         symbol: "dollarsign.circle.fill",
                         title: "Bills Due",
@@ -224,7 +243,8 @@ struct SettingsView: View {
         .hubTour("settings", steps: HubTours.settings) { id in
             tourFocus = id
             switch id {
-            case "setHouse": open = ["household"]
+            case "setProfiles": open = ["profiles"]
+            case "setCalendars": open = ["calendars"]
             case "setBills": open = ["bills"]
             case "setAllow": open = ["allowance"]
             case "setWeather": open = ["weather"]
@@ -232,10 +252,99 @@ struct SettingsView: View {
             default: break
             }
         }
+        .sheet(isPresented: $showAddProfile) {
+            EditMemberSheet(member: nil)
+        }
+        .hubConfirm(
+            "Delete \(pendingDelete?.name ?? "this profile")?",
+            isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: { if !$0 { pendingDelete = nil } }
+            ),
+            message: "This removes them from the HUB. Calendars stay on the device.",
+            confirm: "Delete",
+            confirmColor: AppTheme.chore,
+            cancel: "Keep"
+        ) {
+            if let id = pendingDelete?.id { store.deleteMember(id) }
+            pendingDelete = nil
+        }
     }
 
     private func toggle(_ id: String) {
         if open.contains(id) { open.remove(id) } else { open.insert(id) }
+    }
+
+    private var profilesBox: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(store.members) { member in
+                HStack(spacing: 12) {
+                    MemberAvatar(member: member, size: 56)
+                        .overlay(Circle().stroke(Color(hex: member.colorHex), lineWidth: 3))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(member.name)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text(member.id == store.ownerID ? "Owner · \(member.role.label)" : member.role.label)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.blue)
+                    }
+                    Spacer()
+                    NavigationLink {
+                        FamilyView()
+                    } label: {
+                        Text("Edit")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(AppTheme.blueSoft, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    if store.members.count > 1 {
+                        Button {
+                            pendingDelete = member
+                        } label: {
+                            Image(systemName: "trash.fill")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 40, height: 40)
+                                .background(AppTheme.chore, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(12)
+                .background(AppTheme.bg)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color(hex: member.colorHex), lineWidth: 3)
+                )
+            }
+            Button { showAddProfile = true } label: {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                    Text("Add a profile")
+                    Spacer()
+                }
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+                .padding(14)
+                .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            NavigationLink {
+                FamilyView()
+            } label: {
+                settingsRow(
+                    symbol: "person.crop.circle",
+                    title: "Full profile editor",
+                    detail: "Photos, banners, birthdays, and contacts"
+                )
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private var notifyBox: some View {

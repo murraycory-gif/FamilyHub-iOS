@@ -351,8 +351,15 @@ final class HubStore: ObservableObject {
     }
 
     func deleteMember(_ id: UUID) {
+        guard members.count > 1 else { return }
         members.removeAll { $0.id == id }
         setMemberPhoto(id, data: nil)
+        if ownerID == id {
+            ownerID = members.first(where: { $0.role == .parent })?.id ?? members.first?.id
+        }
+        if signedInMemberID == id {
+            signedInMemberID = ownerID
+        }
         persist()
     }
 

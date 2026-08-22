@@ -376,6 +376,21 @@ private struct FamilyMemberRow: View {
             .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .topLeading) {
+            if store.members.count > 1 {
+                Button {
+                    store.deleteMember(member.id)
+                } label: {
+                    Image(systemName: "trash.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(AppTheme.chore, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .padding(12)
+            }
+        }
     }
 }
 

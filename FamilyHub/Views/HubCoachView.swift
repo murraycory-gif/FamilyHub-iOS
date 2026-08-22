@@ -293,11 +293,12 @@ enum HubTours {
     ]
 
     static let settings: [CoachStep] = [
-        .init(id: "setHouse", symbol: "gearshape.fill", title: "Household", detail: "HUB Profiles, calendars, who is signed in, and the family join code."),
+        .init(id: "setProfiles", symbol: "person.3.fill", title: "Profiles", detail: "Everyone in the house. Add, edit, or delete a person here."),
+        .init(id: "setCalendars", symbol: "calendar.badge.plus", title: "Calendars", detail: "Connect iCloud, Google, or Outlook. Bills calendars live in Bills Due."),
         .init(id: "setBills", symbol: "dollarsign.circle.fill", title: "Bills Due", detail: "Pick your bills calendar here. Those dates become Bills Due reminders."),
         .init(id: "setAllow", symbol: "banknote.fill", title: "Allowance", detail: "Kid balances and payouts live here, not on HUB Profiles."),
         .init(id: "setWeather", symbol: "cloud.sun.fill", title: "Weather", detail: "Set the city and every measurement HUB should use."),
-        .init(id: "setNotify", symbol: "bell.fill", title: "Notifications", detail: "Turn pings on or off. Sunrise brief, events, dinner, chores, bills, and shopping.")
+        .init(id: "setNotify", symbol: "bell.fill", title: "Notifications", detail: "Turn pings on or off. Enter a phone number to connect texts.")
     ]
 
     static let family: [CoachStep] = [

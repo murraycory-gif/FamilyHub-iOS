@@ -239,6 +239,15 @@ struct OnboardingView: View {
                                 .foregroundStyle(AppTheme.textSecondary)
                         }
                         Spacer()
+                        if store.members.count > 1 {
+                            Button {
+                                store.deleteMember(member.id)
+                            } label: {
+                                Image(systemName: "trash.fill")
+                                    .foregroundStyle(AppTheme.chore)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                     .padding(12)
                     .background(AppTheme.bg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
