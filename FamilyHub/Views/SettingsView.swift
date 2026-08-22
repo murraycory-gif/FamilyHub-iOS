@@ -16,7 +16,7 @@ struct SettingsView: View {
                     SettingsFold(
                         symbol: "gearshape.fill",
                         title: "Household",
-                        subtitle: "Profiles and calendars",
+                        subtitle: "Family, this iPad, and invites",
                         isOpen: open.contains("household")
                     ) {
                         toggle("household")
@@ -28,7 +28,7 @@ struct SettingsView: View {
                                 settingsRow(
                                     symbol: "person.3.fill",
                                     title: "HUB Profiles",
-                                    detail: "People, photos, birthdays, and contacts"
+                                    detail: "Everyone in the house — names, photos, roles"
                                 )
                             }
                             .buttonStyle(.plain)
@@ -306,33 +306,39 @@ struct SettingsView: View {
 
     private var signedInRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("This iPad is signed in as")
+            Text("Who is using this iPad")
                 .font(.headline.weight(.bold))
-            ForEach(store.members) { member in
-                Button {
-                    store.setSignedIn(member.id)
-                } label: {
-                    HStack(spacing: 12) {
-                        MemberAvatar(member: member, size: 40)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(member.name)
-                                .font(.headline)
-                                .foregroundStyle(AppTheme.text)
-                            Text(member.id == store.ownerID ? "Owner" : member.role.label)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(AppTheme.textSecondary)
+            Text("Pick the profile for this device. HUB Profiles is the whole family. This is only who is holding this iPad.")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)], spacing: 8) {
+                ForEach(store.members) { member in
+                    let on = store.signedInMemberID == member.id
+                    Button {
+                        store.setSignedIn(member.id)
+                    } label: {
+                        HStack(spacing: 8) {
+                            MemberAvatar(member: member, size: 36)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(member.name)
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(on ? .white : AppTheme.text)
+                                    .lineLimit(1)
+                                Text(member.id == store.ownerID ? "Owner" : member.role.label)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(on ? .white.opacity(0.85) : AppTheme.textSecondary)
+                            }
+                            Spacer(minLength: 0)
+                            if on {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.white)
+                            }
                         }
-                        Spacer()
-                        if store.signedInMemberID == member.id {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(AppTheme.blue)
-                        }
+                        .padding(10)
+                        .background(on ? AppTheme.blue : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
-                    .padding(12)
-                    .background(AppTheme.bg)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(14)
