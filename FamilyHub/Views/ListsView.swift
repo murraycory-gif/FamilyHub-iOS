@@ -290,11 +290,15 @@ struct ShoppingListView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .alert("Clear the whole list?", isPresented: $confirmClearAll) {
-            Button("Clear all", role: .destructive) { store.clearAllShopping() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes every item, including ones you haven’t checked off.")
+        .hubConfirm(
+            "Clear the whole list?",
+            isPresented: $confirmClearAll,
+            message: "This removes every item, including ones you haven’t checked off.",
+            confirm: "Clear all",
+            confirmColor: AppTheme.chore,
+            cancel: "Cancel"
+        ) {
+            store.clearAllShopping()
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

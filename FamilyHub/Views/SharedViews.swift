@@ -576,6 +576,93 @@ struct HubHeaderPill: View {
     }
 }
 
+struct HubConfirm: ViewModifier {
+    @Binding var isPresented: Bool
+    let title: String
+    let message: String
+    var confirmTitle: String
+    var confirmColor: Color
+    var cancelTitle: String
+    var onConfirm: () -> Void
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            if isPresented {
+                ZStack {
+                    AppTheme.text.opacity(0.32)
+                        .ignoresSafeArea()
+                        .onTapGesture { isPresented = false }
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(title)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text(message)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        HStack(spacing: 12) {
+                            Button {
+                                isPresented = false
+                            } label: {
+                                Text(cancelTitle)
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(AppTheme.blue)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(AppTheme.blueSoft, in: Capsule())
+                                    .overlay(Capsule().stroke(AppTheme.blue, lineWidth: 2))
+                            }
+                            .buttonStyle(.plain)
+                            Button {
+                                isPresented = false
+                                onConfirm()
+                            } label: {
+                                Text(confirmTitle)
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(confirmColor, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(22)
+                    .frame(maxWidth: 460)
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(AppTheme.blue, lineWidth: 3)
+                    )
+                    .padding(28)
+                }
+            }
+        }
+    }
+}
+
+extension View {
+    func hubConfirm(
+        _ title: String,
+        isPresented: Binding<Bool>,
+        message: String,
+        confirm: String = "OK",
+        confirmColor: Color = AppTheme.blue,
+        cancel: String = "Cancel",
+        onConfirm: @escaping () -> Void
+    ) -> some View {
+        modifier(HubConfirm(
+            isPresented: isPresented,
+            title: title,
+            message: message,
+            confirmTitle: confirm,
+            confirmColor: confirmColor,
+            cancelTitle: cancel,
+            onConfirm: onConfirm
+        ))
+    }
+}
+
 struct HubPanel<Content: View, Trailing: View>: View {
     let symbol: String
     let title: String

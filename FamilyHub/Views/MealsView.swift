@@ -35,13 +35,15 @@ struct MealsView: View {
                 .environmentObject(store)
                 .environmentObject(router)
         }
-        .alert("Clear all meals?", isPresented: $confirmClearAll) {
-            Button("Clear all", role: .destructive) {
-                for day in week { store.clearDinner(on: day) }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes every dinner on the next 2 weeks.")
+        .hubConfirm(
+            "Clear all meals?",
+            isPresented: $confirmClearAll,
+            message: "This removes every dinner on the next 2 weeks.",
+            confirm: "Clear all",
+            confirmColor: AppTheme.chore,
+            cancel: "Cancel"
+        ) {
+            for day in week { store.clearDinner(on: day) }
         }
     }
 
@@ -1277,23 +1279,27 @@ private struct DinnerReviewView: View {
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { picked = Set(allKeys) }
-        .alert("Skip the shopping list?", isPresented: $confirmSkip) {
-            Button("Don't add") { finish() }
-            Button("Add ingredients", role: .cancel) {}
-        } message: {
-            Text("You haven’t added any ingredients from this meal. Are you sure you don’t need anything from the store?")
-        }
+        .hubConfirm(
+            "Skip the shopping list?",
+            isPresented: $confirmSkip,
+            message: "The meal stays on the calendar. You haven’t added any ingredients yet. Need to pick what to buy?",
+            confirm: "Don't add",
+            confirmColor: AppTheme.blue,
+            cancel: "Add ingredients",
+            onConfirm: goToHub
+        )
     }
 
     private func tapDone() {
         if allKeys.isEmpty || added {
-            finish()
+            goToHub()
         } else {
             confirmSkip = true
         }
     }
 
-    private func finish() {
+    private func goToHub() {
+        confirmSkip = false
         router.open(.today)
         onDone()
     }
