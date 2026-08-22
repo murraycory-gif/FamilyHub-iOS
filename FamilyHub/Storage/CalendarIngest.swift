@@ -339,7 +339,7 @@ enum EventKitBridge {
             let people = (event.attendees ?? []).compactMap { person -> String? in
                 let name = person.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 if !name.isEmpty { return name }
-                return person.url?.absoluteString.replacingOccurrences(of: "mailto:", with: "")
+                return person.url.absoluteString.replacingOccurrences(of: "mailto:", with: "")
             }
             let geo = event.structuredLocation?.geoLocation?.coordinate
             let place = [event.structuredLocation?.title, event.location]
