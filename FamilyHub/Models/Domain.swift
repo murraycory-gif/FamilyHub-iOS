@@ -536,6 +536,7 @@ enum RecipeKind: String, Codable, CaseIterable, Identifiable {
     case family
     case recipe
     case cooked
+    case side
 
     var id: String { rawValue }
 
@@ -544,6 +545,7 @@ enum RecipeKind: String, Codable, CaseIterable, Identifiable {
         case .family: return "Family recipe"
         case .recipe: return "Recipe"
         case .cooked: return "Already made"
+        case .side: return "Side"
         }
     }
 }
@@ -560,9 +562,10 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
     var placeKind: String?
     var placeLatitude: Double?
     var placeLongitude: Double?
+    var sideRecipeID: UUID?
 
     enum CodingKeys: String, CodingKey {
-        case id, day, recipeID, note, placeName, placeAddress, placePhone, placeURL, placeKind, placeLatitude, placeLongitude
+        case id, day, recipeID, note, placeName, placeAddress, placePhone, placeURL, placeKind, placeLatitude, placeLongitude, sideRecipeID
     }
 
     init(
@@ -576,7 +579,8 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeURL: String?,
         placeKind: String?,
         placeLatitude: Double? = nil,
-        placeLongitude: Double? = nil
+        placeLongitude: Double? = nil,
+        sideRecipeID: UUID? = nil
     ) {
         self.id = id
         self.day = day
@@ -589,6 +593,7 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         self.placeKind = placeKind
         self.placeLatitude = placeLatitude
         self.placeLongitude = placeLongitude
+        self.sideRecipeID = sideRecipeID
     }
 
     init(from decoder: Decoder) throws {
@@ -604,6 +609,7 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeKind = try c.decodeIfPresent(String.self, forKey: .placeKind)
         placeLatitude = try c.decodeIfPresent(Double.self, forKey: .placeLatitude)
         placeLongitude = try c.decodeIfPresent(Double.self, forKey: .placeLongitude)
+        sideRecipeID = try c.decodeIfPresent(UUID.self, forKey: .sideRecipeID)
     }
 
     static func make(
@@ -616,7 +622,8 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeURL: String? = nil,
         placeKind: String? = nil,
         placeLatitude: Double? = nil,
-        placeLongitude: Double? = nil
+        placeLongitude: Double? = nil,
+        sideRecipeID: UUID? = nil
     ) -> DinnerPlan {
         DinnerPlan(
             id: UUID(),
@@ -629,7 +636,8 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
             placeURL: placeURL,
             placeKind: placeKind,
             placeLatitude: placeLatitude,
-            placeLongitude: placeLongitude
+            placeLongitude: placeLongitude,
+            sideRecipeID: sideRecipeID
         )
     }
 }

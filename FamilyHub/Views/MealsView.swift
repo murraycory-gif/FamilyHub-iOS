@@ -201,6 +201,9 @@ private struct MealDayCard: View {
         if plan.placeKind == "takeout" { return "Take out" }
         if plan.placeName != nil { return "Eating out" }
         if let id = plan.recipeID, let recipe = store.recipe(id: id) {
+            if let side = store.dinnerSide(on: day) {
+                return "\(recipe.kind.label) · with \(side.name)"
+            }
             return recipe.kind.label
         }
         if !plan.note.isEmpty { return "Custom meal" }
@@ -242,11 +245,17 @@ struct TonightDinnerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let recipe {
-                    cookView(recipe)
+                    cookView(recipe, heading: "Main")
+                    if let side = store.dinnerSide(on: day) {
+                        cookView(side, heading: "Side")
+                    }
                 } else if let plan, plan.placeName != nil {
                     eatOutView(plan)
                 } else {
                     noteView
+                    if let side = store.dinnerSide(on: day) {
+                        cookView(side, heading: "Side")
+                    }
                 }
             }
             .padding(20)
@@ -264,15 +273,13 @@ struct TonightDinnerView: View {
         }
     }
 
-    private func cookView(_ recipe: Recipe) -> some View {
+    private func cookView(_ recipe: Recipe, heading: String) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            if let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
-                RecipePhoto(url: url, searchName: recipe.name)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 240)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            }
-            Text(isToday ? "Dinner tonight" : "Dinner")
+            RecipePhoto(url: URL(string: recipe.imageURL), searchName: recipe.name)
+                .frame(maxWidth: .infinity)
+                .frame(height: 240)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            Text(heading)
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
             Text(recipe.name)
@@ -801,6 +808,7 @@ private struct FamilyRecipeDetail: View {
     let recipe: Recipe
     let day: Date
     var onDone: () -> Void
+    @State private var pickSide = false
 
     var body: some View {
         ScrollView {
@@ -843,7 +851,7 @@ private struct FamilyRecipeDetail: View {
                 }
                 Button {
                     store.setDinner(on: day, recipeID: recipe.id)
-                    onDone()
+                    pickSide = true
                 } label: {
                     Text("Add for dinner")
                         .font(.headline.weight(.bold))
@@ -857,6 +865,9 @@ private struct FamilyRecipeDetail: View {
             .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .navigationDestination(isPresented: $pickSide) {
+            SidePicker(day: day, onDone: onDone)
+        }
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -953,6 +964,7 @@ private struct CatalogRecipeDetail: View {
     let recipe: CatalogRecipe
     let day: Date
     var onDone: () -> Void
+    @State private var pickSide = false
 
     var body: some View {
         ScrollView {
@@ -999,7 +1011,7 @@ private struct CatalogRecipeDetail: View {
                         store.addRecipe(saved)
                         store.setDinner(on: day, recipeID: saved.id)
                     }
-                    onDone()
+                    pickSide = true
                 } label: {
                     Text("Add for dinner")
                         .font(.headline.weight(.bold))
@@ -1010,6 +1022,174 @@ private struct CatalogRecipeDetail: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 8)
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $pickSide) {
+            SidePicker(day: day, onDone: onDone)
+        }
+    }
+}
+
+private struct SidePicker: View {
+    @EnvironmentObject private var store: HubStore
+    let day: Date
+    var onDone: () -> Void
+    @StateObject private var catalog = SideCatalog()
+    @State private var opened: CatalogRecipe?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .center, spacing: 12) {
+                    HStack(spacing: 10) {
+                        Text("Pick a")
+                            .foregroundStyle(AppTheme.text)
+                        Text("Side")
+                            .foregroundStyle(AppTheme.blue)
+                    }
+                    .font(.system(size: 36, weight: .bold))
+                    Spacer()
+                    Button {
+                        store.setDinnerSide(on: day, recipeID: nil)
+                        onDone()
+                    } label: {
+                        Text("Skip side")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(AppTheme.blue, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                Text("Choose a side for \(store.dinnerTitle(on: day) ?? "dinner"), or skip.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(AppTheme.textTertiary)
+                    TextField("Mashed potatoes, slaw, corn…", text: $catalog.query)
+                        .onSubmit { Task { await catalog.search() } }
+                }
+                .padding(14)
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(catalog.categories, id: \.self) { item in
+                            FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
+                                catalog.category = item
+                                Task { await catalog.search() }
+                            }
+                        }
+                    }
+                }
+                ForEach(catalog.recipes) { recipe in
+                    Button { opened = recipe } label: {
+                        HStack(spacing: 14) {
+                            RecipePhoto(url: recipe.thumb, searchName: recipe.name)
+                                .frame(width: 88, height: 88)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(recipe.name)
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(AppTheme.text)
+                                    .lineLimit(2)
+                                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(AppTheme.textTertiary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $opened) { recipe in
+            SideDetail(recipe: recipe, day: day, onDone: onDone)
+        }
+        .task { await catalog.load() }
+    }
+}
+
+private struct SideDetail: View {
+    @EnvironmentObject private var store: HubStore
+    let recipe: CatalogRecipe
+    let day: Date
+    var onDone: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                RecipePhoto(url: recipe.thumb, searchName: recipe.name)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 280)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                Text(recipe.name)
+                    .font(.system(size: 32, weight: .bold))
+                Text("Side · \(recipe.category)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
+                if !recipe.ingredients.isEmpty {
+                    Text("Ingredients")
+                        .font(.title3.weight(.bold))
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(recipe.ingredients, id: \.self) { line in
+                            HStack(alignment: .top, spacing: 10) {
+                                Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
+                                Text(line)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                if !recipe.instructions.isEmpty {
+                    Text("Directions")
+                        .font(.title3.weight(.bold))
+                    Text(recipe.instructions)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                Button {
+                    if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && $0.kind == .side }) {
+                        store.setDinnerSide(on: day, recipeID: existing.id)
+                    } else {
+                        let saved = recipe.asHubRecipe(kind: .side)
+                        store.addRecipe(saved)
+                        store.setDinnerSide(on: day, recipeID: saved.id)
+                    }
+                    onDone()
+                } label: {
+                    Text("Add this side")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
             .padding(20)
         }
@@ -1136,6 +1316,7 @@ private struct ManualMealSheet: View {
     var onDone: () -> Void
     @State private var name = ""
     @State private var notes = ""
+    @State private var pickSide = false
 
     var body: some View {
         ScrollView {
@@ -1157,7 +1338,7 @@ private struct ManualMealSheet: View {
                     .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 Button {
                     store.setDinner(on: day, recipeID: nil, note: name.trimmingCharacters(in: .whitespaces))
-                    onDone()
+                    pickSide = true
                 } label: {
                     Text("Set dinner")
                         .font(.headline.weight(.bold))
@@ -1172,6 +1353,9 @@ private struct ManualMealSheet: View {
             .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .navigationDestination(isPresented: $pickSide) {
+            SidePicker(day: day, onDone: onDone)
+        }
         .navigationBarTitleDisplayMode(.inline)
     }
 }

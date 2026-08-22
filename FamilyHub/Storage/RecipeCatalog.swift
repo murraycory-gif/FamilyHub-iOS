@@ -11,10 +11,10 @@ struct CatalogRecipe: Identifiable, Hashable {
     var sourceURL: URL?
     var youtubeURL: URL?
 
-    func asHubRecipe() -> Recipe {
+    func asHubRecipe(kind: RecipeKind = .recipe) -> Recipe {
         Recipe.make(
             name: name,
-            kind: .recipe,
+            kind: kind,
             notes: [category, area].filter { !$0.isEmpty }.joined(separator: " · "),
             ingredients: ingredients,
             instructions: instructions,

@@ -145,6 +145,7 @@ final class HubStore: ObservableObject {
             dinners[idx].placeKind = placeKind
             dinners[idx].placeLatitude = placeLatitude
             dinners[idx].placeLongitude = placeLongitude
+            dinners[idx].sideRecipeID = nil
         } else {
             dinners.append(.make(
                 day: start,
@@ -160,6 +161,17 @@ final class HubStore: ObservableObject {
             ))
         }
         persist()
+    }
+
+    func setDinnerSide(on day: Date, recipeID: UUID?) {
+        let start = Calendar.current.startOfDay(for: day)
+        guard let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) else { return }
+        dinners[idx].sideRecipeID = recipeID
+        persist()
+    }
+
+    func dinnerSide(on day: Date) -> Recipe? {
+        dinner(on: day).flatMap(\.sideRecipeID).flatMap(recipe(id:))
     }
 
     func clearDinner(on day: Date) {

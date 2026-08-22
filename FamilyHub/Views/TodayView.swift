@@ -581,6 +581,12 @@ struct TodayView: View {
                             .font(.title3.weight(.bold))
                             .foregroundStyle(.white)
                             .lineLimit(2)
+                        if let side = store.dinnerSide(on: day) {
+                            Text("with \(side.name)")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.95))
+                                .lineLimit(1)
+                        }
                         Text(dinnerHint(plan, recipe: recipe))
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.85))
