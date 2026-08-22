@@ -633,99 +633,42 @@ private struct EatOutPicker: View {
     var onDone: () -> Void
     @State private var areaQuery = ""
     @State private var opened: NearbyPlace?
+    @State private var chip = "Nearby"
     @StateObject private var completer = AreaCompleter()
+
+    private let columns = [GridItem(.adaptive(minimum: 240), spacing: 16)]
+    private let chips = ["Nearby", "Pizza", "Burgers", "Tacos", "Chicken", "Chinese", "Italian", "Mexican", "Fast food", "Coffee"]
+
+    private var headerLead: String {
+        switch mode {
+        case .delivery: return "Food"
+        case .takeout: return "Take"
+        case .sitdown: return "Eating"
+        }
+    }
+
+    private var headerTail: String {
+        mode == .delivery ? "Delivery" : "Out"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(
-                lead: mode == .delivery ? "Food" : mode == .takeout ? "Take" : "Eating",
-                tail: mode == .delivery ? "Delivery" : "Out"
-            )
-            .coachSpot("eatHeader")
+            HubStickyHeader(lead: headerLead, tail: headerTail)
+                .coachSpot("eatHeader")
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(mode == .delivery ? "Places that can come to you. Near \(places.areaName)." : mode == .takeout ? "Pick it up near \(places.areaName)." : "Sit down near \(places.areaName).")
+                LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
+                    Text("Tap a place.")
                         .foregroundStyle(AppTheme.textSecondary)
-                    HStack {
-                        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                        TextField("McDonald’s, pizza, tacos…", text: $areaQuery)
-                            .textFieldStyle(.plain)
-                            .onSubmit {
-                                completer.clear()
-                                Task { await places.searchMaps(areaQuery) }
-                            }
-                            .onChange(of: areaQuery) { _, value in
-                                completer.update(value)
-                                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                                guard trimmed.isEmpty == false else { return }
-                                Task {
-                                    try? await Task.sleep(for: .milliseconds(350))
-                                    guard areaQuery == value else { return }
-                                    await places.searchMaps(value)
-                                }
-                            }
-                    }
-                    .padding(14)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    HStack(spacing: 8) {
-                        Button {
-                            areaQuery = ""
-                            completer.clear()
-                            Task { await places.useHere() }
-                        } label: {
-                            Label("Here", systemImage: "location.fill")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .background(AppTheme.blue, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        Text("Or a city / zip")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppTheme.textTertiary)
-                    }
+                    searchBar
+                    chipRow
                     if !completer.suggestions.isEmpty {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(completer.suggestions) { item in
-                                Button {
-                                    areaQuery = item.title
-                                    completer.clear()
-                                    Task { await places.searchMaps(item.query) }
-                                } label: {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: "mappin.and.ellipse")
-                                            .foregroundStyle(AppTheme.blue)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(item.title)
-                                                .font(.headline)
-                                                .foregroundStyle(AppTheme.text)
-                                            if !item.subtitle.isEmpty {
-                                                Text(item.subtitle)
-                                                    .font(.caption)
-                                                    .foregroundStyle(AppTheme.textSecondary)
-                                            }
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(AppTheme.cardBorder, lineWidth: 1)
-                        )
+                        suggestionList
                     }
                     if places.isLoading { ProgressView() }
                     if let message = places.message {
                         Text(message).foregroundStyle(AppTheme.textSecondary)
                     }
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 14) {
+                    LazyVGrid(columns: columns, spacing: 14) {
                         ForEach(places.places) { place in
                             Button { opened = place } label: {
                                 placeTile(place)
@@ -749,6 +692,98 @@ private struct EatOutPicker: View {
             if let here = places.userLocation { completer.setRegion(here) }
         }
     }
+
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+            TextField("McDonald’s, pizza, tacos…", text: $areaQuery)
+                .textFieldStyle(.plain)
+                .onSubmit { runSearch(areaQuery) }
+                .onChange(of: areaQuery) { _, value in
+                    completer.update(value)
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard trimmed.isEmpty == false else { return }
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(350))
+                        guard areaQuery == value else { return }
+                        await places.searchMaps(value)
+                    }
+                }
+            if places.isLoading { ProgressView() }
+        }
+        .padding(14)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var chipRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(chips, id: \.self) { item in
+                    FilterChip(title: item, color: AppTheme.blue, selected: chip == item) {
+                        chip = item
+                        areaQuery = item == "Nearby" ? "" : item
+                        completer.clear()
+                        Task {
+                            if item == "Nearby" {
+                                await places.useHere()
+                            } else {
+                                await places.searchMaps(item)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var suggestionList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(completer.suggestions) { item in
+                Button {
+                    areaQuery = item.title
+                    completer.clear()
+                    Task { await places.searchMaps(item.query) }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .foregroundStyle(AppTheme.blue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title)
+                                .font(.headline)
+                                .foregroundStyle(AppTheme.text)
+                            if !item.subtitle.isEmpty {
+                                Text(item.subtitle)
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+    }
+
+    private func runSearch(_ raw: String) {
+        completer.clear()
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        Task {
+            if trimmed.isEmpty {
+                await places.useHere()
+            } else {
+                await places.searchMaps(trimmed)
+            }
+        }
+    }
 }
 
 private struct FamilyRecipePicker: View {
@@ -759,9 +794,15 @@ private struct FamilyRecipePicker: View {
     @State private var showScan = false
     @State private var showLink = false
     @State private var opened: Recipe?
+    @State private var query = ""
+
+    private let columns = [GridItem(.adaptive(minimum: 240), spacing: 16)]
 
     private var familyRecipes: [Recipe] {
-        store.recipes.filter { $0.kind == .family }
+        let all = store.recipes.filter { $0.kind == .family }
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !needle.isEmpty else { return all }
+        return all.filter { $0.name.lowercased().contains(needle) }
     }
 
     var body: some View {
@@ -798,15 +839,22 @@ private struct FamilyRecipePicker: View {
                 }
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Scan a card, paste a TikTok / YouTube link, or type one in.")
+                LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
+                    Text("Tap a family recipe.")
                         .foregroundStyle(AppTheme.textSecondary)
+                    HStack {
+                        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+                        TextField("Grandma’s chili, cookies…", text: $query)
+                            .textFieldStyle(.plain)
+                    }
+                    .padding(14)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     if familyRecipes.isEmpty {
-                        Text("Nothing saved yet.")
+                        Text(query.isEmpty ? "Nothing saved yet. Scan, link, or add one." : "No match.")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
                     }
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 14) {
+                    LazyVGrid(columns: columns, spacing: 14) {
                         ForEach(familyRecipes) { recipe in
                             Button { opened = recipe } label: {
                                 savedRecipeTile(recipe)
