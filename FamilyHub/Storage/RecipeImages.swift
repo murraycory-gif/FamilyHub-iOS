@@ -4,7 +4,7 @@ import UIKit
 enum RecipeImages {
     private static var memory: [String: UIImage] = [:]
     private static let lock = NSLock()
-    private static let version = "v3"
+    private static let version = "v4"
 
     static func photo(url: URL?, name: String) async -> UIImage? {
         let dish = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -20,11 +20,11 @@ enum RecipeImages {
             store(image, key: key)
             return image
         }
-        if let image = await mealDB(dish) {
+        if let image = await mealDB(alias(dish)) {
             store(image, key: key)
             return image
         }
-        if let image = await commons(dish) {
+        if let image = await mealDB(dish) {
             store(image, key: key)
             return image
         }
@@ -50,7 +50,7 @@ enum RecipeImages {
             let pageTitle = (json["title"] as? String) ?? title
             let kind = json["type"] as? String
             if kind == "disambiguation" { continue }
-            guard fits(pageTitle, dish: name) else { continue }
+            guard fits(pageTitle, dish: title) else { continue }
             if let thumb = json["thumbnail"] as? [String: Any],
                let source = thumb["source"] as? String,
                let image = await download(source) {
@@ -66,7 +66,7 @@ enum RecipeImages {
         comps.queryItems = [
             URLQueryItem(name: "action", value: "query"),
             URLQueryItem(name: "list", value: "search"),
-            URLQueryItem(name: "srsearch", value: "\(name) food dish"),
+            URLQueryItem(name: "srsearch", value: "\(alias(name)) dish"),
             URLQueryItem(name: "srlimit", value: "5"),
             URLQueryItem(name: "format", value: "json")
         ]
@@ -76,7 +76,7 @@ enum RecipeImages {
               let hits = queryObj["search"] as? [[String: Any]]
         else { return nil }
         for hit in hits {
-            guard let title = hit["title"] as? String, fits(title, dish: name) else { continue }
+            guard let title = hit["title"] as? String, fits(title, dish: alias(name)) else { continue }
             let slug = title.replacingOccurrences(of: " ", with: "_")
                 .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
             if let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(slug)"),
@@ -96,39 +96,11 @@ enum RecipeImages {
               let json = await json(url),
               let meals = json["meals"] as? [[String: Any]]
         else { return nil }
-        for meal in meals.prefix(6) {
+        for meal in meals.prefix(8) {
             let title = meal["strMeal"] as? String ?? ""
             guard fits(title, dish: name) else { continue }
             if let thumb = meal["strMealThumb"] as? String, let image = await download(thumb) {
                 return image
-            }
-        }
-        return nil
-    }
-
-    private static func commons(_ name: String) async -> UIImage? {
-        var comps = URLComponents(string: "https://commons.wikimedia.org/w/api.php")!
-        comps.queryItems = [
-            URLQueryItem(name: "action", value: "query"),
-            URLQueryItem(name: "generator", value: "search"),
-            URLQueryItem(name: "gsrsearch", value: "\(name) food"),
-            URLQueryItem(name: "gsrnamespace", value: "6"),
-            URLQueryItem(name: "gsrlimit", value: "8"),
-            URLQueryItem(name: "prop", value: "imageinfo"),
-            URLQueryItem(name: "iiprop", value: "url"),
-            URLQueryItem(name: "iiurlwidth", value: "800"),
-            URLQueryItem(name: "format", value: "json")
-        ]
-        guard let url = comps.url, let json = await json(url, agent: true),
-              let queryObj = json["query"] as? [String: Any],
-              let pages = queryObj["pages"] as? [String: [String: Any]]
-        else { return nil }
-        for page in pages.values {
-            let title = page["title"] as? String ?? ""
-            guard fits(title, dish: name) || fits(name, dish: name) else { continue }
-            if let infos = page["imageinfo"] as? [[String: Any]] {
-                let source = (infos.first?["thumburl"] as? String) ?? (infos.first?["url"] as? String)
-                if let source, let image = await download(source) { return image }
             }
         }
         return nil
@@ -274,7 +246,7 @@ enum RecipeImages {
         let a = tokens(dish)
         let b = tokens(candidate)
         if a.isEmpty { return candidate.lowercased().contains(dish.lowercased()) }
-        return !a.intersection(b).isEmpty
+        return a.isSubset(of: b)
     }
 
     private static func tokens(_ name: String) -> Set<String> {
@@ -282,14 +254,22 @@ enum RecipeImages {
             "classic", "homemade", "buttermilk", "loaded", "sauteed", "roasted", "baked",
             "grilled", "southern", "texas", "house", "with", "and", "the", "for", "dinner",
             "style", "american", "night", "supreme", "helper", "skillet", "file", "jpg",
-            "png", "photo", "image", "food", "dish", "recipe"
+            "png", "photo", "image", "food", "dish", "recipe", "easy", "quick"
         ]
         return Set(
             name.lowercased()
                 .split { !$0.isLetter }
                 .map(String.init)
+                .map(stem)
                 .filter { $0.count >= 3 && !stop.contains($0) }
         )
+    }
+
+    private static func stem(_ word: String) -> String {
+        if word.hasSuffix("ies"), word.count > 4 { return String(word.dropLast(3)) + "y" }
+        if word.hasSuffix("es"), word.count > 4 { return String(word.dropLast(2)) }
+        if word.hasSuffix("s"), !word.hasSuffix("ss"), word.count > 3 { return String(word.dropLast()) }
+        return word
     }
 
     private static func cached(_ key: String) -> UIImage? {
@@ -316,7 +296,7 @@ enum RecipeImages {
 
     private static var folder: URL {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RecipePhotosV3", isDirectory: true)
+            .appendingPathComponent("RecipePhotosV4", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
