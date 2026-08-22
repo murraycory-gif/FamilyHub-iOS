@@ -820,37 +820,30 @@ private struct FamilyRecipePicker: View {
                     }
                     .buttonStyle(.plain)
                 }
-                Text("Scan a card, paste a TikTok / YouTube / Instagram / Pinterest link, or type one in.")
+                Text("Save recipes for later. Scan a card, paste a TikTok / YouTube / Instagram / Pinterest link, or type one in. They stay in this list until you cook them.")
                     .foregroundStyle(AppTheme.textSecondary)
-                if familyRecipes.isEmpty {
+                HStack(spacing: 12) {
                     Button { showScan = true } label: {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Image(systemName: "doc.text.viewfinder")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundStyle(AppTheme.blue)
-                            Text("Scan your first recipe")
-                                .font(.title3.weight(.bold))
-                                .foregroundStyle(AppTheme.text)
-                            Text("Photo a handwritten card, a printed page, or a cookbook.")
-                                .font(.subheadline)
-                                .foregroundStyle(AppTheme.textSecondary)
-                        }
-                        .padding(18)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(AppTheme.blue, lineWidth: 3)
-                        )
+                        saveAction(symbol: "doc.text.viewfinder", title: "Scan a card", detail: "Cookbook or handwritten")
+                    }
+                    .buttonStyle(.plain)
+                    Button { showLink = true } label: {
+                        saveAction(symbol: "link", title: "From a link", detail: "TikTok, YouTube, sites")
                     }
                     .buttonStyle(.plain)
                 }
-                ForEach(familyRecipes) { recipe in
-                    Button { opened = recipe } label: {
-                        mealRow(title: recipe.name, detail: recipe.kind.label)
+                if familyRecipes.isEmpty {
+                    Text("Nothing saved yet. Use Scan or From a link — it stays in your family cookbook.")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+                    ForEach(familyRecipes) { recipe in
+                        Button { opened = recipe } label: {
+                            savedRecipeTile(recipe)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(20)
@@ -860,9 +853,69 @@ private struct FamilyRecipePicker: View {
         .navigationDestination(item: $opened) { recipe in
             FamilyRecipeDetail(recipe: recipe, day: day, onDone: onDone)
         }
-        .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet() }
-        .fullScreenCover(isPresented: $showScan) { ScanRecipeSheet() }
-        .fullScreenCover(isPresented: $showLink) { ImportSocialRecipeView() }
+        .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet().environmentObject(store) }
+        .fullScreenCover(isPresented: $showScan) { ScanRecipeSheet().environmentObject(store) }
+        .fullScreenCover(isPresented: $showLink) { ImportSocialRecipeView().environmentObject(store) }
+    }
+
+    private func saveAction(symbol: String, title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(AppTheme.blue)
+            Text(title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+            Text(detail)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+    }
+
+    private func savedRecipeTile(_ recipe: Recipe) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            RecipePhoto(url: URL(string: recipe.imageURL), searchName: recipe.name)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(sourceLabel(recipe).uppercased())
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(AppTheme.blue, in: Capsule())
+                Text(recipe.name)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+            }
+            .padding(12)
+        }
+        .frame(height: 180)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+    }
+
+    private func sourceLabel(_ recipe: Recipe) -> String {
+        let notes = recipe.notes.lowercased()
+        if notes.contains("tiktok") { return "TikTok" }
+        if notes.contains("youtube") { return "YouTube" }
+        if notes.contains("instagram") { return "Instagram" }
+        if notes.contains("pinterest") { return "Pinterest" }
+        if notes.contains("from ") { return recipe.kind.label }
+        return "Saved"
     }
 }
 

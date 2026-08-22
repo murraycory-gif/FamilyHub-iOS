@@ -24,7 +24,7 @@ struct ImportSocialRecipeView: View {
                             .foregroundStyle(AppTheme.blue)
                     }
                     .font(.system(size: 36, weight: .bold))
-                    Text("Paste a TikTok, YouTube, Instagram, Pinterest, or recipe-site link. HUB pulls the title, photo, and anything it can read. You check it, then save.")
+                    Text("Paste a TikTok, YouTube, Instagram, Pinterest, or recipe-site link. HUB pulls what it can. Save it and it lives in Family Recipes for later — same as a scanned card.")
                         .foregroundStyle(AppTheme.textSecondary)
 
                     HStack(spacing: 10) {
@@ -80,7 +80,7 @@ struct ImportSocialRecipeView: View {
                         field("Ingredients (one per line)", text: $ingredients, height: 6)
                         field("Directions", text: $instructions, height: 8)
                         Button(action: save) {
-                            Text("Save family recipe")
+                            Text("Save to family recipes")
                                 .font(.headline.weight(.bold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
