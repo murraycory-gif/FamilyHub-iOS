@@ -272,7 +272,7 @@ struct SettingsView: View {
 
             Text("How they go out")
                 .font(.headline.weight(.bold))
-            Text("This iPad is a lock-screen ping on this device. Text is an SMS to a phone number on a profile. Texts need a Twilio account (free trial works).")
+            Text("This iPad is a lock-screen ping. Text opens Messages with the number you enter — tap Send. That’s the whole connection.")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.textSecondary)
             HStack(spacing: 8) {
@@ -288,19 +288,9 @@ struct SettingsView: View {
             }
 
             if store.notifyPrefs.channel.usesText {
-                Text("Who gets the text")
+                Text("Phone number")
                     .font(.headline.weight(.bold))
-                HStack(spacing: 8) {
-                    ForEach(NotifyWho.allCases) { option in
-                        chip(option.label, on: store.notifyPrefs.who == option) {
-                            var next = store.notifyPrefs
-                            next.who = option
-                            store.setNotifyPrefs(next)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                }
-                TextField("Extra number (optional)", text: Binding(
+                TextField("555-123-4567", text: Binding(
                     get: { store.notifyPrefs.extraPhone },
                     set: {
                         var next = store.notifyPrefs
@@ -310,50 +300,33 @@ struct SettingsView: View {
                 ))
                 .keyboardType(.phonePad)
                 .textFieldStyle(.roundedBorder)
-                Text("Uses the phone on that profile in HUB Profiles. Add a number there, or extra here.")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
-                TextField("Twilio Account SID", text: Binding(
-                    get: { store.notifyPrefs.twilioSID },
-                    set: {
-                        var next = store.notifyPrefs
-                        next.twilioSID = $0
-                        store.setNotifyPrefs(next)
+                .font(.title3.weight(.semibold))
+                Button("Connect text") {
+                    HubPinger.shared.sendTest(store)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        testNote = HubPinger.shared.lastError ?? "Messages is open. Send that first text — you’re connected."
                     }
-                ))
-                .textFieldStyle(.roundedBorder)
-                SecureField("Twilio Auth Token", text: Binding(
-                    get: { store.notifyPrefs.twilioToken },
-                    set: {
-                        var next = store.notifyPrefs
-                        next.twilioToken = $0
-                        store.setNotifyPrefs(next)
-                    }
-                ))
-                .textFieldStyle(.roundedBorder)
-                TextField("Twilio From number  +1…", text: Binding(
-                    get: { store.notifyPrefs.twilioFrom },
-                    set: {
-                        var next = store.notifyPrefs
-                        next.twilioFrom = $0
-                        store.setNotifyPrefs(next)
-                    }
-                ))
-                .keyboardType(.phonePad)
-                .textFieldStyle(.roundedBorder)
+                }
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(AppTheme.blue, in: Capsule())
             }
 
-            Button("Send a test ping") {
-                HubPinger.shared.sendTest(store)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                    testNote = HubPinger.shared.lastError ?? "Sent. Check this iPad and the text inbox."
+            if store.notifyPrefs.channel.usesDevice {
+                Button("Send a test ping") {
+                    HubPinger.shared.sendTest(store)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        testNote = HubPinger.shared.lastError ?? "Check this iPad’s lock screen."
+                    }
                 }
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(AppTheme.blue, in: Capsule())
             }
-            .font(.headline.weight(.bold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(AppTheme.blue, in: Capsule())
             if let testNote {
                 Text(testNote)
                     .font(.caption.weight(.semibold))

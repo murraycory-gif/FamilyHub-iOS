@@ -7,11 +7,13 @@ struct MealsView: View {
     @EnvironmentObject private var router: HubRouter
     @State private var pickLaunch: DinnerLaunch?
     @State private var confirmClearAll = false
+    @State private var tourFocus = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "Meal", tail: "Planning")
                 .coachSpot("mealHeader")
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HubPanel(symbol: "fork.knife", title: "Next 2 Weeks", trailing: {
@@ -29,10 +31,19 @@ struct MealsView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
+            .onChange(of: tourFocus) { _, id in
+                guard !id.isEmpty else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation { proxy.scrollTo(id, anchor: .center) }
+                }
+            }
+            }
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
-        .hubTour("meals", steps: HubTours.meals)
+        .hubTour("meals", steps: HubTours.meals) { id in
+            tourFocus = id
+        }
         .fullScreenCover(item: $pickLaunch) { item in
             DinnerLaunchView(item: item) {
                 pickLaunch = nil

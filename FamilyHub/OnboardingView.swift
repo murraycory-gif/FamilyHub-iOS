@@ -407,8 +407,17 @@ struct OnboardingView: View {
                     .frame(maxWidth: .infinity)
                     .padding(18)
                     .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                Text("Share this from Settings → Household. Each person picks their own profile after they join.")
+                Text("Share this with the family. Each person picks their own profile after they join.")
                     .foregroundStyle(AppTheme.textSecondary)
+                ShareLink(item: "Join our family HUB. Code: \(store.joinCode). Open HUB and tap Join.") {
+                    Label("Share by text, email, or more", systemImage: "square.and.arrow.up.fill")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
         }
     }

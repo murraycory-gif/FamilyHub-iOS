@@ -8,11 +8,13 @@ struct FamilyView: View {
     @State private var editing: FamilyMember?
     @State private var draggingID: UUID?
     @State private var profileMember: FamilyMember?
+    @State private var tourFocus = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "HUB", tail: "Profiles")
                 .coachSpot("famHeader")
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     householdCard
@@ -22,10 +24,19 @@ struct FamilyView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
+            .onChange(of: tourFocus) { _, id in
+                guard !id.isEmpty else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation { proxy.scrollTo(id, anchor: .center) }
+                }
+            }
+            }
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
-        .hubTour("family", steps: HubTours.family)
+        .hubTour("family", steps: HubTours.family) { id in
+            tourFocus = id
+        }
         .onAppear { household = store.householdName }
         .onDisappear { store.setHouseholdName(household) }
         .sheet(isPresented: $showAdd) { EditMemberSheet(member: nil) }

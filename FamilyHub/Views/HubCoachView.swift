@@ -44,6 +44,7 @@ private struct HubTourModifier: ViewModifier {
                         HubCoachLayer(
                             rects: rects,
                             canvas: geo.size,
+                            safe: geo.safeAreaInsets,
                             steps: steps,
                             onStep: onStep
                         ) {
@@ -51,6 +52,7 @@ private struct HubTourModifier: ViewModifier {
                         }
                     }
                 }
+                .ignoresSafeArea()
                 .allowsHitTesting(!done.contains(page))
             }
     }
@@ -65,10 +67,12 @@ private struct HubTourModifier: ViewModifier {
 struct HubCoachLayer: View {
     let rects: [String: CGRect]
     let canvas: CGSize
+    let safe: EdgeInsets
     let steps: [CoachStep]
     var onStep: ((String) -> Void)?
     var onDone: () -> Void
     @State private var step = 0
+    @State private var showBubble = false
 
     var body: some View {
         let current = steps[min(step, steps.count - 1)]
@@ -83,11 +87,21 @@ struct HubCoachLayer: View {
                     .offset(x: hole.minX, y: hole.minY)
                     .allowsHitTesting(false)
             }
-            callout(for: hole, step: current)
+            if showBubble {
+                callout(for: hole, step: current)
+            }
         }
-        .onAppear { onStep?(current.id) }
+        .onAppear { focus(current.id) }
         .onChange(of: step) { _, _ in
-            onStep?(steps[min(step, steps.count - 1)].id)
+            focus(steps[min(step, steps.count - 1)].id)
+        }
+    }
+
+    private func focus(_ id: String) {
+        showBubble = false
+        onStep?(id)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation(.easeInOut(duration: 0.2)) { showBubble = true }
         }
     }
 
@@ -97,10 +111,9 @@ struct HubCoachLayer: View {
     }
 
     private func callout(for hole: CGRect, step: CoachStep) -> some View {
-        let width = min(360, max(280, canvas.width - 40))
-        let bubbleH: CGFloat = 168
-        let margin: CGFloat = 12
-        let place = placement(hole: hole, width: width, height: bubbleH, margin: margin)
+        let width = min(340, max(260, canvas.width - safe.leading - safe.trailing - 48))
+        let bubbleH: CGFloat = 200
+        let place = placement(hole: hole, width: width, height: bubbleH)
 
         return VStack(spacing: 0) {
             if place.arrow == .up {
@@ -174,41 +187,43 @@ struct HubCoachLayer: View {
         enum Arrow { case up, down, none }
     }
 
-    private func placement(hole: CGRect, width: CGFloat, height: CGFloat, margin: CGFloat) -> Place {
-        let maxX = canvas.width - width - margin
-        func clampX(_ raw: CGFloat) -> CGFloat { min(max(margin, raw), max(margin, maxX)) }
+    private func placement(hole: CGRect, width: CGFloat, height: CGFloat) -> Place {
+        let top = safe.top + 12
+        let bottom = canvas.height - safe.bottom - 12
+        let left = safe.leading + 12
+        let right = canvas.width - safe.trailing - 12
+        func clampX(_ raw: CGFloat) -> CGFloat { min(max(left, raw), max(left, right - width)) }
+        func clampY(_ raw: CGFloat) -> CGFloat { min(max(top, raw), max(top, bottom - height)) }
         func arrowX(for x: CGFloat) -> CGFloat {
             guard hole != .null else { return width / 2 }
             return min(max(24, hole.midX - x), width - 24)
         }
 
         if hole == .null {
-            return Place(x: clampX((canvas.width - width) / 2), y: canvas.height * 0.3, arrow: .none, arrowX: width / 2)
+            return Place(x: clampX((canvas.width - width) / 2), y: clampY(canvas.height * 0.28), arrow: .none, arrowX: width / 2)
         }
 
-        let belowY = hole.maxY + 10
-        let aboveY = hole.minY - height - 10
-        if belowY + height <= canvas.height - margin {
+        let spaceBelow = bottom - hole.maxY
+        let spaceAbove = hole.minY - top
+        let spaceLeft = hole.minX - left
+        let spaceRight = right - hole.maxX
+
+        if spaceBelow >= height + 16 {
             let x = clampX(hole.midX - width / 2)
-            return Place(x: x, y: belowY, arrow: .up, arrowX: arrowX(for: x))
+            return Place(x: x, y: hole.maxY + 10, arrow: .up, arrowX: arrowX(for: x))
         }
-        if aboveY >= margin {
+        if spaceAbove >= height + 16 {
             let x = clampX(hole.midX - width / 2)
-            return Place(x: x, y: aboveY, arrow: .down, arrowX: arrowX(for: x))
+            return Place(x: x, y: hole.minY - height - 10, arrow: .down, arrowX: arrowX(for: x))
         }
-        if hole.minX - 16 - width >= margin {
-            let x = hole.minX - 16 - width
-            let y = min(max(margin, hole.midY - height / 2), canvas.height - height - margin)
-            return Place(x: x, y: y, arrow: .none, arrowX: width / 2)
+        if spaceLeft >= width + 16 {
+            return Place(x: hole.minX - 16 - width, y: clampY(hole.midY - height / 2), arrow: .none, arrowX: width / 2)
         }
-        if hole.maxX + 16 + width <= canvas.width - margin {
-            let x = hole.maxX + 16
-            let y = min(max(margin, hole.midY - height / 2), canvas.height - height - margin)
-            return Place(x: x, y: y, arrow: .none, arrowX: width / 2)
+        if spaceRight >= width + 16 {
+            return Place(x: hole.maxX + 16, y: clampY(hole.midY - height / 2), arrow: .none, arrowX: width / 2)
         }
-        let x = clampX(hole.midX - width / 2)
-        let y = min(max(margin, canvas.height - height - margin), canvas.height - height - margin)
-        return Place(x: x, y: y, arrow: .none, arrowX: width / 2)
+        let y = hole.midY > (top + bottom) / 2 ? top : bottom - height
+        return Place(x: clampX(hole.midX - width / 2), y: clampY(y), arrow: .none, arrowX: width / 2)
     }
 
     private func advance() {

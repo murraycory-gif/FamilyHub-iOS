@@ -5,10 +5,12 @@ struct ChoresView: View {
     @State private var showAddChore = false
     @State private var assignChore: Chore?
     @State private var selectedKid: UUID?
+    @State private var tourFocus = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "Chore", tail: "Board")
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     kidBalances
@@ -22,10 +24,19 @@ struct ChoresView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
+            .onChange(of: tourFocus) { _, id in
+                guard !id.isEmpty else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation { proxy.scrollTo(id, anchor: .center) }
+                }
+            }
+            }
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
-        .hubTour("chores", steps: HubTours.chores)
+        .hubTour("chores", steps: HubTours.chores) { id in
+            tourFocus = id
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showAddChore = true } label: { Image(systemName: "plus") }

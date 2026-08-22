@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import UserNotifications
 
 @MainActor
@@ -69,7 +70,7 @@ final class HubPinger {
 
     func fireDue(_ store: HubStore) async {
         let prefs = store.notifyPrefs
-        guard prefs.anyOn, prefs.channel.usesText, prefs.textReady else { return }
+        guard prefs.anyOn, prefs.channel.usesText, !phones(in: store).isEmpty else { return }
         let hour = Calendar.current.component(.hour, from: Date())
         if prefs.morningBrief, (6...9).contains(hour), mark("morning") {
             await deliver(store, title: "Sunrise brief", body: morningBody(store), device: false)
@@ -114,33 +115,16 @@ final class HubPinger {
         if prefs.channel.usesText {
             let numbers = phones(in: store)
             if numbers.isEmpty {
-                lastError = "No phone numbers. Add one on a profile, or an extra number in Settings."
-            } else if !prefs.textReady {
-                lastError = "Texts need a Twilio Account SID, token, and From number."
+                lastError = "Add a phone number, then tap Connect text."
             } else {
-                for number in numbers {
-                    do {
-                        try await sendSMS(prefs: prefs, to: number, body: "\(title) — \(body)")
-                    } catch {
-                        lastError = error.localizedDescription
-                    }
-                }
+                openMessages(to: numbers, body: "\(title) — \(body)")
             }
         }
     }
 
     private func phones(in store: HubStore) -> [String] {
-        let prefs = store.notifyPrefs
-        var raw: [String] = []
-        switch prefs.who {
-        case .me:
-            raw.append(store.signedInMember()?.phone ?? "")
-        case .owner:
-            raw.append(store.members.first(where: { $0.id == store.ownerID })?.phone ?? "")
-        case .everyone:
-            raw.append(contentsOf: store.members.map(\.phone))
-        }
-        raw.append(prefs.extraPhone)
+        var raw: [String] = [store.notifyPrefs.extraPhone]
+        raw.append(store.signedInMember()?.phone ?? "")
         return Array(Set(raw.compactMap(Self.e164))).sorted()
     }
 
@@ -152,26 +136,15 @@ final class HubPinger {
         return nil
     }
 
-    private func sendSMS(prefs: HubNotifyPrefs, to: String, body: String) async throws {
-        let sid = prefs.twilioSID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: "https://api.twilio.com/2010-04-01/Accounts/\(sid)/Messages.json") else {
-            throw URLError(.badURL)
+    private func openMessages(to numbers: [String], body: String) {
+        let phone = numbers.first ?? ""
+        var parts = URLComponents(string: "sms:\(phone)")
+        parts?.queryItems = [URLQueryItem(name: "body", value: body)]
+        guard let url = parts?.url else {
+            lastError = "Could not open Messages."
+            return
         }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        let token = "\(sid):\(prefs.twilioToken)"
-        let auth = Data(token.utf8).base64EncodedString()
-        request.setValue("Basic \(auth)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        let from = prefs.twilioFrom.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? prefs.twilioFrom
-        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? body
-        request.httpBody = "To=\(to)&From=\(from)&Body=\(encodedBody)".data(using: .utf8)
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if code >= 300 {
-            let text = String(data: data, encoding: .utf8) ?? "SMS failed"
-            throw NSError(domain: "HUB", code: code, userInfo: [NSLocalizedDescriptionKey: text])
-        }
+        UIApplication.shared.open(url)
     }
 
     private func daily(_ id: String, hour: Int, minute: Int, title: String, body: String) -> UNNotificationRequest {
