@@ -378,6 +378,7 @@ struct OnboardingView: View {
                 pingRow("Before events", "A tap before something on the family calendar.", $prefs.eventPings)
                 pingRow("Dinner lock-in", "When tonight’s meal is set or still empty.", $prefs.dinnerPing)
                 pingRow("Chore check", "When a chore is due or waiting on approval.", $prefs.chorePing)
+                pingRow("Bills Due", "When a bill from your bills calendar is coming up.", $prefs.billsPing)
                 pingRow("Shopping nudge", "When the list has items before you leave the house.", $prefs.shoppingPing)
             }
         }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 struct SettingsView: View {
     @EnvironmentObject private var store: HubStore
@@ -183,6 +184,17 @@ struct SettingsView: View {
                         }
                     }
                     .coachSpot("setWeather")
+                    SettingsFold(
+                        symbol: "bell.fill",
+                        title: "Notifications",
+                        subtitle: store.notifyPrefs.anyOn ? "On" : "Off",
+                        isOpen: open.contains("notify")
+                    ) {
+                        toggle("notify")
+                    } content: {
+                        notifyBox
+                    }
+                    .coachSpot("setNotify")
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -203,6 +215,7 @@ struct SettingsView: View {
             case "setHouse": open = ["household"]
             case "setBills": open = ["bills"]
             case "setWeather": open = ["weather"]
+            case "setNotify": open = ["notify"]
             default: break
             }
         }
@@ -210,6 +223,73 @@ struct SettingsView: View {
 
     private func toggle(_ id: String) {
         if open.contains(id) { open.remove(id) } else { open.insert(id) }
+    }
+
+    private var notifyBox: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle(isOn: Binding(
+                get: { store.notifyPrefs.anyOn },
+                set: { on in
+                    if on {
+                        var next = store.notifyPrefs
+                        if !next.anyOn {
+                            next.eventPings = true
+                            next.dinnerPing = true
+                            next.chorePing = true
+                            next.billsPing = true
+                        }
+                        store.setNotifyPrefs(next)
+                        askNotifyPermission()
+                    } else {
+                        store.setNotifyPrefs(.off)
+                    }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Allow notifications")
+                        .font(.headline.weight(.bold))
+                    Text("Master switch. Flip individual pings below.")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+            }
+            .tint(AppTheme.blue)
+            .padding(14)
+            .background(AppTheme.bg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            notifyRow("Sunrise brief", "Morning rundown of the household.", \.morningBrief)
+            notifyRow("Before events", "A tap before something on the family calendar.", \.eventPings)
+            notifyRow("Dinner lock-in", "When tonight’s meal is set or still empty.", \.dinnerPing)
+            notifyRow("Chore check", "When a chore is due or waiting on approval.", \.chorePing)
+            notifyRow("Bills Due", "When a bill from your bills calendar is coming up.", \.billsPing)
+            notifyRow("Shopping nudge", "When the list has items before you leave the house.", \.shoppingPing)
+        }
+    }
+
+    private func notifyRow(_ title: String, _ detail: String, _ key: WritableKeyPath<HubNotifyPrefs, Bool>) -> some View {
+        Toggle(isOn: Binding(
+            get: { store.notifyPrefs[keyPath: key] },
+            set: { on in
+                var next = store.notifyPrefs
+                next[keyPath: key] = on
+                store.setNotifyPrefs(next)
+                if on { askNotifyPermission() }
+            }
+        )) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.headline.weight(.bold))
+                Text(detail)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+        }
+        .tint(AppTheme.blue)
+        .padding(14)
+        .background(AppTheme.bg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func askNotifyPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
     private var signedInRow: some View {

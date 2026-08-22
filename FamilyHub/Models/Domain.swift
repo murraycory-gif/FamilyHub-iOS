@@ -1169,17 +1169,49 @@ struct HubNotifyPrefs: Codable, Equatable {
     var dinnerPing: Bool
     var chorePing: Bool
     var shoppingPing: Bool
+    var billsPing: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case morningBrief, eventPings, dinnerPing, chorePing, shoppingPing, billsPing
+    }
+
+    init(
+        morningBrief: Bool,
+        eventPings: Bool,
+        dinnerPing: Bool,
+        chorePing: Bool,
+        shoppingPing: Bool,
+        billsPing: Bool = false
+    ) {
+        self.morningBrief = morningBrief
+        self.eventPings = eventPings
+        self.dinnerPing = dinnerPing
+        self.chorePing = chorePing
+        self.shoppingPing = shoppingPing
+        self.billsPing = billsPing
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        morningBrief = try c.decodeIfPresent(Bool.self, forKey: .morningBrief) ?? false
+        eventPings = try c.decodeIfPresent(Bool.self, forKey: .eventPings) ?? false
+        dinnerPing = try c.decodeIfPresent(Bool.self, forKey: .dinnerPing) ?? false
+        chorePing = try c.decodeIfPresent(Bool.self, forKey: .chorePing) ?? false
+        shoppingPing = try c.decodeIfPresent(Bool.self, forKey: .shoppingPing) ?? false
+        billsPing = try c.decodeIfPresent(Bool.self, forKey: .billsPing) ?? false
+    }
 
     static let off = HubNotifyPrefs(
         morningBrief: false,
         eventPings: false,
         dinnerPing: false,
         chorePing: false,
-        shoppingPing: false
+        shoppingPing: false,
+        billsPing: false
     )
 
     var anyOn: Bool {
-        morningBrief || eventPings || dinnerPing || chorePing || shoppingPing
+        morningBrief || eventPings || dinnerPing || chorePing || shoppingPing || billsPing
     }
 }
 
