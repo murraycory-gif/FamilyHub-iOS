@@ -36,7 +36,8 @@ struct TodayView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let familyH = max(geo.size.height * 0.46, sizeClass == .regular ? 340 : 280)
+            let portrait = geo.size.height > geo.size.width
+            let familyH = max(geo.size.height * (portrait ? 0.38 : 0.46), portrait ? 300 : 340)
             ZStack {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -44,36 +45,20 @@ struct TodayView: View {
                     .coachSpot("hub")
                     TabView(selection: dayPage) {
                         ForEach(swipeDays, id: \.self) { day in
-                            let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
-                            HStack(alignment: .top, spacing: 12) {
-                                agenda(for: day)
-                                    .coachSpot("agenda", active: on)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                VStack(spacing: 12) {
-                                    weatherTile(for: day)
-                                        .coachSpot("weather", active: on)
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    shoppingTile
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                }
-                                .frame(maxWidth: .infinity)
-                                dinnerHomeTile(for: day)
-                                    .coachSpot("dinner", active: on)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            }
-                            .padding(.horizontal, 2)
-                            .tag(day)
+                            dashboard(for: day, portrait: portrait)
+                                .padding(.horizontal, 2)
+                                .tag(day)
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
                     .frame(maxHeight: .infinity)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
                 .padding(.bottom, 8)
-                familySection
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 18)
+                familySection(canvas: geo.size)
+                    .padding(.horizontal, portrait ? 16 : 24)
+                    .padding(.bottom, portrait ? 12 : 18)
                     .frame(height: familyH)
                     .coachSpot("family")
             }
@@ -148,6 +133,49 @@ struct TodayView: View {
     }
 
     private var homeTileH: CGFloat { sizeClass == .regular ? 168 : 148 }
+
+    @ViewBuilder
+    private func dashboard(for day: Date, portrait: Bool) -> some View {
+        let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
+        if portrait {
+            VStack(spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    agenda(for: day)
+                        .coachSpot("agenda", active: on)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 12) {
+                        weatherTile(for: day)
+                            .coachSpot("weather", active: on)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        shoppingTile
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                dinnerHomeTile(for: day)
+                    .coachSpot("dinner", active: on)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 176)
+            }
+        } else {
+            HStack(alignment: .top, spacing: 12) {
+                agenda(for: day)
+                    .coachSpot("agenda", active: on)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 12) {
+                    weatherTile(for: day)
+                        .coachSpot("weather", active: on)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    shoppingTile
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(maxWidth: .infinity)
+                dinnerHomeTile(for: day)
+                    .coachSpot("dinner", active: on)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
 
     private var greetingLead: String { "Good" }
 
@@ -947,10 +975,10 @@ struct TodayView: View {
         .background(soft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private var familySection: some View {
+    private func familySection(canvas: CGSize) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(symbol: "house.fill", title: "HUB")
-            memberStrip
+            memberStrip(canvas: canvas)
                 .padding(12)
         }
         .background(AppTheme.blueSoft)
@@ -961,9 +989,9 @@ struct TodayView: View {
         )
     }
 
-    private var memberStrip: some View {
+    private func memberStrip(canvas: CGSize) -> some View {
         GeometryReader { geo in
-            let width = cardWidth(in: geo.size)
+            let width = cardWidth(in: geo.size, canvas: canvas)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
                     FamilyFocusCard(selected: profile == .family, day: selectedDay) {
@@ -991,9 +1019,10 @@ struct TodayView: View {
         }
     }
 
-    private func cardWidth(in size: CGSize) -> CGFloat {
-        let visible: CGFloat = size.width >= size.height ? 4 : 3
-        return max(140, (size.width - 12 * (visible - 1)) / visible)
+    private func cardWidth(in size: CGSize, canvas: CGSize) -> CGFloat {
+        let portrait = canvas.height > canvas.width
+        let visible: CGFloat = portrait ? 3 : 4
+        return max(168, (size.width - 12 * (visible - 1)) / visible)
     }
 }
 
@@ -1203,13 +1232,13 @@ private struct AmazonPersonCard<Content: View>: View {
                 HStack(alignment: .bottom, spacing: 8) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(name)
-                            .font(.title.weight(.bold))
+                            .font(.title2.weight(.bold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                            .minimumScaleFactor(0.55)
                             .shadow(color: .black.opacity(0.5), radius: 6, y: 1)
                         Text(eventCount == 1 ? "1 EVENT" : "\(eventCount) EVENTS")
-                            .font(.caption.weight(.bold))
+                            .font(.caption2.weight(.bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -1220,12 +1249,13 @@ private struct AmazonPersonCard<Content: View>: View {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(.white)
-                            .frame(width: 34, height: 34)
+                            .frame(width: 32, height: 32)
                             .background(.black.opacity(0.35), in: Circle())
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(12)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 158)
@@ -1330,17 +1360,27 @@ private struct DayStatusRow: View {
 
     private func box(_ color: Color, _ soft: Color, _ symbol: String, _ count: Int, _ title: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: symbol)
-                Text("\(count)")
-                    .monospacedDigit()
-                Text(title)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 4) {
+                    Image(systemName: symbol)
+                    Text("\(count)").monospacedDigit()
+                    Text(title)
+                }
+                HStack(spacing: 3) {
+                    Image(systemName: symbol)
+                    Text("\(count)").monospacedDigit()
+                    Text(String(title.prefix(5)))
+                }
+                HStack(spacing: 3) {
+                    Image(systemName: symbol)
+                    Text("\(count)").monospacedDigit()
+                }
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
             .font(.system(size: 11, weight: .bold))
             .foregroundStyle(color)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 6)
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity)
             .background(soft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
