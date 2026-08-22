@@ -221,8 +221,9 @@ struct TonightDinnerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     let day: Date
-    @State private var showChange = false
+    @State private var showPicker = false
     @State private var addedToList = false
+    @State private var skipShopping = false
 
     private var plan: DinnerPlan? { store.dinner(on: day) }
     private var recipe: Recipe? {
@@ -230,21 +231,29 @@ struct TonightDinnerView: View {
     }
 
     var body: some View {
-        if plan == nil {
-            MealChoiceSheet(day: day)
-        } else {
-            NavigationStack { content }
-                .fullScreenCover(isPresented: $showChange) {
-                    MealChoiceSheet(day: day)
-                        .environmentObject(store)
-                }
-        }
+        NavigationStack { content }
+            .fullScreenCover(isPresented: $showPicker) {
+                MealChoiceSheet(day: day)
+                    .environmentObject(store)
+            }
+            .onAppear {
+                if store.dinner(on: day) == nil { showPicker = true }
+            }
     }
 
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if let recipe {
+                if plan == nil {
+                    Text("Nothing planned")
+                        .font(.system(size: 34, weight: .bold))
+                    Button("Plan dinner") { showPicker = true }
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppTheme.blue, in: Capsule())
+                } else if let recipe {
                     cookView(recipe, heading: "Main")
                     if let side = store.dinnerSide(on: day) {
                         cookView(side, heading: "Side")
@@ -268,7 +277,7 @@ struct TonightDinnerView: View {
                 Button("Done") { dismiss() }.foregroundStyle(AppTheme.blue)
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Change") { showChange = true }.foregroundStyle(AppTheme.blue)
+                Button("Change") { showPicker = true }.foregroundStyle(AppTheme.blue)
             }
         }
     }
@@ -299,18 +308,26 @@ struct TonightDinnerView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(AppTheme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                Button {
-                    for line in recipe.ingredients { store.addShoppingItem(line) }
-                    addedToList = true
-                } label: {
-                    Text(addedToList ? "Added to shopping" : "Add ingredients to shopping")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(addedToList ? AppTheme.todo : AppTheme.blue, in: Capsule())
+                if !skipShopping {
+                    Button {
+                        for line in recipe.ingredients { store.addShoppingItem(line) }
+                        addedToList = true
+                    } label: {
+                        Text(addedToList ? "Added to shopping" : "Add ingredients to shopping")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(addedToList ? AppTheme.todo : AppTheme.blue, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    if !addedToList {
+                        Button("Skip shopping") { skipShopping = true }
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
-                .buttonStyle(.plain)
             }
             if !recipe.instructions.isEmpty {
                 Text("How to make it")
@@ -1085,6 +1102,16 @@ private struct ShoppingAskView: View {
                     .buttonStyle(.plain)
                 }
                 Button(action: onNext) {
+                    Text("Skip shopping")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppTheme.blueSoft, in: Capsule())
+                        .overlay(Capsule().stroke(AppTheme.blue, lineWidth: 2))
+                }
+                .buttonStyle(.plain)
+                Button(action: onNext) {
                     Text("Next: Choose a side")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
@@ -1093,11 +1120,6 @@ private struct ShoppingAskView: View {
                         .background(AppTheme.blue, in: Capsule())
                 }
                 .buttonStyle(.plain)
-                Button("Skip shopping") { onNext() }
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
             }
             .padding(20)
         }
