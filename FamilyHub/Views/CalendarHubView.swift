@@ -162,12 +162,14 @@ struct CalendarHubView: View {
 
     private var weekdayHeader: some View {
         LazyVGrid(columns: columns, spacing: 0) {
-            ForEach(Calendar.current.veryShortWeekdaySymbols, id: \.self) { day in
+            ForEach(Array(Calendar.current.weekdaySymbols.enumerated()), id: \.offset) { _, day in
                 Text(day)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.textTertiary)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 10)
             }
         }
     }
@@ -200,9 +202,9 @@ struct CalendarHubView: View {
                 HStack {
                     Spacer(minLength: 0)
                     Text("\(cal.component(.day, from: day))")
-                        .font(.subheadline.weight(today || selected ? .bold : .regular))
+                        .font(.title3.weight(.bold))
                         .foregroundStyle(today ? .white : (inMonth ? AppTheme.text : AppTheme.textTertiary))
-                        .frame(width: 28, height: 28)
+                        .frame(width: 34, height: 34)
                         .background {
                             if today {
                                 Circle().fill(AppTheme.blue)
