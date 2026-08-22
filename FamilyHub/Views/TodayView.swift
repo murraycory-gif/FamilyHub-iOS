@@ -1214,54 +1214,68 @@ private struct AmazonPersonCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .bottomLeading) {
-                ring
-                if let image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                } else if let emoji {
-                    Text(emoji).font(.system(size: 72))
-                } else {
-                    Image(systemName: fallback ?? "person.fill")
-                        .font(.system(size: 56, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.5))
-                }
-                LinearGradient(colors: [.clear, .black.opacity(0.82)], startPoint: .center, endPoint: .bottom)
-                HStack(alignment: .bottom, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(name)
-                            .font(.title2.weight(.bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.55)
-                            .shadow(color: .black.opacity(0.5), radius: 6, y: 1)
-                        Text(eventCount == 1 ? "1 EVENT" : "\(eventCount) EVENTS")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(ring, in: Capsule())
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 158)
+                .background {
+                    ZStack {
+                        ring
+                        if let image {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                        } else if let emoji {
+                            Text(emoji).font(.system(size: 72))
+                        } else {
+                            Image(systemName: fallback ?? "person.fill")
+                                .font(.system(size: 56, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
                     }
-                    Spacer(minLength: 0)
-                    Button(action: onCamera) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 32, height: 32)
-                            .background(.black.opacity(0.35), in: Circle())
-                    }
-                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 158)
-            .clipped()
-            .contentShape(Rectangle())
-            .onTapGesture { onSelect() }
+                .overlay(alignment: .bottom) {
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.45), .black.opacity(0.86)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 108)
+                    .allowsHitTesting(false)
+                }
+                .overlay(alignment: .bottomLeading) {
+                    HStack(alignment: .bottom, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(name.isEmpty ? "Profile" : name)
+                                .font(.title2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.55)
+                                .shadow(color: .black.opacity(0.7), radius: 8, y: 1)
+                            Text(eventCount == 1 ? "1 EVENT" : "\(eventCount) EVENTS")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(ring, in: Capsule())
+                        }
+                        Spacer(minLength: 0)
+                        Button(action: onCamera) {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 32, height: 32)
+                                .background(.black.opacity(0.45), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                }
+                .clipped()
+                .contentShape(Rectangle())
+                .onTapGesture { onSelect() }
 
             VStack(alignment: .leading, spacing: 10) {
                 content
