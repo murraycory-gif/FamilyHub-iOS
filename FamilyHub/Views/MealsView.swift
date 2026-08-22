@@ -636,145 +636,106 @@ private struct EatOutPicker: View {
     @StateObject private var completer = AreaCompleter()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 10) {
-                    Text(mode == .delivery ? "Delivery" : mode == .takeout ? "Take" : "Eating")
-                        .foregroundStyle(AppTheme.text)
-                    if mode != .delivery {
-                        Text(mode == .takeout ? "Out" : "Out")
-                            .foregroundStyle(AppTheme.blue)
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(
+                lead: mode == .delivery ? "Food" : mode == .takeout ? "Take" : "Eating",
+                tail: mode == .delivery ? "Delivery" : "Out"
+            )
+            .coachSpot("eatHeader")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(mode == .delivery ? "Places that can come to you. Near \(places.areaName)." : mode == .takeout ? "Pick it up near \(places.areaName)." : "Sit down near \(places.areaName).")
+                        .foregroundStyle(AppTheme.textSecondary)
+                    HStack {
+                        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+                        TextField("McDonald’s, pizza, tacos…", text: $areaQuery)
+                            .textFieldStyle(.plain)
+                            .onSubmit {
+                                completer.clear()
+                                Task { await places.searchMaps(areaQuery) }
+                            }
+                            .onChange(of: areaQuery) { _, value in
+                                completer.update(value)
+                                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard trimmed.isEmpty == false else { return }
+                                Task {
+                                    try? await Task.sleep(for: .milliseconds(350))
+                                    guard areaQuery == value else { return }
+                                    await places.searchMaps(value)
+                                }
+                            }
                     }
-                }
-                .font(.system(size: 36, weight: .bold))
-                .coachSpot("eatHeader")
-                Text(mode == .delivery ? "Places that can come to you. Near \(places.areaName)." : mode == .takeout ? "Pick it up near \(places.areaName)." : "Sit down near \(places.areaName).")
-                    .foregroundStyle(AppTheme.textSecondary)
-                HStack {
-                    Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                    TextField("McDonald’s, pizza, tacos…", text: $areaQuery)
-                        .textFieldStyle(.plain)
-                        .onSubmit {
+                    .padding(14)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    HStack(spacing: 8) {
+                        Button {
+                            areaQuery = ""
                             completer.clear()
-                            Task { await places.searchMaps(areaQuery) }
+                            Task { await places.useHere() }
+                        } label: {
+                            Label("Here", systemImage: "location.fill")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .background(AppTheme.blue, in: Capsule())
                         }
-                        .onChange(of: areaQuery) { _, value in
-                            completer.update(value)
-                            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard trimmed.isEmpty == false else { return }
-                            Task {
-                                try? await Task.sleep(for: .milliseconds(350))
-                                guard areaQuery == value else { return }
-                                await places.searchMaps(value)
+                        .buttonStyle(.plain)
+                        Text("Or a city / zip")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.textTertiary)
+                    }
+                    if !completer.suggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(completer.suggestions) { item in
+                                Button {
+                                    areaQuery = item.title
+                                    completer.clear()
+                                    Task { await places.searchMaps(item.query) }
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "mappin.and.ellipse")
+                                            .foregroundStyle(AppTheme.blue)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(item.title)
+                                                .font(.headline)
+                                                .foregroundStyle(AppTheme.text)
+                                            if !item.subtitle.isEmpty {
+                                                Text(item.subtitle)
+                                                    .font(.caption)
+                                                    .foregroundStyle(AppTheme.textSecondary)
+                                            }
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
-                }
-                .padding(14)
-                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                HStack(spacing: 8) {
-                    Button {
-                        areaQuery = ""
-                        completer.clear()
-                        Task { await places.useHere() }
-                    } label: {
-                        Label("Here", systemImage: "location.fill")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .background(AppTheme.blue, in: Capsule())
+                        .background(AppTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                        )
                     }
-                    .buttonStyle(.plain)
-                    Text("Or a city / zip")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.textTertiary)
-                }
-                if !completer.suggestions.isEmpty {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(completer.suggestions) { item in
-                            Button {
-                                areaQuery = item.title
-                                completer.clear()
-                                Task { await places.searchMaps(item.query) }
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "mappin.and.ellipse")
-                                        .foregroundStyle(AppTheme.blue)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(item.title)
-                                            .font(.headline)
-                                            .foregroundStyle(AppTheme.text)
-                                        if !item.subtitle.isEmpty {
-                                            Text(item.subtitle)
-                                                .font(.caption)
-                                                .foregroundStyle(AppTheme.textSecondary)
-                                        }
-                                    }
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
+                    if places.isLoading { ProgressView() }
+                    if let message = places.message {
+                        Text(message).foregroundStyle(AppTheme.textSecondary)
+                    }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 14) {
+                        ForEach(places.places) { place in
+                            Button { opened = place } label: {
+                                placeTile(place)
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .background(AppTheme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(AppTheme.cardBorder, lineWidth: 1)
-                    )
                 }
-                if places.isLoading { ProgressView() }
-                if let message = places.message {
-                    Text(message).foregroundStyle(AppTheme.textSecondary)
-                }
-                LazyVStack(spacing: 14) {
-                    ForEach(places.places) { place in
-                        Button { opened = place } label: {
-                            HStack(spacing: 14) {
-                                PlaceThumb(mode: place.mode)
-                                    .frame(width: 88, height: 88)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(place.name)
-                                        .font(.headline.weight(.bold))
-                                        .foregroundStyle(AppTheme.text)
-                                        .lineLimit(2)
-                                    Text(place.mode.title)
-                                        .font(.caption.weight(.bold))
-                                        .foregroundStyle(AppTheme.blue)
-                                    if !place.address.isEmpty {
-                                        Text(place.address)
-                                            .font(.subheadline)
-                                            .foregroundStyle(AppTheme.textSecondary)
-                                            .lineLimit(1)
-                                    }
-                                    if let distance = place.distanceLabel {
-                                        Text(distance)
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(AppTheme.textTertiary)
-                                    }
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(AppTheme.textTertiary)
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-                            .background(AppTheme.card)
-                            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                    .stroke(AppTheme.cardBorder, lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                .padding(20)
             }
-            .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
@@ -804,72 +765,58 @@ private struct FamilyRecipePicker: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center) {
-                    HStack(spacing: 10) {
-                        Text("Family")
-                            .foregroundStyle(AppTheme.text)
-                        Text("Recipes")
-                            .foregroundStyle(AppTheme.blue)
-                    }
-                    .font(.system(size: 36, weight: .bold))
-                    Spacer()
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "Family", tail: "Recipes") {
+                HStack(spacing: 8) {
                     Button { showScan = true } label: {
                         Label("Scan", systemImage: "doc.text.viewfinder")
-                            .font(.headline)
+                            .font(.headline.weight(.bold))
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
+                            .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(AppTheme.blue, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     Button { showLink = true } label: {
                         Label("Link", systemImage: "link")
-                            .font(.headline)
+                            .font(.headline.weight(.bold))
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
+                            .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(AppTheme.blue, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     Button { showAdd = true } label: {
                         Label("Add", systemImage: "plus")
-                            .font(.headline)
+                            .font(.headline.weight(.bold))
                             .foregroundStyle(AppTheme.blue)
-                            .padding(.horizontal, 14)
+                            .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(AppTheme.blueSoft, in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
-                Text("Save recipes for later. Scan a card, paste a TikTok / YouTube / Instagram / Pinterest link, or type one in. They stay in this list until you cook them.")
-                    .foregroundStyle(AppTheme.textSecondary)
-                HStack(spacing: 12) {
-                    Button { showScan = true } label: {
-                        saveAction(symbol: "doc.text.viewfinder", title: "Scan a card", detail: "Cookbook or handwritten")
-                    }
-                    .buttonStyle(.plain)
-                    Button { showLink = true } label: {
-                        saveAction(symbol: "link", title: "From a link", detail: "TikTok, YouTube, sites")
-                    }
-                    .buttonStyle(.plain)
-                }
-                if familyRecipes.isEmpty {
-                    Text("Nothing saved yet. Use Scan or From a link — it stays in your family cookbook.")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
-                    ForEach(familyRecipes) { recipe in
-                        Button { opened = recipe } label: {
-                            savedRecipeTile(recipe)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
             }
-            .padding(20)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Scan a card, paste a TikTok / YouTube link, or type one in.")
+                        .foregroundStyle(AppTheme.textSecondary)
+                    if familyRecipes.isEmpty {
+                        Text("Nothing saved yet.")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 14) {
+                        ForEach(familyRecipes) { recipe in
+                            Button { opened = recipe } label: {
+                                savedRecipeTile(recipe)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(20)
+            }
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
@@ -910,7 +857,7 @@ private struct FamilyRecipePicker: View {
                 .clipped()
             LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
             VStack(alignment: .leading, spacing: 6) {
-                Text(sourceLabel(recipe).uppercased())
+                Text("FAMILY")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
@@ -920,15 +867,18 @@ private struct FamilyRecipePicker: View {
                     .font(.title3.weight(.bold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
+                    .minimumScaleFactor(0.85)
             }
             .padding(12)
         }
-        .frame(height: 180)
+        .frame(maxWidth: .infinity)
+        .frame(height: 210)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(AppTheme.blue, lineWidth: 3)
         )
+        .shadow(color: .black.opacity(0.16), radius: 12, y: 6)
     }
 
     private func sourceLabel(_ recipe: Recipe) -> String {
@@ -1015,7 +965,7 @@ private struct CatalogRecipePicker: View {
                 .coachSpot("recHeader")
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
-                    Text("Tap a dinner. Photos load as you scroll.")
+                    Text("Tap a dinner.")
                         .foregroundStyle(AppTheme.textSecondary)
                     searchBar
                     chips
@@ -1155,7 +1105,7 @@ private struct SidePicker: View {
             .coachSpot("sideHeader")
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
-                    Text("Tap a side. Photos load as you scroll.")
+                    Text("Tap a side.")
                         .foregroundStyle(AppTheme.textSecondary)
                     HStack {
                         Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
@@ -1610,6 +1560,42 @@ enum IngredientScale {
     }
 }
 
+private func placeTile(_ place: NearbyPlace) -> some View {
+    ZStack(alignment: .bottomLeading) {
+        PlacePhoto(place: place)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+        LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(place.mode.title.uppercased())
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(AppTheme.blue, in: Capsule())
+            Text(place.name)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+            if let distance = place.distanceLabel {
+                Text(distance)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+        }
+        .padding(12)
+    }
+    .frame(maxWidth: .infinity)
+    .frame(height: 210)
+    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    .overlay(
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .stroke(AppTheme.blue, lineWidth: 3)
+    )
+    .shadow(color: .black.opacity(0.16), radius: 12, y: 6)
+}
+
 private func recipeTile(_ recipe: CatalogRecipe) -> some View {
     ZStack(alignment: .bottomLeading) {
         RecipePhoto(url: recipe.thumb, searchName: recipe.name)
@@ -1645,6 +1631,7 @@ struct RecipePhoto: View {
     let url: URL?
     var searchName: String = ""
     @State private var image: UIImage?
+    @State private var tried = false
 
     var body: some View {
         Color.clear
@@ -1655,6 +1642,10 @@ struct RecipePhoto: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
+                    } else if tried {
+                        Image(systemName: "fork.knife")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundStyle(AppTheme.blue.opacity(0.55))
                     } else {
                         ProgressView()
                     }
@@ -1673,6 +1664,46 @@ struct RecipePhoto: View {
                 }
                 if image == nil {
                     image = await RecipeImages.photo(url: url, name: searchName)
+                }
+                tried = true
+            }
+    }
+}
+
+struct PlacePhoto: View {
+    let place: NearbyPlace
+    @State private var image: UIImage?
+
+    private var fallback: String {
+        switch place.mode {
+        case .delivery: return "DinnerDelivery"
+        case .takeout: return "DinnerTakeout"
+        default: return "DinnerEatOut"
+        }
+    }
+
+    var body: some View {
+        Color.clear
+            .overlay {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(fallback)
+                        .resizable()
+                        .scaledToFill()
+                }
+            }
+            .clipped()
+            .task(id: place.id) {
+                if let found = await PlaceImages.photo(
+                    name: place.name,
+                    address: place.address,
+                    coordinate: place.coordinate,
+                    website: place.url
+                ) {
+                    image = found
                 }
             }
     }
@@ -1767,41 +1798,46 @@ private struct ManualMealSheet: View {
     @State private var notes = ""
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 10) {
-                    Text("Enter")
-                        .foregroundStyle(AppTheme.text)
-                    Text("Meal")
-                        .foregroundStyle(AppTheme.blue)
-                }
-                .font(.system(size: 36, weight: .bold))
-                TextField("What’s for dinner?", text: $name)
-                    .font(.title3)
-                    .padding(14)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                TextField("Notes (optional)", text: $notes, axis: .vertical)
-                    .lineLimit(3...6)
-                    .padding(14)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                Button {
-                    store.setDinner(on: day, recipeID: nil, note: name.trimmingCharacters(in: .whitespaces))
-                    onDone()
-                } label: {
-                    Text("Set dinner")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "Enter", tail: "Meal")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Image("DinnerManual")
+                        .resizable()
+                        .scaledToFill()
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(AppTheme.blue, in: Capsule())
+                        .frame(height: 210)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(AppTheme.blue, lineWidth: 3)
+                        )
+                    TextField("What’s for dinner?", text: $name)
+                        .font(.title3)
+                        .padding(14)
+                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    TextField("Notes (optional)", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
+                        .padding(14)
+                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    Button {
+                        store.setDinner(on: day, recipeID: nil, note: name.trimmingCharacters(in: .whitespaces))
+                        onDone()
+                    } label: {
+                        Text("Set dinner")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(AppTheme.blue, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
-                .buttonStyle(.plain)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .padding(20)
             }
-            .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

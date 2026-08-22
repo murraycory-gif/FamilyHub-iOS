@@ -4,25 +4,20 @@ import UIKit
 enum RecipeImages {
     private static var memory: [String: UIImage] = [:]
     private static let lock = NSLock()
-    private static let version = "v4"
+    private static let version = "v5"
 
     static func cachedImage(url: URL?, name: String) -> UIImage? {
-        let dish = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return cached(cacheKey(dish, url))
+        cached(cacheKey(name))
     }
 
     static func prefetch(_ recipes: [CatalogRecipe]) {
-        let batch = Array(recipes.prefix(40))
+        let batch = Array(recipes.prefix(48))
         Task.detached(priority: .utility) {
             await withTaskGroup(of: Void.self) { group in
-                for chunkStart in stride(from: 0, to: batch.count, by: 8) {
-                    let end = min(chunkStart + 8, batch.count)
-                    for recipe in batch[chunkStart..<end] {
-                        group.addTask {
-                            _ = await photo(url: recipe.thumb, name: recipe.name)
-                        }
+                for recipe in batch {
+                    group.addTask {
+                        _ = await photo(url: recipe.thumb, name: recipe.name)
                     }
-                    await group.waitForAll()
                 }
             }
         }
@@ -30,92 +25,37 @@ enum RecipeImages {
 
     static func photo(url: URL?, name: String) async -> UIImage? {
         let dish = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let key = cacheKey(dish, url)
+        let key = cacheKey(dish)
         if let cached = cached(key) { return cached }
 
-        if let url, !isUnsplash(url), let image = await download(url.absoluteString, timeout: 3) {
+        if let url, isMealDB(url), let image = await download(url.absoluteString, timeout: 4) {
             store(image, key: key)
             return image
         }
+
         guard !dish.isEmpty else { return nil }
-        if let image = await firstPhoto(dish) {
+        let title = alias(dish)
+        if let image = await mealDB(title) {
+            store(image, key: key)
+            return image
+        }
+        if title != dish, let image = await mealDB(dish) {
             store(image, key: key)
             return image
         }
         return nil
     }
 
-    private static func firstPhoto(_ name: String) async -> UIImage? {
-        let title = alias(name)
-        return await withTaskGroup(of: Shot.self) { group in
-            var pending = 2
-            group.addTask { .from(await mealDB(title)) }
-            group.addTask { .from(await wikipediaExact(title)) }
-            if title != name {
-                pending += 1
-                group.addTask { .from(await wikipediaExact(name)) }
-            }
-            group.addTask {
-                try? await Task.sleep(for: .seconds(4))
-                return .timeout
-            }
-            while let shot = await group.next() {
-                switch shot {
-                case .photo(let image):
-                    group.cancelAll()
-                    return image
-                case .timeout:
-                    group.cancelAll()
-                    return nil
-                case .miss:
-                    pending -= 1
-                    if pending <= 0 {
-                        group.cancelAll()
-                        return nil
-                    }
-                }
-            }
-            return nil
-        }
+    private static func cacheKey(_ name: String) -> String {
+        let slug = name.lowercased().map { $0.isLetter || $0.isNumber ? Character(String($0)) : "-" }
+        var compact = String(slug)
+        while compact.contains("--") { compact = compact.replacingOccurrences(of: "--", with: "-") }
+        compact = compact.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        return "\(version)-\(compact.isEmpty ? "dish" : compact)"
     }
 
-    private enum Shot {
-        case photo(UIImage)
-        case miss
-        case timeout
-        static func from(_ image: UIImage?) -> Shot {
-            if let image { return .photo(image) }
-            return .miss
-        }
-    }
-
-    private static func cacheKey(_ name: String, _ url: URL?) -> String {
-        let base = name.isEmpty ? (url?.absoluteString ?? "none") : name
-        return "\(version)-\(base.lowercased())"
-    }
-
-    private static func isUnsplash(_ url: URL) -> Bool {
-        (url.host ?? "").contains("unsplash.com")
-    }
-
-    private static func wikipediaExact(_ title: String) async -> UIImage? {
-        let slug = title.replacingOccurrences(of: " ", with: "_")
-            .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
-        guard let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(slug)"),
-              let json = await json(url, agent: true)
-        else { return nil }
-        if json["type"] as? String == "disambiguation" { return nil }
-        if let thumb = json["thumbnail"] as? [String: Any],
-           let source = thumb["source"] as? String,
-           let image = await download(source, timeout: 3) {
-            return image
-        }
-        if let original = json["originalimage"] as? [String: Any],
-           let source = original["source"] as? String,
-           let image = await download(source, timeout: 3) {
-            return image
-        }
-        return nil
+    private static func isMealDB(_ url: URL) -> Bool {
+        (url.host ?? "").contains("themealdb.com")
     }
 
     private static func mealDB(_ name: String) async -> UIImage? {
@@ -124,12 +64,15 @@ enum RecipeImages {
               let json = await json(url),
               let meals = json["meals"] as? [[String: Any]]
         else { return nil }
-        for meal in meals.prefix(3) {
+        for meal in meals.prefix(6) {
             let title = meal["strMeal"] as? String ?? ""
-            guard fits(title, dish: name) else { continue }
-            if let thumb = meal["strMealThumb"] as? String, let image = await download(thumb, timeout: 3) {
+            guard fits(title, dish: name) || meals.count == 1 else { continue }
+            if let thumb = meal["strMealThumb"] as? String, let image = await download(thumb, timeout: 4) {
                 return image
             }
+        }
+        if let thumb = meals.first?["strMealThumb"] as? String {
+            return await download(thumb, timeout: 4)
         }
         return nil
     }
@@ -137,11 +80,6 @@ enum RecipeImages {
     private static func alias(_ name: String) -> String {
         let map = [
             "Classic Cheeseburgers": "Cheeseburger",
-            "Steak dinner": "Steak",
-            "Take-out": "Take-out",
-            "Pizza": "Pizza",
-            "Cookbook": "Cookbook",
-            "Home cooking": "Cooking",
             "Buttermilk Fried Chicken": "Fried chicken",
             "BBQ Baby Back Ribs": "Pork ribs",
             "Pulled Pork Sandwiches": "Pulled pork",
@@ -160,7 +98,7 @@ enum RecipeImages {
             "Coleslaw": "Coleslaw",
             "Corn on the Cob": "Corn on the cob",
             "Green Bean Casserole": "Green bean casserole",
-            "House Salad": "Salad",
+            "House Salad": "Green salad",
             "Tater Tots": "Tater tots",
             "Onion Rings": "Onion ring",
             "Dinner Rolls": "Dinner roll",
@@ -174,7 +112,7 @@ enum RecipeImages {
             "Grilled Cheese and Tomato Soup": "Grilled cheese",
             "Shrimp and Grits": "Shrimp and grits",
             "Red Beans and Rice": "Red beans and rice",
-            "Clam Chowder": "New England clam chowder",
+            "Clam Chowder": "Clam chowder",
             "Beef Tacos": "Taco",
             "Chicken Enchiladas": "Enchilada",
             "Chicken Quesadillas": "Quesadilla",
@@ -182,11 +120,11 @@ enum RecipeImages {
             "Breakfast-for-Dinner Pancakes": "Pancake",
             "French Toast": "French toast",
             "Biscuits and Sausage Gravy": "Biscuits and gravy",
-            "Chicken Fried Steak": "Chicken-fried steak",
+            "Chicken Fried Steak": "Chicken fried steak",
             "Shepherd's Pie American": "Shepherd's pie",
-            "Spaghetti and Meatballs": "Spaghetti and meatballs",
+            "Spaghetti and Meatballs": "Spaghetti",
             "Pepperoni Pizza Night": "Pepperoni pizza",
-            "BBQ Chicken Pizza": "Pizza",
+            "BBQ Chicken Pizza": "BBQ pizza",
             "Honey Garlic Salmon": "Salmon",
             "Fish Tacos": "Fish taco",
             "Orange Chicken": "Orange chicken",
@@ -198,43 +136,41 @@ enum RecipeImages {
             "Baked Beans": "Baked beans",
             "Creamed Corn": "Creamed corn",
             "Roasted Broccoli": "Broccoli",
-            "Roasted Carrots": "Carrot",
+            "Roasted Carrots": "Roasted carrot",
             "Asparagus": "Asparagus",
             "Hush Puppies": "Hushpuppy",
             "Cranberry Sauce": "Cranberry sauce",
             "Collard Greens": "Collard greens",
-            "Fried Okra": "Okra",
+            "Fried Okra": "Fried okra",
             "Brussels Sprouts": "Brussels sprout",
             "Elote": "Elote",
             "Refried Beans": "Refried beans",
             "Spanish Rice": "Spanish rice",
             "Cobb Salad": "Cobb salad",
-            "Scalloped Potatoes": "Gratin",
+            "Scalloped Potatoes": "Potato gratin",
             "Potato Wedges": "Potato wedge",
-            "White Rice": "Cooked rice",
+            "White Rice": "Rice",
             "Rice Pilaf": "Pilaf",
             "Stuffing": "Stuffing",
             "Applesauce": "Apple sauce",
-            "Gravy": "Gravy",
-            "Pickles": "Pickled cucumber",
-            "Texas Toast": "Texas toast",
-            "Cheddar Biscuits": "Biscuit (bread)",
-            "Biscuits": "Biscuit (bread)",
-            "Sauteed Green Beans": "Green bean",
+            "Pickles": "Pickle",
+            "Texas Toast": "Garlic bread",
+            "Cheddar Biscuits": "Biscuit",
+            "Biscuits": "Biscuit",
+            "Sauteed Green Beans": "Green beans",
             "Creamed Spinach": "Creamed spinach",
             "Cucumber Salad": "Cucumber salad",
-            "Three Bean Salad": "Three bean salad",
+            "Three Bean Salad": "Bean salad",
             "Corn Salad": "Corn salad",
-            "Slaw Mix": "Coleslaw",
-            "Baked Macaroni": "Macaroni casserole",
+            "Baked Macaroni": "Macaroni",
             "Sheet Pan Fajitas": "Fajita",
             "Nachos Supreme": "Nachos",
             "Burrito Bowls": "Burrito",
-            "Po' Boy": "Po' boy",
+            "Po' Boy": "Po boy",
             "Jambalaya": "Jambalaya",
             "Gumbo": "Gumbo",
             "Crab Cakes": "Crab cake",
-            "Fish Fry": "Fish fry",
+            "Fish Fry": "Fried fish",
             "Beef Stew": "Beef stew",
             "Pot Roast": "Pot roast",
             "Roast Chicken": "Roast chicken",
@@ -246,14 +182,14 @@ enum RecipeImages {
             "Lasagna": "Lasagne",
             "Baked Ziti": "Baked ziti",
             "Chicken Alfredo": "Fettuccine Alfredo",
-            "Teriyaki Chicken Bowls": "Teriyaki",
-            "Cajun Salmon": "Salmon",
+            "Teriyaki Chicken Bowls": "Teriyaki chicken",
+            "Cajun Salmon": "Cajun salmon",
             "Shrimp Scampi": "Shrimp scampi",
-            "Beef Stir Fry": "Stir frying",
-            "General Tso's at Home": "General Tso's chicken",
+            "Beef Stir Fry": "Beef stir fry",
+            "General Tso's at Home": "General Tso chicken",
             "Hamburgers Helper Style Skillet": "Hamburger",
-            "Cornbread Chili Bake": "Chili con carne",
-            "Pesto Pasta with Chicken": "Pesto"
+            "Cornbread Chili Bake": "Chili",
+            "Pesto Pasta with Chicken": "Pesto pasta"
         ]
         return map[name] ?? name
     }
@@ -262,30 +198,21 @@ enum RecipeImages {
         let a = tokens(dish)
         let b = tokens(candidate)
         if a.isEmpty { return candidate.lowercased().contains(dish.lowercased()) }
-        return a.isSubset(of: b)
+        return !a.isDisjoint(with: b)
     }
 
     private static func tokens(_ name: String) -> Set<String> {
         let stop: Set<String> = [
             "classic", "homemade", "buttermilk", "loaded", "sauteed", "roasted", "baked",
             "grilled", "southern", "texas", "house", "with", "and", "the", "for", "dinner",
-            "style", "american", "night", "supreme", "helper", "skillet", "file", "jpg",
-            "png", "photo", "image", "food", "dish", "recipe", "easy", "quick"
+            "style", "american", "night", "supreme", "helper", "skillet", "easy", "quick"
         ]
         return Set(
             name.lowercased()
                 .split { !$0.isLetter }
                 .map(String.init)
-                .map(stem)
                 .filter { $0.count >= 3 && !stop.contains($0) }
         )
-    }
-
-    private static func stem(_ word: String) -> String {
-        if word.hasSuffix("ies"), word.count > 4 { return String(word.dropLast(3)) + "y" }
-        if word.hasSuffix("es"), word.count > 4 { return String(word.dropLast(2)) }
-        if word.hasSuffix("s"), !word.hasSuffix("ss"), word.count > 3 { return String(word.dropLast()) }
-        return word
     }
 
     private static func cached(_ key: String) -> UIImage? {
@@ -293,7 +220,7 @@ enum RecipeImages {
         let memoryHit = memory[key]
         lock.unlock()
         if let memoryHit { return memoryHit }
-        let file = folder.appendingPathComponent(key.hashed)
+        let file = folder.appendingPathComponent("\(key).jpg")
         guard let data = try? Data(contentsOf: file), let image = UIImage(data: data) else { return nil }
         lock.lock()
         memory[key] = image
@@ -306,19 +233,19 @@ enum RecipeImages {
         memory[key] = image
         lock.unlock()
         if let data = image.jpegData(compressionQuality: 0.82) {
-            try? data.write(to: folder.appendingPathComponent(key.hashed), options: .atomic)
+            try? data.write(to: folder.appendingPathComponent("\(key).jpg"), options: .atomic)
         }
     }
 
     private static var folder: URL {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RecipePhotosV4", isDirectory: true)
+            .appendingPathComponent("RecipePhotosV5", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
 
-    private static func json(_ url: URL, agent: Bool = false) async -> [String: Any]? {
-        guard let data = await data(url, agent: agent) else { return nil }
+    private static func json(_ url: URL) async -> [String: Any]? {
+        guard let data = await data(url) else { return nil }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
@@ -335,18 +262,10 @@ enum RecipeImages {
         return image
     }
 
-    private static func data(_ url: URL, agent: Bool = true) async -> Data? {
+    private static func data(_ url: URL) async -> Data? {
         var request = URLRequest(url: url)
         request.timeoutInterval = 8
-        if agent { request.setValue("FamilyHub/1.0 (recipe photos; ios family hub)", forHTTPHeaderField: "User-Agent") }
+        request.setValue("FamilyHub/1.0 (recipe photos)", forHTTPHeaderField: "User-Agent")
         return try? await URLSession.shared.data(for: request).0
-    }
-}
-
-private extension String {
-    var hashed: String {
-        var hasher = Hasher()
-        hasher.combine(self)
-        return String(UInt64(bitPattern: Int64(hasher.finalize())))
     }
 }
