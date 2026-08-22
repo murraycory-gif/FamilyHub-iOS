@@ -22,6 +22,7 @@ struct TodayView: View {
     @State private var showAddShopping = false
     @State private var shoppingDraft = ""
     @State private var showDinnerLaunch: DinnerLaunch?
+    @AppStorage("familyhub.coach.completed.v2") private var coachCompleted = false
 
     private var accent: Color {
         switch profile {
@@ -39,16 +40,20 @@ struct TodayView: View {
             ZStack {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 14) {
-                    header
+                header
+                    .coachSpot("hub")
                     TabView(selection: dayPage) {
                         ForEach(swipeDays, id: \.self) { day in
+                            let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
                             HStack(alignment: .top, spacing: 12) {
                                 agenda(for: day)
                                     .frame(maxWidth: .infinity)
                                     .frame(maxHeight: .infinity)
+                                    .coachSpot("agenda", active: on)
                                 VStack(spacing: 12) {
                                     weatherTile(for: day)
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .coachSpot("weather", active: on)
                                     shoppingTile
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 }
@@ -56,6 +61,7 @@ struct TodayView: View {
                                 dinnerHomeTile(for: day)
                                     .frame(maxWidth: .infinity)
                                     .frame(maxHeight: .infinity)
+                                    .coachSpot("dinner", active: on)
                             }
                             .padding(.horizontal, 2)
                             .tag(day)
@@ -71,6 +77,7 @@ struct TodayView: View {
                     .padding(.horizontal, 24)
                     .padding(.bottom, 18)
                     .frame(height: familyH)
+                    .coachSpot("family")
             }
             if showDayMenu || showProfileMenu {
                 ZStack {
@@ -87,6 +94,14 @@ struct TodayView: View {
         }
         .environment(\.hubAccent, accent)
         .background(AppTheme.bg.ignoresSafeArea())
+        .coordinateSpace(name: "hubCoach")
+        .overlayPreferenceValue(CoachRectsKey.self) { rects in
+            if !coachCompleted {
+                HubCoachLayer(rects: rects) {
+                    withAnimation { coachCompleted = true }
+                }
+            }
+        }
         .onAppear { selectedDay = Calendar.current.startOfDay(for: selectedDay) }
         .fullScreenCover(item: $showDinnerLaunch) { item in
             DinnerLaunchView(item: item) {

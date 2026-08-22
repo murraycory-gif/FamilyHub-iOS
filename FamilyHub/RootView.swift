@@ -3,7 +3,6 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var store: HubStore
     @AppStorage("familyhub.onboarding.completed.v3") private var onboardingCompleted = false
-    @AppStorage("familyhub.coach.completed.v1") private var coachCompleted = false
     @State private var showSplash = true
 
     var body: some View {
@@ -25,13 +24,6 @@ struct RootView: View {
                 MainHubView()
                     .transition(.opacity)
                     .zIndex(1)
-                if !coachCompleted {
-                    HubCoachView {
-                        withAnimation { coachCompleted = true }
-                    }
-                    .zIndex(4)
-                    .transition(.opacity)
-                }
             }
         }
         .preferredColorScheme(.light)
