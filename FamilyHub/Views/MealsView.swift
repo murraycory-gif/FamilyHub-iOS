@@ -76,6 +76,7 @@ private struct MealDayCard: View {
     let day: Date
     var onOpen: () -> Void
     @State private var drag: CGFloat = 0
+    @State private var swiped = false
 
     private var plan: DinnerPlan? { store.dinner(on: day) }
     private var title: String? { store.dinnerTitle(on: day) }
@@ -97,26 +98,35 @@ private struct MealDayCard: View {
                         .frame(width: 88)
                     }
             }
-            Button(action: onOpen) {
-                card
-            }
-            .buttonStyle(.plain)
-            .offset(x: drag)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 24)
-                    .onChanged { value in
-                        guard planned, abs(value.translation.width) > abs(value.translation.height) else { return }
-                        drag = min(0, max(value.translation.width, -100))
+            card
+                .contentShape(Rectangle())
+                .offset(x: drag)
+                .onTapGesture {
+                    guard !swiped else {
+                        swiped = false
+                        return
                     }
-                    .onEnded { value in
-                        if planned, value.translation.width < -72 {
-                            store.clearDinner(on: day)
+                    onOpen()
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 20)
+                        .onChanged { value in
+                            guard planned, abs(value.translation.width) > abs(value.translation.height) else { return }
+                            drag = min(0, max(value.translation.width, -100))
                         }
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                            drag = 0
+                        .onEnded { value in
+                            if planned, value.translation.width < -64, abs(value.translation.width) > abs(value.translation.height) {
+                                swiped = true
+                                store.clearDinner(on: day)
+                            }
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                drag = 0
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                swiped = false
+                            }
                         }
-                    }
-            )
+                )
         }
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
