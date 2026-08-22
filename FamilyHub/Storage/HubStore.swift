@@ -85,7 +85,7 @@ final class HubStore: ObservableObject {
         persist()
     }
 
-    func setDinner(on day: Date, recipeID: UUID?, note: String = "") {
+    func setDinner(on day: Date, recipeID: UUID?, note: String = "", servings: Int = 4) {
         upsertDinner(
             on: day,
             recipeID: recipeID,
@@ -94,7 +94,8 @@ final class HubStore: ObservableObject {
             placeAddress: nil,
             placePhone: nil,
             placeURL: nil,
-            placeKind: nil
+            placeKind: nil,
+            servings: servings
         )
     }
 
@@ -132,9 +133,11 @@ final class HubStore: ObservableObject {
         placeURL: String?,
         placeKind: String?,
         placeLatitude: Double? = nil,
-        placeLongitude: Double? = nil
+        placeLongitude: Double? = nil,
+        servings: Int = 4
     ) {
         let start = Calendar.current.startOfDay(for: day)
+        let people = max(1, min(20, servings))
         if let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) {
             removeDinnerShopping(on: start)
             dinners[idx].recipeID = recipeID
@@ -147,6 +150,7 @@ final class HubStore: ObservableObject {
             dinners[idx].placeLatitude = placeLatitude
             dinners[idx].placeLongitude = placeLongitude
             dinners[idx].sideRecipeID = nil
+            dinners[idx].servings = people
         } else {
             dinners.append(.make(
                 day: start,
@@ -158,7 +162,8 @@ final class HubStore: ObservableObject {
                 placeURL: placeURL,
                 placeKind: placeKind,
                 placeLatitude: placeLatitude,
-                placeLongitude: placeLongitude
+                placeLongitude: placeLongitude,
+                servings: people
             ))
         }
         persist()

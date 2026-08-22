@@ -588,9 +588,10 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
     var placeLatitude: Double?
     var placeLongitude: Double?
     var sideRecipeID: UUID?
+    var servings: Int
 
     enum CodingKeys: String, CodingKey {
-        case id, day, recipeID, note, placeName, placeAddress, placePhone, placeURL, placeKind, placeLatitude, placeLongitude, sideRecipeID
+        case id, day, recipeID, note, placeName, placeAddress, placePhone, placeURL, placeKind, placeLatitude, placeLongitude, sideRecipeID, servings
     }
 
     init(
@@ -605,7 +606,8 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeKind: String?,
         placeLatitude: Double? = nil,
         placeLongitude: Double? = nil,
-        sideRecipeID: UUID? = nil
+        sideRecipeID: UUID? = nil,
+        servings: Int = 4
     ) {
         self.id = id
         self.day = day
@@ -619,6 +621,7 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         self.placeLatitude = placeLatitude
         self.placeLongitude = placeLongitude
         self.sideRecipeID = sideRecipeID
+        self.servings = max(1, min(20, servings))
     }
 
     init(from decoder: Decoder) throws {
@@ -635,6 +638,7 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeLatitude = try c.decodeIfPresent(Double.self, forKey: .placeLatitude)
         placeLongitude = try c.decodeIfPresent(Double.self, forKey: .placeLongitude)
         sideRecipeID = try c.decodeIfPresent(UUID.self, forKey: .sideRecipeID)
+        servings = try c.decodeIfPresent(Int.self, forKey: .servings) ?? 4
     }
 
     static func make(
@@ -648,7 +652,8 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeKind: String? = nil,
         placeLatitude: Double? = nil,
         placeLongitude: Double? = nil,
-        sideRecipeID: UUID? = nil
+        sideRecipeID: UUID? = nil,
+        servings: Int = 4
     ) -> DinnerPlan {
         DinnerPlan(
             id: UUID(),
@@ -662,7 +667,8 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
             placeKind: placeKind,
             placeLatitude: placeLatitude,
             placeLongitude: placeLongitude,
-            sideRecipeID: sideRecipeID
+            sideRecipeID: sideRecipeID,
+            servings: servings
         )
     }
 }

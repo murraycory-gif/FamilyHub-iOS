@@ -503,11 +503,11 @@ struct MealChoiceSheet: View {
             .navigationDestination(for: MealPath.self) { item in
                 switch item {
                 case .eatOut(let mode): EatOutPicker(day: day, mode: mode) { dismiss() }
-                case .family: FamilyRecipePicker(day: day) { path.append(.shopping) }
-                case .recipes: CatalogRecipePicker(day: day) { path.append(.shopping) }
-                case .manual: ManualMealSheet(day: day) { path.append(.shopping) }
-                case .shopping: ShoppingAskView(day: day) { path.append(.sides) }
-                case .sides: SidePicker(day: day) { dismiss() }
+                case .family: FamilyRecipePicker(day: day) { path.append(.sides) }
+                case .recipes: CatalogRecipePicker(day: day) { path.append(.sides) }
+                case .manual: ManualMealSheet(day: day) { path.append(.sides) }
+                case .sides: SidePicker(day: day) { path.append(.review) }
+                case .review: DinnerReviewView(day: day) { dismiss() }
                 }
             }
         }
@@ -568,7 +568,7 @@ private struct DinnerChoiceCard: View {
 
 private enum MealPath: Hashable {
     case eatOut(PlaceMode)
-    case family, recipes, manual, shopping, sides
+    case family, recipes, manual, sides, review
 }
 
 private struct EatOutPicker: View {
@@ -827,6 +827,9 @@ private struct FamilyRecipeDetail: View {
     let recipe: Recipe
     let day: Date
     var onDone: () -> Void
+    @State private var servings = 4
+
+    private var scaled: [String] { IngredientScale.lines(recipe.ingredients, servings: servings) }
 
     var body: some View {
         ScrollView {
@@ -845,18 +848,11 @@ private struct FamilyRecipeDetail: View {
                 if !recipe.notes.isEmpty {
                     Text(recipe.notes)
                 }
-                if !recipe.ingredients.isEmpty {
-                    Text("Ingredients")
+                ServingsStepper(servings: $servings)
+                if !scaled.isEmpty {
+                    Text("Ingredients for \(servings) \(servings == 1 ? "person" : "people")")
                         .font(.title3.weight(.bold))
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(recipe.ingredients, id: \.self) { line in
-                            Text("· \(line)")
-                        }
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppTheme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    ingredientList(scaled)
                 }
                 if !recipe.instructions.isEmpty {
                     Text("Directions")
@@ -868,7 +864,7 @@ private struct FamilyRecipeDetail: View {
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 }
                 Button {
-                    store.setDinner(on: day, recipeID: recipe.id)
+                    store.setDinner(on: day, recipeID: recipe.id, servings: servings)
                     onDone()
                 } label: {
                     Text("Add for dinner")
@@ -979,34 +975,27 @@ private struct CatalogRecipeDetail: View {
     let recipe: CatalogRecipe
     let day: Date
     var onDone: () -> Void
+    @State private var servings = 4
+
+    private var scaled: [String] { IngredientScale.lines(recipe.ingredients, servings: servings) }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 RecipePhoto(url: recipe.thumb, searchName: recipe.name)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 280)
+                    .frame(height: 240)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 Text(recipe.name)
                     .font(.system(size: 32, weight: .bold))
                 Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.blue)
-                if !recipe.ingredients.isEmpty {
-                    Text("Ingredients")
+                ServingsStepper(servings: $servings)
+                if !scaled.isEmpty {
+                    Text("Ingredients for \(servings) \(servings == 1 ? "person" : "people")")
                         .font(.title3.weight(.bold))
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(recipe.ingredients, id: \.self) { line in
-                            HStack(alignment: .top, spacing: 10) {
-                                Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
-                                Text(line)
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppTheme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    ingredientList(scaled)
                 }
                 if !recipe.instructions.isEmpty {
                     Text("Directions")
@@ -1019,11 +1008,11 @@ private struct CatalogRecipeDetail: View {
                 }
                 Button {
                     if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && !recipe.id.isEmpty }) {
-                        store.setDinner(on: day, recipeID: existing.id)
+                        store.setDinner(on: day, recipeID: existing.id, servings: servings)
                     } else {
                         let saved = recipe.asHubRecipe()
                         store.addRecipe(saved)
-                        store.setDinner(on: day, recipeID: saved.id)
+                        store.setDinner(on: day, recipeID: saved.id, servings: servings)
                     }
                     onDone()
                 } label: {
@@ -1035,7 +1024,6 @@ private struct CatalogRecipeDetail: View {
                         .background(AppTheme.blue, in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 8)
             }
             .padding(20)
         }
@@ -1229,33 +1217,25 @@ private struct SideDetail: View {
     let day: Date
     var onDone: () -> Void
 
+    private var servings: Int { store.dinner(on: day)?.servings ?? 4 }
+    private var scaled: [String] { IngredientScale.lines(recipe.ingredients, servings: servings) }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 RecipePhoto(url: recipe.thumb, searchName: recipe.name)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 280)
+                    .frame(height: 240)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 Text(recipe.name)
                     .font(.system(size: 32, weight: .bold))
-                Text("Side · \(recipe.category)")
+                Text("Side · \(recipe.category) · \(servings) \(servings == 1 ? "person" : "people")")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.blue)
-                if !recipe.ingredients.isEmpty {
+                if !scaled.isEmpty {
                     Text("Ingredients")
                         .font(.title3.weight(.bold))
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(recipe.ingredients, id: \.self) { line in
-                            HStack(alignment: .top, spacing: 10) {
-                                Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
-                                Text(line)
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppTheme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    ingredientList(scaled)
                 }
                 if !recipe.instructions.isEmpty {
                     Text("Directions")
@@ -1276,7 +1256,7 @@ private struct SideDetail: View {
                     }
                     onDone()
                 } label: {
-                    Text("Add this side")
+                    Text("Add side for dinner")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -1289,6 +1269,264 @@ private struct SideDetail: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct DinnerReviewView: View {
+    @EnvironmentObject private var store: HubStore
+    let day: Date
+    var onDone: () -> Void
+    @State private var picked: Set<String> = []
+    @State private var added = false
+
+    private var servings: Int { store.dinner(on: day)?.servings ?? 4 }
+    private var main: Recipe? { store.dinner(on: day).flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) } }
+    private var side: Recipe? { store.dinnerSide(on: day) }
+    private var mainLines: [String] { IngredientScale.lines(main?.ingredients ?? [], servings: servings) }
+    private var sideLines: [String] { IngredientScale.lines(side?.ingredients ?? [], servings: servings) }
+    private var allKeys: [String] {
+        mainLines.map { "main|\($0)" } + sideLines.map { "side|\($0)" }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 10) {
+                    Text("Dinner")
+                        .foregroundStyle(AppTheme.text)
+                    Text("Review")
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .font(.system(size: 36, weight: .bold))
+                Text("\(servings) \(servings == 1 ? "person" : "people"). Check what you need to buy.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                HStack(alignment: .top, spacing: 14) {
+                    reviewColumn(title: "Main", recipe: main, lines: mainLines, prefix: "main")
+                    reviewColumn(title: "Side", recipe: side, lines: sideLines, prefix: "side")
+                }
+                .frame(minHeight: 320)
+                HStack(spacing: 12) {
+                    Button(picked.count == allKeys.count && !allKeys.isEmpty ? "Unselect all" : "Select all") {
+                        if picked.count == allKeys.count {
+                            picked.removeAll()
+                        } else {
+                            picked = Set(allKeys)
+                        }
+                    }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(AppTheme.blueSoft, in: Capsule())
+                    .overlay(Capsule().stroke(AppTheme.blue, lineWidth: 2))
+                    Button {
+                        addPicked()
+                    } label: {
+                        Text(added ? "Added to shopping" : "Add selected")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background((picked.isEmpty ? AppTheme.textTertiary : (added ? AppTheme.todo : AppTheme.blue)), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(picked.isEmpty)
+                }
+                Button(action: onDone) {
+                    Text("Done")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { picked = Set(allKeys) }
+    }
+
+    @ViewBuilder
+    private func reviewColumn(title: String, recipe: Recipe?, lines: [String], prefix: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            RecipePhoto(url: recipe.flatMap { URL(string: $0.imageURL) }, searchName: recipe?.name ?? title)
+                .frame(height: 160)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            Text(title)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+            Text(recipe?.name ?? (prefix == "side" ? "No side" : store.dinnerTitle(on: day) ?? "Dinner"))
+                .font(.title3.weight(.bold))
+                .lineLimit(2)
+            if lines.isEmpty {
+                Text("No ingredients")
+                    .foregroundStyle(AppTheme.textSecondary)
+            } else {
+                ForEach(lines, id: \.self) { line in
+                    let key = "\(prefix)|\(line)"
+                    Button {
+                        if picked.contains(key) { picked.remove(key) } else { picked.insert(key) }
+                        added = false
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: picked.contains(key) ? "checkmark.circle.fill" : "circle")
+                                .font(.title3)
+                                .foregroundStyle(picked.contains(key) ? AppTheme.todo : AppTheme.blue)
+                            Text(line)
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(AppTheme.text)
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+    }
+
+    private func addPicked() {
+        let mainID = main?.id
+        let sideID = side?.id
+        for key in picked {
+            if key.hasPrefix("main|") {
+                store.addShoppingItem(String(key.dropFirst(5)), fromDinner: day, recipeID: mainID)
+            } else if key.hasPrefix("side|") {
+                store.addShoppingItem(String(key.dropFirst(5)), fromDinner: day, recipeID: sideID)
+            }
+        }
+        added = true
+    }
+}
+
+private struct ServingsStepper: View {
+    @Binding var servings: Int
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Text("Servings")
+                .font(.title3.weight(.bold))
+            Spacer()
+            Button {
+                servings = max(1, servings - 1)
+            } label: {
+                Image(systemName: "minus")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(AppTheme.blue, in: Circle())
+            }
+            .buttonStyle(.plain)
+            Text("\(servings)")
+                .font(.system(size: 28, weight: .bold))
+                .frame(minWidth: 44)
+            Text(servings == 1 ? "person" : "people")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            Button {
+                servings = min(20, servings + 1)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(AppTheme.blue, in: Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+    }
+}
+
+private func ingredientList(_ lines: [String]) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+        ForEach(lines, id: \.self) { line in
+            HStack(alignment: .top, spacing: 10) {
+                Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
+                Text(line)
+            }
+        }
+    }
+    .padding(16)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(AppTheme.card)
+    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+}
+
+enum IngredientScale {
+    static let base = 4
+
+    static func lines(_ lines: [String], servings: Int, base: Int = base) -> [String] {
+        guard base > 0, servings != base else { return lines }
+        let factor = Double(servings) / Double(base)
+        return lines.map { scale($0, by: factor) }
+    }
+
+    static func scale(_ line: String, by factor: Double) -> String {
+        var result = line
+        let pattern = #"(\d+\s+\d+/\d+|\d+/\d+|\d+\.\d+|\d+)"#
+        if let regex = try? NSRegularExpression(pattern: pattern) {
+            let matches = regex.matches(in: line, range: NSRange(line.startIndex..., in: line))
+            for match in matches.reversed() {
+                guard let range = Range(match.range, in: line) else { continue }
+                let raw = String(line[range])
+                let value = parse(raw) * factor
+                result.replaceSubrange(range, with: format(value, like: raw))
+            }
+        }
+        return result
+    }
+
+    private static func parse(_ raw: String) -> Double {
+        let parts = raw.split(separator: " ")
+        if parts.count == 2, let whole = Double(parts[0]) {
+            return whole + fraction(String(parts[1]))
+        }
+        if raw.contains("/") { return fraction(raw) }
+        return Double(raw) ?? 0
+    }
+
+    private static func fraction(_ raw: String) -> Double {
+        let bits = raw.split(separator: "/")
+        guard bits.count == 2, let n = Double(bits[0]), let d = Double(bits[1]), d != 0 else { return Double(raw) ?? 0 }
+        return n / d
+    }
+
+    private static func format(_ value: Double, like original: String) -> String {
+        if original.contains("/") || abs(value.rounded() - value) > 0.05 {
+            let rounded = (value * 4).rounded() / 4
+            let whole = Int(rounded)
+            let frac = rounded - Double(whole)
+            let bit = frac < 0.12 ? "" : frac < 0.38 ? " 1/4" : frac < 0.63 ? " 1/2" : frac < 0.88 ? " 3/4" : ""
+            if bit.isEmpty { return "\(max(whole, 0) == 0 && value < 1 ? formatDecimal(value) : "\(max(whole, 1))")" }
+            if whole == 0 { return bit.trimmingCharacters(in: .whitespaces) }
+            return "\(whole)\(bit)"
+        }
+        let n = max(1, Int(value.rounded()))
+        return "\(n)"
+    }
+
+    private static func formatDecimal(_ value: Double) -> String {
+        String(format: value < 1 ? "%.2f" : "%.1f", value)
     }
 }
 
