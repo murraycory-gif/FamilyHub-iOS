@@ -18,9 +18,43 @@ final class HubPinger {
             await deliver(
                 store,
                 title: "HUB test",
-                body: "If you got this, pings are working."
+                body: "If you got this, pings are working.",
+                device: true
             )
         }
+    }
+
+    func startConnect(_ store: HubStore) {
+        lastError = nil
+        let numbers = phones(in: store)
+        guard !numbers.isEmpty else {
+            lastError = "Enter a phone number first."
+            return
+        }
+        let code = String(Int.random(in: 1000...9999))
+        var prefs = store.notifyPrefs
+        prefs.pendingCode = code
+        prefs.phoneVerified = false
+        store.setNotifyPrefs(prefs)
+        openMessages(
+            to: numbers,
+            body: "HUB code \(code). Open HUB and type YES or \(code) to confirm this number."
+        )
+    }
+
+    func confirmConnect(_ store: HubStore, reply: String) -> Bool {
+        let text = reply.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let code = store.notifyPrefs.pendingCode.uppercased()
+        guard !text.isEmpty, text == "YES" || text == "Y" || (!code.isEmpty && text == code) else {
+            lastError = "Type YES or the 4-digit code from the text."
+            return false
+        }
+        var prefs = store.notifyPrefs
+        prefs.phoneVerified = true
+        prefs.pendingCode = ""
+        store.setNotifyPrefs(prefs)
+        lastError = nil
+        return true
     }
 
     func schedule(_ store: HubStore) async {
@@ -70,7 +104,7 @@ final class HubPinger {
 
     func fireDue(_ store: HubStore) async {
         let prefs = store.notifyPrefs
-        guard prefs.anyOn, prefs.channel.usesText, !phones(in: store).isEmpty else { return }
+        guard prefs.anyOn, prefs.channel.usesText, prefs.phoneVerified, !phones(in: store).isEmpty else { return }
         let hour = Calendar.current.component(.hour, from: Date())
         if prefs.morningBrief, (6...9).contains(hour), mark("morning") {
             await deliver(store, title: "Sunrise brief", body: morningBody(store), device: false)
@@ -112,7 +146,7 @@ final class HubPinger {
             )
             try? await UNUserNotificationCenter.current().add(request)
         }
-        if prefs.channel.usesText {
+        if prefs.channel.usesText, prefs.phoneVerified {
             let numbers = phones(in: store)
             if numbers.isEmpty {
                 lastError = "Add a phone number, then tap Connect text."
@@ -163,7 +197,7 @@ final class HubPinger {
     }
 
     private func morningBody(_ store: HubStore) -> String {
-        let events = store.events(on: Date(), filter: .family).prefix(3).map(\.title)
+        let events = store.events(on: Date(), filter: .family).prefix(3).map(\ .title)
         let dinner = store.dinnerTitle(on: Date()) ?? "Dinner not set"
         let lead = events.isEmpty ? "Clear calendar." : events.joined(separator: ", ")
         return "\(lead) \(dinner)."
@@ -182,7 +216,7 @@ final class HubPinger {
         let due = store.reminders.filter {
             $0.isBills && !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDateInToday($0) } ?? false)
         }
-        return due.isEmpty ? "No bills due today." : due.map(\.title).prefix(3).joined(separator: ", ")
+        return due.isEmpty ? "No bills due today." : due.map(\ .title).prefix(3).joined(separator: ", ")
     }
 
     private func shopBody(_ store: HubStore) -> String {
