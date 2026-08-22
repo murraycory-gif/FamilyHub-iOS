@@ -22,7 +22,9 @@ final class PlaceFacts: ObservableObject {
         phone = fallbackPhone
         async let overpass = Self.overpass(name: name, coordinate: coordinate)
         async let nominatim = Self.nominatim(name: name, address: address, coordinate: coordinate)
-        let tags = await overpass ?? nominatim
+        let overpassTags = await overpass
+        let nominatimTags = await nominatim
+        let tags = overpassTags ?? nominatimTags
         if let tags {
             if let raw = tags["opening_hours"], !raw.isEmpty {
                 hours = OSMHours.rows(raw)
