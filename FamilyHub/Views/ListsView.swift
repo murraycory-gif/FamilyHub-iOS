@@ -118,7 +118,7 @@ struct ListsView: View {
                 Button { store.toggleReminder(item.id) } label: {
                     Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
                         .font(.title3)
-                        .foregroundStyle(AppTheme.reminder)
+                        .foregroundStyle(item.isBills ? AppTheme.reminder : AppTheme.forest)
                 }
                 .buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 4) {
