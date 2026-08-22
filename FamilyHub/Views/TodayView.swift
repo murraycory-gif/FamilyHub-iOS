@@ -1045,39 +1045,25 @@ private struct FamilyFocusCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            personHeader(
-                image: store.familyPhotoData.flatMap { UIImage(data: $0) },
-                emoji: nil,
-                fallback: "person.3.fill",
-                name: "Family",
-                eventCount: events.count,
-                ring: accent
-            ) { showStudio = true }
-
+        AmazonPersonCard(
+            image: store.familyPhotoData.flatMap { UIImage(data: $0) },
+            emoji: nil,
+            fallback: "person.3.fill",
+            name: "Family",
+            eventCount: events.count,
+            ring: accent,
+            selected: selected,
+            onCamera: { showStudio = true },
+            onSelect: onSelect
+        ) {
             DayStatusRow(
                 chores: store.openAssignments(for: nil).filter { $0.status == .pending && Calendar.current.isDate($0.dueOn, inSameDayAs: day) }.count,
                 reminders: store.reminders.filter { !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false) }.count,
                 todos: store.todos.filter { !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false) }.count
             )
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
-
             EventScroll(events: events, onEvent: onEvent)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(accent, lineWidth: selected ? 3 : 2)
-        )
-        .shadow(color: accent.opacity(selected ? 0.18 : 0.06), radius: selected ? 8 : 3, y: 3)
-        .contentShape(Rectangle())
-        .onTapGesture { onSelect() }
         .sheet(isPresented: $showStudio) {
             BannerStudio(title: "Family", current: store.familyPhotoData) { data in
                 store.setFamilyPhoto(data)
@@ -1117,40 +1103,107 @@ private struct MemberHomeCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            personHeader(
-                image: store.photo(for: member).flatMap { UIImage(data: $0) },
-                emoji: member.displayEmoji,
-                fallback: nil,
-                name: firstName,
-                eventCount: events.count,
-                ring: accent
-            ) { showStudio = true }
-
+        AmazonPersonCard(
+            image: store.photo(for: member).flatMap { UIImage(data: $0) },
+            emoji: member.displayEmoji,
+            fallback: nil,
+            name: firstName,
+            eventCount: events.count,
+            ring: accent,
+            selected: selected,
+            onCamera: { showStudio = true },
+            onSelect: onSelect
+        ) {
             DayStatusRow(chores: chores.count, reminders: reminders.count, todos: todos.count)
-                .padding(.horizontal, 12)
-                .padding(.top, 4)
-
             EventScroll(events: events, onEvent: onEvent)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(accent, lineWidth: selected ? 3 : 2)
-        )
-        .shadow(color: accent.opacity(selected ? 0.18 : 0.06), radius: selected ? 8 : 3, y: 3)
-        .contentShape(Rectangle())
-        .onTapGesture { onSelect() }
         .sheet(isPresented: $showStudio) {
             BannerStudio(title: firstName, current: store.photo(for: member)) { data in
                 store.setMemberPhoto(member.id, data: data)
             }
         }
+    }
+}
+
+private struct AmazonPersonCard<Content: View>: View {
+    let image: UIImage?
+    let emoji: String?
+    let fallback: String?
+    let name: String
+    let eventCount: Int
+    let ring: Color
+    let selected: Bool
+    var onCamera: () -> Void
+    var onSelect: () -> Void
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                Group {
+                    if let image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        LinearGradient(colors: [ring, ring.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        if let emoji {
+                            Text(emoji).font(.system(size: 64))
+                        } else {
+                            Image(systemName: fallback ?? "person.fill")
+                                .font(.system(size: 52, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.45))
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 132)
+                .clipped()
+                LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+                HStack(alignment: .bottom, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(name)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .shadow(color: .black.opacity(0.45), radius: 6, y: 1)
+                        Text(eventCount == 1 ? "1 EVENT" : "\(eventCount) EVENTS")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(ring, in: Capsule())
+                    }
+                    Spacer(minLength: 0)
+                    Button(action: onCamera) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(.white.opacity(0.22), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(12)
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                content
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.card)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(ring, lineWidth: 3)
+        )
+        .shadow(color: ring.opacity(selected ? 0.28 : 0.14), radius: selected ? 14 : 10, y: 6)
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .onTapGesture { onSelect() }
     }
 }
 
