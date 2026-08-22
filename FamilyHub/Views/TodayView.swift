@@ -21,7 +21,7 @@ struct TodayView: View {
     @State private var showWeatherPlace = false
     @State private var showAddShopping = false
     @State private var shoppingDraft = ""
-    @State private var showDinner = false
+    @State private var showDinnerLaunch: DinnerLaunch?
 
     private var accent: Color {
         switch profile {
@@ -88,10 +88,13 @@ struct TodayView: View {
         .environment(\.hubAccent, accent)
         .background(AppTheme.bg.ignoresSafeArea())
         .onAppear { selectedDay = Calendar.current.startOfDay(for: selectedDay) }
-        .fullScreenCover(isPresented: $showDinner) {
-            TonightDinnerView(day: selectedDay)
-                .environmentObject(store)
-                .environmentObject(router)
+        .fullScreenCover(item: $showDinnerLaunch) { item in
+            DinnerLaunchView(item: item) {
+                showDinnerLaunch = nil
+                router.open(.today)
+            }
+            .environmentObject(store)
+            .environmentObject(router)
         }
         .fullScreenCover(isPresented: $showWeatherOutlook) {
             WeatherOutlookView(day: selectedDay)
@@ -337,6 +340,11 @@ struct TodayView: View {
         case .family: return "Whole household"
         case .member(let id): return store.member(id: id)?.role.label ?? "Member"
         }
+    }
+
+    private func openDinner() {
+        let day = Calendar.current.startOfDay(for: selectedDay)
+        showDinnerLaunch = DinnerLaunch(day: day, pick: store.dinner(on: day) == nil)
     }
 
     private var upcomingDays: [Date] {
@@ -588,7 +596,7 @@ struct TodayView: View {
                     .accessibilityLabel("Delete dinner")
                 }
             }
-            Button { showDinner = true } label: {
+            Button { openDinner() } label: {
                 ZStack(alignment: .bottom) {
                     dinnerPhoto(plan: plan, recipe: recipe)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -799,7 +807,7 @@ struct TodayView: View {
         let plan = store.dinner(on: selectedDay)
         let recipe = plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
         let photoURL = recipe.flatMap { URL(string: $0.imageURL) }
-        return Button { showDinner = true } label: {
+        return Button { openDinner() } label: {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)

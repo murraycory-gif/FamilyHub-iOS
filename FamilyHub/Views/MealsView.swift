@@ -5,7 +5,7 @@ import UIKit
 struct MealsView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var router: HubRouter
-    @State private var pickDay: Date?
+    @State private var pickLaunch: DinnerLaunch?
     @State private var confirmClearAll = false
 
     var body: some View {
@@ -30,10 +30,12 @@ struct MealsView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
-        .fullScreenCover(item: pickDayBinding) { day in
-            TonightDinnerView(day: day.date)
-                .environmentObject(store)
-                .environmentObject(router)
+        .fullScreenCover(item: $pickLaunch) { item in
+            DinnerLaunchView(item: item) {
+                pickLaunch = nil
+            }
+            .environmentObject(store)
+            .environmentObject(router)
         }
         .hubConfirm(
             "Clear all meals?",
@@ -50,7 +52,9 @@ struct MealsView: View {
     private var weekGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
             ForEach(week, id: \.self) { day in
-                MealDayCard(day: day) { pickDay = day }
+                MealDayCard(day: day) {
+                    pickLaunch = DinnerLaunch(day: day, pick: store.dinner(on: day) == nil)
+                }
             }
         }
     }
@@ -58,13 +62,6 @@ struct MealsView: View {
     private var week: [Date] {
         let start = Calendar.current.startOfDay(for: Date())
         return (0..<14).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
-    }
-
-    private var pickDayBinding: Binding<DatedDay?> {
-        Binding(
-            get: { pickDay.map(DatedDay.init) },
-            set: { pickDay = $0?.date }
-        )
     }
 }
 
@@ -208,9 +205,23 @@ private struct MealDayCard: View {
     }
 }
 
-private struct DatedDay: Identifiable {
-    var date: Date
-    var id: TimeInterval { Calendar.current.startOfDay(for: date).timeIntervalSince1970 }
+struct DinnerLaunch: Identifiable {
+    let id = UUID()
+    let day: Date
+    let pick: Bool
+}
+
+struct DinnerLaunchView: View {
+    let item: DinnerLaunch
+    var onClose: () -> Void
+
+    var body: some View {
+        if item.pick {
+            MealChoiceSheet(day: item.day, onComplete: onClose)
+        } else {
+            TonightDinnerView(day: item.day)
+        }
+    }
 }
 
 struct TonightDinnerView: View {
@@ -219,7 +230,6 @@ struct TonightDinnerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     let day: Date
-    @State private var showPicker = false
     @State private var addedToList = false
     @State private var skipShopping = false
 
@@ -260,18 +270,6 @@ struct TonightDinnerView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .fullScreenCover(isPresented: $showPicker) {
-            MealChoiceSheet(day: day) {
-                showPicker = false
-                dismiss()
-                router.open(.today)
-            }
-            .environmentObject(store)
-            .environmentObject(router)
-        }
-        .onAppear {
-            if store.dinner(on: day) == nil { showPicker = true }
-        }
     }
 
     @ViewBuilder
@@ -279,7 +277,10 @@ struct TonightDinnerView: View {
         if plan == nil {
             Text("Nothing planned")
                 .font(.system(size: 34, weight: .bold))
-            Button("Plan dinner") { showPicker = true }
+            Button("Plan dinner") {
+                dismiss()
+                router.openMeals(day: day)
+            }
                 .font(.headline.weight(.bold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
