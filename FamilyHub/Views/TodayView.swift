@@ -22,6 +22,7 @@ struct TodayView: View {
     @State private var showAddShopping = false
     @State private var shoppingDraft = ""
     @State private var showDinnerLaunch: DinnerLaunch?
+    @State private var agendaEvent: CalendarEvent?
 
     private var accent: Color {
         switch profile {
@@ -112,6 +113,9 @@ struct TodayView: View {
             WeatherPlacePicker()
                 .environmentObject(store)
                 .environmentObject(weather)
+        }
+        .sheet(item: $agendaEvent) { event in
+            EventDetailSheet(event: event)
         }
         .task {
             let label = store.weatherPlace?.label ?? ""
@@ -433,7 +437,10 @@ struct TodayView: View {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 0) {
                             ForEach(items) { item in
-                                dayRow(item)
+                                Button { openAgendaItem(item) } label: {
+                                    dayRow(item)
+                                }
+                                .buttonStyle(.plain)
                                 if item.id != items.last?.id {
                                     Divider().overlay(AppTheme.cardBorder)
                                 }
@@ -761,6 +768,22 @@ struct TodayView: View {
         switch profile {
         case .family: return true
         case .member(let id): return memberID == nil || memberID == id
+        }
+    }
+
+    private func openAgendaItem(_ item: HubDayItem) {
+        switch item.kind {
+        case .event:
+            if let id = UUID(uuidString: String(item.id.dropFirst(2))),
+               let event = store.events.first(where: { $0.id == id }) {
+                agendaEvent = event
+            }
+        case .reminder:
+            router.open(.lists, list: .reminders)
+        case .todo:
+            router.open(.lists, list: .todos)
+        case .chore:
+            router.open(.chores)
         }
     }
 

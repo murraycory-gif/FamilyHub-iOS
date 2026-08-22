@@ -71,6 +71,10 @@ struct CalendarHubView: View {
         filter = router.calendarFilter
         selectedDay = router.calendarDay
         monthAnchor = router.calendarDay
+        if let id = router.focusedEventID,
+           let event = store.events.first(where: { $0.id == id }) {
+            detail = event
+        }
     }
 
     private var header: some View {
