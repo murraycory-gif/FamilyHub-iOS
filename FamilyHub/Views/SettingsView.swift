@@ -4,12 +4,15 @@ import UserNotifications
 struct SettingsView: View {
     @EnvironmentObject private var store: HubStore
     @StateObject private var weather = WeatherLoader()
-    @State private var open: Set<String> = ["profiles"]
+    @State private var open: Set<String> = [
+        "profiles", "device", "invite", "calendars", "bills", "allowance", "weather", "notify"
+    ]
     @State private var tourFocus = ""
     @State private var testNote: String?
     @State private var confirmReply = ""
     @State private var pendingDelete: FamilyMember?
     @State private var showAddProfile = false
+    @State private var editing: FamilyMember?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -244,17 +247,20 @@ struct SettingsView: View {
         .hubTour("settings", steps: HubTours.settings) { id in
             tourFocus = id
             switch id {
-            case "setProfiles": open = ["profiles"]
-            case "setCalendars": open = ["calendars"]
-            case "setBills": open = ["bills"]
-            case "setAllow": open = ["allowance"]
-            case "setWeather": open = ["weather"]
-            case "setNotify": open = ["notify"]
+            case "setProfiles": open.insert("profiles")
+            case "setCalendars": open.insert("calendars")
+            case "setBills": open.insert("bills")
+            case "setAllow": open.insert("allowance")
+            case "setWeather": open.insert("weather")
+            case "setNotify": open.insert("notify")
             default: break
             }
         }
         .sheet(isPresented: $showAddProfile) {
             EditMemberSheet(member: nil)
+        }
+        .sheet(item: $editing) { member in
+            EditMemberSheet(member: member)
         }
         .hubConfirm(
             "Delete \(pendingDelete?.name ?? "this profile")?",
@@ -291,16 +297,12 @@ struct SettingsView: View {
                             .foregroundStyle(AppTheme.blue)
                     }
                     Spacer()
-                    NavigationLink {
-                        FamilyView()
-                    } label: {
-                        Text("Edit")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(AppTheme.blue)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(AppTheme.blueSoft, in: Capsule())
-                    }
+                    Button("Edit") { editing = member }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(AppTheme.blueSoft, in: Capsule())
                     .buttonStyle(.plain)
                     if store.members.count > 1 {
                         Button {
@@ -333,16 +335,6 @@ struct SettingsView: View {
                 .foregroundStyle(AppTheme.blue)
                 .padding(14)
                 .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            NavigationLink {
-                FamilyView()
-            } label: {
-                settingsRow(
-                    symbol: "person.crop.circle",
-                    title: "Full profile editor",
-                    detail: "Photos, banners, birthdays, and contacts"
-                )
             }
             .buttonStyle(.plain)
         }

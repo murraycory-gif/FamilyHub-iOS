@@ -169,7 +169,7 @@ struct MainHubView: View {
         case .shopping: ShoppingListView().hubChrome(showBack: true)
         case .meals: MealsView().hubChrome(showBack: true)
         case .settings: SettingsView().hubChrome(showBack: true)
-        case .family: FamilyView().hubChrome(showBack: true)
+        case .family: SettingsView().hubChrome(showBack: true)
         case .looks: HubLooksView().hubChrome(showBack: true)
         }
     }
