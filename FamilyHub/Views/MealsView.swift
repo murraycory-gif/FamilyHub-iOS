@@ -1206,7 +1206,6 @@ private struct DinnerReviewView: View {
     @EnvironmentObject private var router: HubRouter
     let day: Date
     var onDone: () -> Void
-    @State private var picking = false
     @State private var picked: Set<String> = []
 
     private var servings: Int { store.dinner(on: day)?.servings ?? 4 }
@@ -1221,87 +1220,54 @@ private struct DinnerReviewView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: picking ? "Pick" : "Dinner", tail: picking ? "What you need" : "Is set")
-            if picking {
-                pickStep
-            } else {
-                chooseStep
-            }
-        }
-        .background(AppTheme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear { picked = Set(allKeys) }
-    }
-
-    private var chooseStep: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("\(people). One tap to finish.")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
-                HStack(alignment: .top, spacing: 14) {
-                    dishCard(title: "Main", recipe: main, methodSide: false)
-                    dishCard(title: "Side", recipe: side, methodSide: true)
+            HubStickyHeader(lead: "Dinner", tail: "Is set")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("\(people). Tap an ingredient to add or skip it.")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    HStack(alignment: .top, spacing: 14) {
+                        dishCard(title: "Main", recipe: main, lines: mainLines, prefix: "main", methodSide: false)
+                        dishCard(title: "Side", recipe: side, lines: sideLines, prefix: "side", methodSide: true)
+                    }
                 }
+                .padding(20)
+            }
+            VStack(spacing: 10) {
                 if allKeys.isEmpty {
                     Button("Done — go to Hub", action: goToHub)
                         .buttonStyle(HubFillButton())
                 } else {
                     Button("Add everything to shopping", action: addAllAndFinish)
                         .buttonStyle(HubFillButton())
-                    Button("I'll pick what I need") {
-                        picked = Set(allKeys)
-                        picking = true
+                    Button("Add \(picked.count) selected") {
+                        addPicked()
+                        goToHub()
                     }
                     .buttonStyle(HubOutlineButton())
+                    .disabled(picked.isEmpty)
+                    .opacity(picked.isEmpty ? 0.45 : 1)
                     Button("Skip shopping", action: goToHub)
                         .font(.headline.weight(.bold))
                         .foregroundStyle(AppTheme.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 6)
                 }
-            }
-            .padding(20)
-        }
-    }
-
-    private var pickStep: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Uncheck what you already have.")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                    HStack(alignment: .top, spacing: 14) {
-                        pickColumn(title: "Main", recipe: main, lines: mainLines, prefix: "main")
-                        pickColumn(title: "Side", recipe: side, lines: sideLines, prefix: "side")
-                    }
-                }
-                .padding(20)
-            }
-            VStack(spacing: 10) {
-                Button("Add \(picked.count) \(picked.count == 1 ? "item" : "items") and finish") {
-                    addPicked()
-                    goToHub()
-                }
-                .buttonStyle(HubFillButton())
-                .disabled(picked.isEmpty)
-                .opacity(picked.isEmpty ? 0.45 : 1)
-                Button("Back") { picking = false }
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
             .padding(.top, 8)
             .background(AppTheme.bg)
         }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { picked = Set(allKeys) }
     }
 
-    private func dishCard(title: String, recipe: Recipe?, methodSide: Bool) -> some View {
+    private func dishCard(title: String, recipe: Recipe?, lines: [String], prefix: String, methodSide: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             RecipePhoto(url: recipe.flatMap { URL(string: $0.imageURL) }, searchName: recipe?.name ?? title)
-                .frame(height: 160)
+                .frame(height: 140)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             Text(title)
                 .font(.caption.weight(.bold))
@@ -1314,28 +1280,8 @@ private struct DinnerReviewView: View {
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AppTheme.blue)
             }
-            Spacer(minLength: 0)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: 3)
-        )
-    }
-
-    private func pickColumn(title: String, recipe: Recipe?, lines: [String], prefix: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.blue)
-            Text(recipe?.name ?? title)
-                .font(.title3.weight(.bold))
-                .lineLimit(2)
             if lines.isEmpty {
-                Text("Nothing to buy")
+                Text("No ingredients")
                     .foregroundStyle(AppTheme.textSecondary)
             } else {
                 ForEach(lines, id: \.self) { line in
