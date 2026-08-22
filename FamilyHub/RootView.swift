@@ -1,9 +1,12 @@
 import SwiftUI
+import UIKit
 
 struct RootView: View {
     @EnvironmentObject private var store: HubStore
     @AppStorage("familyhub.onboarding.completed.v4") private var onboardingCompleted = false
     @State private var showSplash = true
+    @State private var yesReply = ""
+    @State private var showYes = false
 
     var body: some View {
         ZStack {
@@ -34,6 +37,53 @@ struct RootView: View {
                 withAnimation(.easeInOut(duration: 0.4)) {
                     showSplash = false
                 }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            if !HubPinger.shared.pendingCode.isEmpty { showYes = true }
+        }
+        .onChange(of: showSplash) { _, showing in
+            if !showing, !HubPinger.shared.pendingCode.isEmpty { showYes = true }
+        }
+        .overlay {
+            if showYes {
+                Color.black.opacity(0.35).ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Confirm this number")
+                        .font(.title2.weight(.bold))
+                    Text("Send the text from Messages, then type YES or the 4-digit code here. Apple will not let HUB send SMS by itself, so you tap Send in Messages.")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    TextField("YES", text: $yesReply)
+                        .textInputAutocapitalization(.characters)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.title3.weight(.bold))
+                    HStack {
+                        Button("Not now") { showYes = false }
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        Spacer()
+                        Button("Confirm") {
+                            if HubPinger.shared.confirmConnect(store, reply: yesReply) {
+                                showYes = false
+                                yesReply = ""
+                            }
+                        }
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(AppTheme.blue, in: Capsule())
+                    }
+                }
+                .padding(22)
+                .frame(maxWidth: 420)
+                .background(AppTheme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(AppTheme.blue, lineWidth: 3)
+                )
             }
         }
     }
