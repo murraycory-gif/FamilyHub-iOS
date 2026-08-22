@@ -3,13 +3,21 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var store: HubStore
     @StateObject private var weather = WeatherLoader()
+    @State private var open: Set<String> = ["household"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "HUB", tail: "Settings")
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    HubPanel(symbol: "gearshape.fill", title: "Household") {
+                VStack(alignment: .leading, spacing: 14) {
+                    SettingsFold(
+                        symbol: "gearshape.fill",
+                        title: "Household",
+                        subtitle: "Profiles and calendars",
+                        isOpen: open.contains("household")
+                    ) {
+                        toggle("household")
+                    } content: {
                         VStack(spacing: 10) {
                             NavigationLink {
                                 FamilyView()
@@ -33,8 +41,15 @@ struct SettingsView: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    HubPanel(symbol: "cloud.sun.fill", title: "Weather") {
-                        VStack(spacing: 10) {
+                    SettingsFold(
+                        symbol: "cloud.sun.fill",
+                        title: "Weather",
+                        subtitle: store.weatherPlace?.label ?? "Location and units",
+                        isOpen: open.contains("weather")
+                    ) {
+                        toggle("weather")
+                    } content: {
+                        VStack(alignment: .leading, spacing: 14) {
                             NavigationLink {
                                 WeatherPlacePicker()
                                     .environmentObject(store)
@@ -47,10 +62,10 @@ struct SettingsView: View {
                                 )
                             }
                             .buttonStyle(.plain)
-                        }
-                    }
-                    HubPanel(symbol: "ruler.fill", title: "Measurements") {
-                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Measurements")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.text)
+                                .padding(.top, 4)
                             HStack {
                                 Button("US") { store.setUnits(.us) }
                                     .buttonStyle(.plain)
@@ -160,23 +175,20 @@ struct SettingsView: View {
         .navigationTitle("")
     }
 
+    private func toggle(_ id: String) {
+        if open.contains(id) { open.remove(id) } else { open.insert(id) }
+    }
+
     private func measureRow<V: View>(_ title: String, @ViewBuilder chips: () -> V) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(AppTheme.text)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(AppTheme.textSecondary)
             HStack(spacing: 8) {
                 chips()
                 Spacer(minLength: 0)
             }
         }
-        .padding(14)
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: 3)
-        )
     }
 
     private func chip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
@@ -214,12 +226,68 @@ struct SettingsView: View {
                 .font(.caption.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
         }
-        .padding(16)
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(14)
+        .background(AppTheme.bg)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+    }
+}
+
+private struct SettingsFold<Content: View>: View {
+    let symbol: String
+    let title: String
+    let subtitle: String
+    let isOpen: Bool
+    var onToggle: () -> Void
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button(action: onToggle) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(AppTheme.blue)
+                        Image(systemName: symbol)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 48, height: 48)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text(subtitle)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                }
+                .padding(16)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if isOpen {
+                content
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(AppTheme.blue, lineWidth: 3)
         )
+        .animation(.easeInOut(duration: 0.2), value: isOpen)
     }
 }

@@ -1141,34 +1141,28 @@ private struct AmazonPersonCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottomLeading) {
-                Group {
-                    if let image {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        LinearGradient(colors: [ring, ring.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        if let emoji {
-                            Text(emoji).font(.system(size: 64))
-                        } else {
-                            Image(systemName: fallback ?? "person.fill")
-                                .font(.system(size: 52, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.45))
-                        }
-                    }
+                ring
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                } else if let emoji {
+                    Text(emoji).font(.system(size: 72))
+                } else {
+                    Image(systemName: fallback ?? "person.fill")
+                        .font(.system(size: 56, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.5))
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 132)
-                .clipped()
-                LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+                LinearGradient(colors: [.clear, .black.opacity(0.82)], startPoint: .center, endPoint: .bottom)
                 HStack(alignment: .bottom, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(name)
-                            .font(.title2.weight(.bold))
+                            .font(.title.weight(.bold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
-                            .shadow(color: .black.opacity(0.45), radius: 6, y: 1)
+                            .shadow(color: .black.opacity(0.5), radius: 6, y: 1)
                         Text(eventCount == 1 ? "1 EVENT" : "\(eventCount) EVENTS")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(.white)
@@ -1182,12 +1176,16 @@ private struct AmazonPersonCard<Content: View>: View {
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 34, height: 34)
-                            .background(.white.opacity(0.22), in: Circle())
+                            .background(.black.opacity(0.35), in: Circle())
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(12)
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: 158)
+            .clipped()
+
             VStack(alignment: .leading, spacing: 10) {
                 content
             }
@@ -1196,6 +1194,7 @@ private struct AmazonPersonCard<Content: View>: View {
             .background(AppTheme.card)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
