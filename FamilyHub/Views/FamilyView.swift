@@ -6,9 +6,6 @@ struct FamilyView: View {
     @State private var household: String = ""
     @State private var showAdd = false
     @State private var editing: FamilyMember?
-    @State private var payMember: FamilyMember?
-    @State private var payAmount = ""
-    @State private var payReason = "Allowance payout"
     @State private var draggingID: UUID?
     @State private var profileMember: FamilyMember?
 
@@ -21,9 +18,6 @@ struct FamilyView: View {
                     householdCard
                     members
                         .coachSpot("famPeople")
-                    if !store.ledger.isEmpty {
-                        ledger
-                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -46,28 +40,6 @@ struct FamilyView: View {
                 }
             })
             .environmentObject(store)
-        }
-        .alert("Pay \(payMember?.name ?? "")", isPresented: Binding(
-            get: { payMember != nil },
-            set: { if !$0 { payMember = nil } }
-        )) {
-            TextField("Amount", text: $payAmount)
-                .keyboardType(.decimalPad)
-            TextField("Reason", text: $payReason)
-            Button("Save") {
-                if let member = payMember {
-                    store.addManualAllowance(
-                        memberID: member.id,
-                        amountCents: centsFrom(payAmount),
-                        reason: payReason.isEmpty ? "Paid out" : payReason
-                    )
-                }
-                payMember = nil
-                payAmount = ""
-            }
-            Button("Cancel", role: .cancel) { payMember = nil }
-        } message: {
-            Text("Use a minus to take money out.")
         }
     }
 
@@ -139,12 +111,7 @@ struct FamilyView: View {
                 ForEach(store.members) { member in
                     FamilyMemberRow(
                         member: member,
-                        onOpen: { profileMember = member },
-                        onPay: {
-                            payMember = member
-                            payAmount = ""
-                            payReason = "Paid out"
-                        }
+                        onOpen: { profileMember = member }
                     )
                     .onDrag {
                         draggingID = member.id
@@ -201,52 +168,88 @@ struct FamilyView: View {
         }
     }
 
-    private var ledger: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SectionLabel(title: "Allowance")
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
+}
+
+struct AllowanceSettingsView: View {
+    @EnvironmentObject private var store: HubStore
+    @State private var payMember: FamilyMember?
+    @State private var payAmount = ""
+    @State private var payReason = "Allowance payout"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if store.kids().isEmpty {
+                Text("Add a kid in HUB Profiles to track allowance.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+            } else {
                 ForEach(store.kids()) { kid in
                     HStack(spacing: 12) {
-                        MemberAvatar(member: kid, size: 56)
+                        MemberAvatar(member: kid, size: 52)
                             .overlay(Circle().stroke(Color(hex: kid.colorHex), lineWidth: 3))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(kid.name)
                                 .font(.headline.weight(.bold))
                                 .foregroundStyle(AppTheme.text)
-                                .lineLimit(1)
                             Text("Balance")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(AppTheme.textTertiary)
                             Text(Money.cents(kid.allowanceBalanceCents))
                                 .font(.system(size: 24, weight: .bold, design: .rounded))
                                 .foregroundStyle(AppTheme.blue)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
                                 .monospacedDigit()
                         }
-                        Spacer(minLength: 0)
+                        Spacer()
+                        Button("Pay") {
+                            payMember = kid
+                            payAmount = ""
+                            payReason = "Paid out"
+                        }
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(AppTheme.blue, in: Capsule())
                     }
                     .padding(14)
-                    .frame(maxWidth: .infinity, minHeight: 96, maxHeight: 96)
-                    .background(AppTheme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(Color(hex: kid.colorHex), lineWidth: 3)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color(hex: kid.colorHex), lineWidth: 2)
                     )
-                    .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
                 }
             }
 
-            Text("Activity")
-                .font(.title2.weight(.bold))
-                .foregroundStyle(AppTheme.text)
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
-                ForEach(Array(store.ledger.prefix(20))) { entry in
+            if !store.ledger.isEmpty {
+                Text("Activity")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                ForEach(Array(store.ledger.prefix(12))) { entry in
                     AllowanceActivityCard(entry: entry)
                 }
             }
+        }
+        .alert("Pay \(payMember?.name ?? "")", isPresented: Binding(
+            get: { payMember != nil },
+            set: { if !$0 { payMember = nil } }
+        )) {
+            TextField("Amount", text: $payAmount)
+                .keyboardType(.decimalPad)
+            TextField("Reason", text: $payReason)
+            Button("Save") {
+                if let member = payMember {
+                    store.addManualAllowance(
+                        memberID: member.id,
+                        amountCents: centsFrom(payAmount),
+                        reason: payReason.isEmpty ? "Paid out" : payReason
+                    )
+                }
+                payMember = nil
+                payAmount = ""
+            }
+            Button("Cancel", role: .cancel) { payMember = nil }
+        } message: {
+            Text("Use a minus to take money out.")
         }
     }
 
@@ -310,7 +313,6 @@ private struct FamilyMemberRow: View {
     @EnvironmentObject private var store: HubStore
     let member: FamilyMember
     var onOpen: () -> Void
-    var onPay: () -> Void
     private var accent: Color { Color(hex: member.colorHex) }
 
     var body: some View {
@@ -340,10 +342,6 @@ private struct FamilyMemberRow: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(AppTheme.blueSoft, in: Capsule())
-                    Text(member.role == .child ? Money.cents(member.allowanceBalanceCents) : " ")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .lineLimit(1)
                 }
                 HStack(spacing: 8) {
                     Text("Profile")
@@ -367,17 +365,6 @@ private struct FamilyMemberRow: View {
             .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .topLeading) {
-            if member.role == .child {
-                Button("Pay", action: onPay)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(AppTheme.blue, in: Capsule())
-                    .padding(12)
-            }
-        }
     }
 }
 

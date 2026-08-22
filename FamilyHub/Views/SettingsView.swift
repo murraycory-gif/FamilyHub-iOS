@@ -59,6 +59,17 @@ struct SettingsView: View {
                     }
                     .coachSpot("setBills")
                     SettingsFold(
+                        symbol: "banknote.fill",
+                        title: "Allowance",
+                        subtitle: store.kids().isEmpty ? "Kid balances and payouts" : store.kids().map { "\($0.name) \(Money.cents($0.allowanceBalanceCents))" }.joined(separator: " · "),
+                        isOpen: open.contains("allowance")
+                    ) {
+                        toggle("allowance")
+                    } content: {
+                        AllowanceSettingsView()
+                    }
+                    .coachSpot("setAllow")
+                    SettingsFold(
                         symbol: "cloud.sun.fill",
                         title: "Weather",
                         subtitle: store.weatherPlace?.label ?? "Location and units",
@@ -214,6 +225,7 @@ struct SettingsView: View {
             switch id {
             case "setHouse": open = ["household"]
             case "setBills": open = ["bills"]
+            case "setAllow": open = ["allowance"]
             case "setWeather": open = ["weather"]
             case "setNotify": open = ["notify"]
             default: break
