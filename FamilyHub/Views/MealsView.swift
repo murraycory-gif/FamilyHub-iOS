@@ -5,12 +5,20 @@ import UIKit
 struct MealsView: View {
     @EnvironmentObject private var store: HubStore
     @State private var pickDay: Date?
+    @State private var confirmClearAll = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 title
-                HubPanel(symbol: "fork.knife", title: "Next 2 Weeks") {
+                HubPanel(symbol: "fork.knife", title: "Next 2 Weeks", trailing: {
+                    Button("Clear all") { confirmClearAll = true }
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.white.opacity(0.22), in: Capsule())
+                }) {
                     weekGrid
                 }
             }
@@ -21,6 +29,14 @@ struct MealsView: View {
         .fullScreenCover(item: pickDayBinding) { day in
             TonightDinnerView(day: day.date)
                 .environmentObject(store)
+        }
+        .alert("Clear all meals?", isPresented: $confirmClearAll) {
+            Button("Clear all", role: .destructive) {
+                for day in week { store.clearDinner(on: day) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes every dinner on the next 2 weeks.")
         }
     }
 
@@ -37,22 +53,79 @@ struct MealsView: View {
     private var weekGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
             ForEach(week, id: \.self) { day in
-                Button { pickDay = day } label: {
-                    dayCard(day)
-                }
-                .buttonStyle(.plain)
+                MealDayCard(day: day) { pickDay = day }
             }
         }
     }
 
-    private func dayCard(_ day: Date) -> some View {
-        let title = store.dinnerTitle(on: day)
-        let plan = store.dinner(on: day)
-        let recipe = plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
-        return HStack(spacing: 12) {
-            dayThumb(plan: plan, recipe: recipe)
+    private var week: [Date] {
+        let start = Calendar.current.startOfDay(for: Date())
+        return (0..<14).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
+    }
+
+    private var pickDayBinding: Binding<DatedDay?> {
+        Binding(
+            get: { pickDay.map(DatedDay.init) },
+            set: { pickDay = $0?.date }
+        )
+    }
+}
+
+private struct MealDayCard: View {
+    @EnvironmentObject private var store: HubStore
+    let day: Date
+    var onOpen: () -> Void
+    @State private var drag: CGFloat = 0
+
+    private var plan: DinnerPlan? { store.dinner(on: day) }
+    private var title: String? { store.dinnerTitle(on: day) }
+    private var recipe: Recipe? { plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) } }
+    private var planned: Bool { plan != nil }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            if planned {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(AppTheme.chore)
+                    .overlay(alignment: .trailing) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "trash.fill")
+                            Text("Clear")
+                                .font(.caption.weight(.bold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(width: 88)
+                    }
+            }
+            Button(action: onOpen) {
+                card
+            }
+            .buttonStyle(.plain)
+            .offset(x: drag)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 24)
+                    .onChanged { value in
+                        guard planned, abs(value.translation.width) > abs(value.translation.height) else { return }
+                        drag = min(0, max(value.translation.width, -100))
+                    }
+                    .onEnded { value in
+                        if planned, value.translation.width < -72 {
+                            store.clearDinner(on: day)
+                        }
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                            drag = 0
+                        }
+                    }
+            )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private var card: some View {
+        HStack(spacing: 12) {
+            thumb
             VStack(alignment: .leading, spacing: 8) {
-                Text(dayLabel(day))
+                Text(dayLabel)
                     .font(.title2.weight(.bold))
                     .foregroundStyle(AppTheme.blue)
                 Text(title ?? "Nothing planned")
@@ -60,7 +133,7 @@ struct MealsView: View {
                     .foregroundStyle(title == nil ? AppTheme.textSecondary : AppTheme.text)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
-                Text(kindLabel(plan))
+                Text(kindLabel)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.textTertiary)
                     .lineLimit(1)
@@ -74,7 +147,6 @@ struct MealsView: View {
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 164, maxHeight: 164, alignment: .topLeading)
         .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(title == nil ? AppTheme.cardBorder : AppTheme.blue, lineWidth: title == nil ? 1 : 3)
@@ -82,7 +154,7 @@ struct MealsView: View {
         .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
     }
 
-    private func dayThumb(plan: DinnerPlan?, recipe: Recipe?) -> some View {
+    private var thumb: some View {
         Group {
             if let recipe, let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
                 RecipePhoto(url: url, searchName: recipe.name)
@@ -98,7 +170,7 @@ struct MealsView: View {
             } else {
                 ZStack {
                     AppTheme.blueSoft
-                    Image(systemName: plan?.placeName != nil ? "mappin.and.ellipse" : "fork.knife")
+                    Image(systemName: "fork.knife")
                         .foregroundStyle(AppTheme.blue)
                 }
             }
@@ -107,7 +179,13 @@ struct MealsView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private func kindLabel(_ plan: DinnerPlan?) -> String {
+    private var dayLabel: String {
+        if Calendar.current.isDateInToday(day) { return "Tonight" }
+        if Calendar.current.isDateInTomorrow(day) { return "Tomorrow" }
+        return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
+
+    private var kindLabel: String {
         guard let plan else { return "Tap to plan" }
         if plan.placeKind == "delivery" { return "Delivery" }
         if plan.placeKind == "takeout" { return "Take out" }
@@ -117,24 +195,6 @@ struct MealsView: View {
         }
         if !plan.note.isEmpty { return "Custom meal" }
         return "Planned"
-    }
-
-    private var week: [Date] {
-        let start = Calendar.current.startOfDay(for: Date())
-        return (0..<14).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
-    }
-
-    private func dayLabel(_ day: Date) -> String {
-        if Calendar.current.isDateInToday(day) { return "Tonight" }
-        if Calendar.current.isDateInTomorrow(day) { return "Tomorrow" }
-        return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
-    }
-
-    private var pickDayBinding: Binding<DatedDay?> {
-        Binding(
-            get: { pickDay.map(DatedDay.init) },
-            set: { pickDay = $0?.date }
-        )
     }
 }
 

@@ -531,15 +531,16 @@ struct HubPageTitle: View {
     }
 }
 
-struct HubPanel<Content: View>: View {
+struct HubPanel<Content: View, Trailing: View>: View {
     let symbol: String
     let title: String
     @Environment(\.hubAccent) private var accent
+    @ViewBuilder var trailing: Trailing
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: symbol, title: title)
+            HubTileBanner(symbol: symbol, title: title) { trailing }
             content
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -550,6 +551,12 @@ struct HubPanel<Content: View>: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(accent, lineWidth: 3)
         )
+    }
+}
+
+extension HubPanel where Trailing == EmptyView {
+    init(symbol: String, title: String, @ViewBuilder content: () -> Content) {
+        self.init(symbol: symbol, title: title, trailing: { EmptyView() }, content: content)
     }
 }
 
