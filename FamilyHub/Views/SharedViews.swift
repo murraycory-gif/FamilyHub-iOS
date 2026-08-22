@@ -613,8 +613,8 @@ struct HubConfirm: ViewModifier {
                             }
                             .buttonStyle(.plain)
                             Button {
-                                isPresented = false
                                 onConfirm()
+                                isPresented = false
                             } label: {
                                 Text(confirmTitle)
                                     .font(.headline.weight(.bold))

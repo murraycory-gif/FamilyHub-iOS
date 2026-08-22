@@ -273,7 +273,9 @@ struct SettingsView: View {
             confirmColor: AppTheme.chore,
             cancel: "Keep"
         ) {
-            if let id = pendingDelete?.id { store.deleteMember(id) }
+            if let member = pendingDelete {
+                store.deleteMember(member.id)
+            }
             pendingDelete = nil
         }
     }
