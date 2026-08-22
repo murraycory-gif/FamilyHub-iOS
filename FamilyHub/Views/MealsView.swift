@@ -257,16 +257,16 @@ struct TonightDinnerView: View {
                         .padding(.vertical, 16)
                         .background(AppTheme.blue, in: Capsule())
                 } else if let recipe {
-                    cookView(recipe, heading: "Main")
+                    cookView(recipe, heading: "Main", side: false)
                     if let side = store.dinnerSide(on: day) {
-                        cookView(side, heading: "Side")
+                        cookView(side, heading: "Side", side: true)
                     }
                 } else if let plan, plan.placeName != nil {
                     eatOutView(plan)
                 } else {
                     noteView
                     if let side = store.dinnerSide(on: day) {
-                        cookView(side, heading: "Side")
+                        cookView(side, heading: "Side", side: true)
                     }
                 }
             }
@@ -285,8 +285,9 @@ struct TonightDinnerView: View {
         }
     }
 
-    private func cookView(_ recipe: Recipe, heading: String) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+    private func cookView(_ recipe: Recipe, heading: String, side: Bool) -> some View {
+        let method = store.dinnerCookMethod(on: day, side: side) ?? CookMethod.suggested(name: recipe.name, instructions: recipe.instructions)
+        return VStack(alignment: .leading, spacing: 16) {
             RecipePhoto(url: URL(string: recipe.imageURL), searchName: recipe.name)
                 .frame(maxWidth: .infinity)
                 .frame(height: 240)
@@ -296,6 +297,13 @@ struct TonightDinnerView: View {
                 .foregroundStyle(AppTheme.blue)
             Text(recipe.name)
                 .font(.system(size: 34, weight: .bold))
+            Text("How you’ll cook it")
+                .font(.title3.weight(.bold))
+            CookMethodPicker(method: Binding(
+                get: { store.dinnerCookMethod(on: day, side: side) ?? method },
+                set: { store.setDinnerCookMethod(on: day, method: $0, side: side) }
+            ))
+            CookDirectionsCard(method: store.dinnerCookMethod(on: day, side: side) ?? method, steps: recipe.instructions)
             if !recipe.ingredients.isEmpty {
                 Text("What you need")
                     .font(.title3.weight(.bold))
@@ -331,15 +339,6 @@ struct TonightDinnerView: View {
                             .frame(maxWidth: .infinity)
                     }
                 }
-            }
-            if !recipe.instructions.isEmpty {
-                Text("How to make it")
-                    .font(.title3.weight(.bold))
-                Text(recipe.instructions)
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppTheme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
             if !recipe.notes.isEmpty {
                 Text(recipe.notes)
@@ -832,6 +831,7 @@ private struct FamilyRecipeDetail: View {
     let day: Date
     var onDone: () -> Void
     @State private var servings = 4
+    @State private var method = CookMethod.oven
 
     private var scaled: [String] { IngredientScale.lines(recipe.ingredients, servings: servings) }
 
@@ -858,17 +858,12 @@ private struct FamilyRecipeDetail: View {
                         .font(.title3.weight(.bold))
                     ingredientList(scaled)
                 }
-                if !recipe.instructions.isEmpty {
-                    Text("Directions")
-                        .font(.title3.weight(.bold))
-                    Text(recipe.instructions)
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                }
+                Text("How you’ll cook it")
+                    .font(.title3.weight(.bold))
+                CookMethodPicker(method: $method)
+                CookDirectionsCard(method: method, steps: recipe.instructions)
                 Button {
-                    store.setDinner(on: day, recipeID: recipe.id, servings: servings)
+                    store.setDinner(on: day, recipeID: recipe.id, servings: servings, cookMethod: method)
                     onDone()
                 } label: {
                     Text("Add for dinner")
@@ -884,6 +879,7 @@ private struct FamilyRecipeDetail: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { method = CookMethod.suggested(name: recipe.name, instructions: recipe.instructions) }
     }
 }
 
@@ -980,6 +976,7 @@ private struct CatalogRecipeDetail: View {
     let day: Date
     var onDone: () -> Void
     @State private var servings = 4
+    @State private var method = CookMethod.oven
 
     private var scaled: [String] { IngredientScale.lines(recipe.ingredients, servings: servings) }
 
@@ -1001,22 +998,17 @@ private struct CatalogRecipeDetail: View {
                         .font(.title3.weight(.bold))
                     ingredientList(scaled)
                 }
-                if !recipe.instructions.isEmpty {
-                    Text("Directions")
-                        .font(.title3.weight(.bold))
-                    Text(recipe.instructions)
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                }
+                Text("How you’ll cook it")
+                    .font(.title3.weight(.bold))
+                CookMethodPicker(method: $method)
+                CookDirectionsCard(method: method, steps: recipe.instructions)
                 Button {
                     if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && !recipe.id.isEmpty }) {
-                        store.setDinner(on: day, recipeID: existing.id, servings: servings)
+                        store.setDinner(on: day, recipeID: existing.id, servings: servings, cookMethod: method)
                     } else {
                         let saved = recipe.asHubRecipe()
                         store.addRecipe(saved)
-                        store.setDinner(on: day, recipeID: saved.id, servings: servings)
+                        store.setDinner(on: day, recipeID: saved.id, servings: servings, cookMethod: method)
                     }
                     onDone()
                 } label: {
@@ -1033,90 +1025,7 @@ private struct CatalogRecipeDetail: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-private struct ShoppingAskView: View {
-    @EnvironmentObject private var store: HubStore
-    let day: Date
-    var onNext: () -> Void
-    @State private var added = false
-
-    private var recipe: Recipe? {
-        store.dinner(on: day).flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
-    }
-    private var ingredients: [String] { recipe?.ingredients ?? [] }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 10) {
-                    Text("Add to")
-                        .foregroundStyle(AppTheme.text)
-                    Text("Shopping")
-                        .foregroundStyle(AppTheme.blue)
-                }
-                .font(.system(size: 36, weight: .bold))
-                Text(recipe.map { "Grab what you need for \($0.name)." } ?? "Add ingredients, then pick a side.")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
-                if ingredients.isEmpty {
-                    Text("No ingredients listed for this meal.")
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(ingredients, id: \.self) { line in
-                            HStack(alignment: .top, spacing: 10) {
-                                Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
-                                Text(line)
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppTheme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    Button {
-                        for line in ingredients { store.addShoppingItem(line, fromDinner: day, recipeID: recipe?.id) }
-                        added = true
-                    } label: {
-                        Text(added ? "Added to shopping" : "Add ingredients to shopping")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(added ? AppTheme.todo : AppTheme.blue, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-                Button(action: onNext) {
-                    Text("Skip shopping")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(AppTheme.blue)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppTheme.blueSoft, in: Capsule())
-                        .overlay(Capsule().stroke(AppTheme.blue, lineWidth: 2))
-                }
-                .buttonStyle(.plain)
-                Button(action: onNext) {
-                    Text("Next: Choose a side")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppTheme.blue, in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(20)
-        }
-        .background(AppTheme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { method = CookMethod.suggested(name: recipe.name, instructions: recipe.instructions) }
     }
 }
 
@@ -1220,6 +1129,7 @@ private struct SideDetail: View {
     let recipe: CatalogRecipe
     let day: Date
     var onDone: () -> Void
+    @State private var method = CookMethod.oven
 
     private var servings: Int { store.dinner(on: day)?.servings ?? 4 }
     private var scaled: [String] { IngredientScale.lines(recipe.ingredients, servings: servings) }
@@ -1241,22 +1151,17 @@ private struct SideDetail: View {
                         .font(.title3.weight(.bold))
                     ingredientList(scaled)
                 }
-                if !recipe.instructions.isEmpty {
-                    Text("Directions")
-                        .font(.title3.weight(.bold))
-                    Text(recipe.instructions)
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                }
+                Text("How you’ll cook it")
+                    .font(.title3.weight(.bold))
+                CookMethodPicker(method: $method)
+                CookDirectionsCard(method: method, steps: recipe.instructions)
                 Button {
                     if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && $0.kind == .side }) {
-                        store.setDinnerSide(on: day, recipeID: existing.id)
+                        store.setDinnerSide(on: day, recipeID: existing.id, cookMethod: method)
                     } else {
                         let saved = recipe.asHubRecipe(kind: .side)
                         store.addRecipe(saved)
-                        store.setDinnerSide(on: day, recipeID: saved.id)
+                        store.setDinnerSide(on: day, recipeID: saved.id, cookMethod: method)
                     }
                     onDone()
                 } label: {
@@ -1273,6 +1178,7 @@ private struct SideDetail: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { method = CookMethod.suggested(name: recipe.name, instructions: recipe.instructions) }
     }
 }
 
@@ -1366,6 +1272,11 @@ private struct DinnerReviewView: View {
             Text(recipe?.name ?? (prefix == "side" ? "No side" : store.dinnerTitle(on: day) ?? "Dinner"))
                 .font(.title3.weight(.bold))
                 .lineLimit(2)
+            if let method = store.dinnerCookMethod(on: day, side: prefix == "side") {
+                Text(method.label)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+            }
             if lines.isEmpty {
                 Text("No ingredients")
                     .foregroundStyle(AppTheme.textSecondary)
@@ -1452,6 +1363,72 @@ private struct ServingsStepper: View {
             .buttonStyle(.plain)
         }
         .padding(16)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+    }
+}
+
+private struct CookMethodPicker: View {
+    @Binding var method: CookMethod
+
+    private let columns = [GridItem(.adaptive(minimum: 118), spacing: 10)]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 10) {
+            ForEach(CookMethod.allCases) { item in
+                Button {
+                    method = item
+                } label: {
+                    VStack(spacing: 8) {
+                        Image(systemName: item.symbol)
+                            .font(.title2.weight(.bold))
+                        Text(item.label)
+                            .font(.subheadline.weight(.bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .foregroundStyle(method == item ? .white : AppTheme.blue)
+                    .frame(maxWidth: .infinity, minHeight: 78)
+                    .background(method == item ? AppTheme.blue : AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(AppTheme.blue, lineWidth: method == item ? 0 : 2)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct CookDirectionsCard: View {
+    let method: CookMethod
+    var steps: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: method.symbol)
+                    .foregroundStyle(AppTheme.blue)
+                Text("Cook it — \(method.label)")
+                    .font(.title3.weight(.bold))
+            }
+            Text(method.howTo)
+                .font(.body.weight(.semibold))
+            if !steps.isEmpty {
+                Text("Recipe steps")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+                    .padding(.top, 4)
+                Text(steps)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(

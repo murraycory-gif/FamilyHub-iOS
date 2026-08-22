@@ -575,6 +575,94 @@ enum RecipeKind: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum CookMethod: String, Codable, CaseIterable, Identifiable, Hashable {
+    case oven
+    case grill
+    case stovetop
+    case airFryer
+    case deepFry
+    case slowCooker
+    case instantPot
+    case smoker
+    case broiler
+    case microwave
+    case noCook
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .oven: return "Oven"
+        case .grill: return "Grill"
+        case .stovetop: return "Stovetop"
+        case .airFryer: return "Air fryer"
+        case .deepFry: return "Deep fry"
+        case .slowCooker: return "Crock pot"
+        case .instantPot: return "Instant pot"
+        case .smoker: return "Smoker"
+        case .broiler: return "Broiler"
+        case .microwave: return "Microwave"
+        case .noCook: return "No cook"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .oven: return "square.grid.3x3.fill"
+        case .grill: return "flame.fill"
+        case .stovetop: return "circle.hexagongrid.fill"
+        case .airFryer: return "wind"
+        case .deepFry: return "drop.fill"
+        case .slowCooker: return "clock.fill"
+        case .instantPot: return "gauge"
+        case .smoker: return "smoke.fill"
+        case .broiler: return "sun.max.fill"
+        case .microwave: return "wave.3.right"
+        case .noCook: return "leaf.fill"
+        }
+    }
+
+    var howTo: String {
+        switch self {
+        case .oven:
+            return "Preheat 400°F. Use a sheet pan or baking dish. Cook until hot through and browned the way you like. Rest a few minutes before serving."
+        case .grill:
+            return "Preheat the grill to medium-high. Oil the grates. Cook over direct heat, flipping once. Move to indirect heat if it needs more time without burning."
+        case .stovetop:
+            return "Use a skillet or pot on medium-high. Add a little oil or butter. Cook, turning or stirring, until done. Lower the heat if it starts to scorch."
+        case .airFryer:
+            return "Preheat the air fryer to 375°F. Don’t crowd the basket. Cook, shaking or flipping halfway, until crisp and hot through."
+        case .deepFry:
+            return "Heat oil to 350°F. Fry in small batches so the oil stays hot. Drain on a rack or paper towel and salt while it’s hot."
+        case .slowCooker:
+            return "Add everything to the crock pot. Cook LOW 6–8 hours or HIGH 3–4 hours. Don’t lift the lid until the end."
+        case .instantPot:
+            return "Add liquid so it can pressurize. Seal and cook on High Pressure. Natural release 10 minutes, then quick release. Keep warm until you serve."
+        case .smoker:
+            return "Set the smoker to 225–250°F. Use a mild wood. Cook low and slow until tender. Rest before you slice or pull."
+        case .broiler:
+            return "Move the rack 6 inches from the broiler. Preheat on high. Broil, watching close, and flip once until browned and done."
+        case .microwave:
+            return "Use a microwave-safe dish. Cover loosely. Cook in short bursts, stirring between, until hot. Let it stand 1 minute."
+        case .noCook:
+            return "No heat. Chop, mix, and chill. Taste and adjust salt, acid, and crunch right before you serve."
+        }
+    }
+
+    static func suggested(name: String, instructions: String = "") -> CookMethod {
+        let text = (name + " " + instructions).lowercased()
+        if text.contains("salad") || text.contains("slaw") || text.contains("sandwich") { return .noCook }
+        if text.contains("grill") || text.contains("burger") || text.contains("steak") { return .grill }
+        if text.contains("smoke") || text.contains("brisket") { return .smoker }
+        if text.contains("crock") || text.contains("slow cook") { return .slowCooker }
+        if text.contains("air fry") { return .airFryer }
+        if text.contains("deep fry") || text.contains("fried") { return .deepFry }
+        if text.contains("skillet") || text.contains("saute") || text.contains("boil") { return .stovetop }
+        if text.contains("broil") { return .broiler }
+        return .oven
+    }
+}
+
 struct DinnerPlan: Identifiable, Codable, Hashable {
     var id: UUID
     var day: Date
@@ -589,9 +677,11 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
     var placeLongitude: Double?
     var sideRecipeID: UUID?
     var servings: Int
+    var cookMethod: String?
+    var sideCookMethod: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, day, recipeID, note, placeName, placeAddress, placePhone, placeURL, placeKind, placeLatitude, placeLongitude, sideRecipeID, servings
+        case id, day, recipeID, note, placeName, placeAddress, placePhone, placeURL, placeKind, placeLatitude, placeLongitude, sideRecipeID, servings, cookMethod, sideCookMethod
     }
 
     init(
@@ -607,7 +697,9 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeLatitude: Double? = nil,
         placeLongitude: Double? = nil,
         sideRecipeID: UUID? = nil,
-        servings: Int = 4
+        servings: Int = 4,
+        cookMethod: String? = nil,
+        sideCookMethod: String? = nil
     ) {
         self.id = id
         self.day = day
@@ -622,6 +714,8 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         self.placeLongitude = placeLongitude
         self.sideRecipeID = sideRecipeID
         self.servings = max(1, min(20, servings))
+        self.cookMethod = cookMethod
+        self.sideCookMethod = sideCookMethod
     }
 
     init(from decoder: Decoder) throws {
@@ -639,6 +733,8 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeLongitude = try c.decodeIfPresent(Double.self, forKey: .placeLongitude)
         sideRecipeID = try c.decodeIfPresent(UUID.self, forKey: .sideRecipeID)
         servings = try c.decodeIfPresent(Int.self, forKey: .servings) ?? 4
+        cookMethod = try c.decodeIfPresent(String.self, forKey: .cookMethod)
+        sideCookMethod = try c.decodeIfPresent(String.self, forKey: .sideCookMethod)
     }
 
     static func make(
@@ -653,7 +749,9 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
         placeLatitude: Double? = nil,
         placeLongitude: Double? = nil,
         sideRecipeID: UUID? = nil,
-        servings: Int = 4
+        servings: Int = 4,
+        cookMethod: String? = nil,
+        sideCookMethod: String? = nil
     ) -> DinnerPlan {
         DinnerPlan(
             id: UUID(),
@@ -668,7 +766,9 @@ struct DinnerPlan: Identifiable, Codable, Hashable {
             placeLatitude: placeLatitude,
             placeLongitude: placeLongitude,
             sideRecipeID: sideRecipeID,
-            servings: servings
+            servings: servings,
+            cookMethod: cookMethod,
+            sideCookMethod: sideCookMethod
         )
     }
 }

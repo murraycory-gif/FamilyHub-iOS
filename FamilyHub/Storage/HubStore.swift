@@ -85,7 +85,7 @@ final class HubStore: ObservableObject {
         persist()
     }
 
-    func setDinner(on day: Date, recipeID: UUID?, note: String = "", servings: Int = 4) {
+    func setDinner(on day: Date, recipeID: UUID?, note: String = "", servings: Int = 4, cookMethod: CookMethod? = nil) {
         upsertDinner(
             on: day,
             recipeID: recipeID,
@@ -95,7 +95,8 @@ final class HubStore: ObservableObject {
             placePhone: nil,
             placeURL: nil,
             placeKind: nil,
-            servings: servings
+            servings: servings,
+            cookMethod: cookMethod?.rawValue
         )
     }
 
@@ -134,7 +135,8 @@ final class HubStore: ObservableObject {
         placeKind: String?,
         placeLatitude: Double? = nil,
         placeLongitude: Double? = nil,
-        servings: Int = 4
+        servings: Int = 4,
+        cookMethod: String? = nil
     ) {
         let start = Calendar.current.startOfDay(for: day)
         let people = max(1, min(20, servings))
@@ -151,6 +153,8 @@ final class HubStore: ObservableObject {
             dinners[idx].placeLongitude = placeLongitude
             dinners[idx].sideRecipeID = nil
             dinners[idx].servings = people
+            dinners[idx].cookMethod = cookMethod
+            dinners[idx].sideCookMethod = nil
         } else {
             dinners.append(.make(
                 day: start,
@@ -163,24 +167,43 @@ final class HubStore: ObservableObject {
                 placeKind: placeKind,
                 placeLatitude: placeLatitude,
                 placeLongitude: placeLongitude,
-                servings: people
+                servings: people,
+                cookMethod: cookMethod
             ))
         }
         persist()
     }
 
-    func setDinnerSide(on day: Date, recipeID: UUID?) {
+    func setDinnerSide(on day: Date, recipeID: UUID?, cookMethod: CookMethod? = nil) {
         let start = Calendar.current.startOfDay(for: day)
         guard let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) else { return }
         if let old = dinners[idx].sideRecipeID {
             removeDinnerShopping(on: start, recipeID: old)
         }
         dinners[idx].sideRecipeID = recipeID
+        dinners[idx].sideCookMethod = cookMethod?.rawValue
         persist()
     }
 
     func dinnerSide(on day: Date) -> Recipe? {
         dinner(on: day).flatMap(\.sideRecipeID).flatMap(recipe(id:))
+    }
+
+    func dinnerCookMethod(on day: Date, side: Bool = false) -> CookMethod? {
+        guard let plan = dinner(on: day) else { return nil }
+        let raw = side ? plan.sideCookMethod : plan.cookMethod
+        return raw.flatMap(CookMethod.init(rawValue:))
+    }
+
+    func setDinnerCookMethod(on day: Date, method: CookMethod, side: Bool = false) {
+        let start = Calendar.current.startOfDay(for: day)
+        guard let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) else { return }
+        if side {
+            dinners[idx].sideCookMethod = method.rawValue
+        } else {
+            dinners[idx].cookMethod = method.rawValue
+        }
+        persist()
     }
 
     func clearDinner(on day: Date) {
