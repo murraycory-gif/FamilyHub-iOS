@@ -10,7 +10,7 @@ struct MealsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 title
-                HubPanel(symbol: "fork.knife", title: "This Week") {
+                HubPanel(symbol: "fork.knife", title: "Next 2 Weeks") {
                     weekGrid
                 }
             }
@@ -53,9 +53,8 @@ struct MealsView: View {
             dayThumb(plan: plan, recipe: recipe)
             VStack(alignment: .leading, spacing: 8) {
                 Text(dayLabel(day))
-                    .font(.caption.weight(.bold))
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(AppTheme.blue)
-                    .textCase(.uppercase)
                 Text(title ?? "Nothing planned")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(title == nil ? AppTheme.textSecondary : AppTheme.text)
@@ -73,7 +72,7 @@ struct MealsView: View {
                 .foregroundStyle(AppTheme.textTertiary)
         }
         .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 148, maxHeight: 148, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 164, maxHeight: 164, alignment: .topLeading)
         .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
@@ -122,7 +121,7 @@ struct MealsView: View {
 
     private var week: [Date] {
         let start = Calendar.current.startOfDay(for: Date())
-        return (0..<7).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
+        return (0..<14).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
     }
 
     private func dayLabel(_ day: Date) -> String {
@@ -317,8 +316,8 @@ struct MealChoiceSheet: View {
                     }
                     .font(.system(size: 36, weight: .bold))
                     Text(dayTitle)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
                     if let title = store.dinnerTitle(on: day) {
                         HStack(spacing: 14) {
                             Image(systemName: "checkmark.seal.fill")
