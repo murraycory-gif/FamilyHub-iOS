@@ -16,7 +16,15 @@ enum RecipeImages {
             return image
         }
         guard !dish.isEmpty else { return nil }
-        if let image = await wikipedia(dish) ?? mealDB(dish) ?? commons(dish) {
+        if let image = await wikipedia(dish) {
+            store(image, key: key)
+            return image
+        }
+        if let image = await mealDB(dish) {
+            store(image, key: key)
+            return image
+        }
+        if let image = await commons(dish) {
             store(image, key: key)
             return image
         }
@@ -63,8 +71,8 @@ enum RecipeImages {
             URLQueryItem(name: "format", value: "json")
         ]
         guard let searchURL = comps.url,
-              let json = await json(searchURL, agent: true),
-              let queryObj = json["query"] as? [String: Any],
+              let searchJSON = await json(searchURL, agent: true),
+              let queryObj = searchJSON["query"] as? [String: Any],
               let hits = queryObj["search"] as? [[String: Any]]
         else { return nil }
         for hit in hits {
