@@ -35,6 +35,7 @@
 		A026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B026 /* SettingsView.swift */; };
 		A027 /* PlaceDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = B027 /* PlaceDetails.swift */; };
 		A028 /* PlaceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B028 /* PlaceDetailView.swift */; };
+		A029 /* RecipeImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = B029 /* RecipeImages.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A904 /* RubikWetPaint-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B904 /* RubikWetPaint-Regular.ttf */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
@@ -81,6 +82,7 @@
 		B026 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B027 /* PlaceDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceDetails.swift; sourceTree = "<group>"; };
 		B028 /* PlaceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceDetailView.swift; sourceTree = "<group>"; };
+		B029 /* RecipeImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeImages.swift; sourceTree = "<group>"; };
 		B900 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B904 /* RubikWetPaint-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RubikWetPaint-Regular.ttf"; path = "Fonts/RubikWetPaint-Regular.ttf"; sourceTree = "<group>"; };
 		B901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -185,6 +187,7 @@
 				B020 /* RecipeCatalog.swift */,
 				B021 /* PlacesSearch.swift */,
 				B025 /* PlaceImages.swift */,
+				B029 /* RecipeImages.swift */,
 				B027 /* PlaceDetails.swift */,
 				B022 /* AmericanKitchen.swift */,
 			);
@@ -325,6 +328,7 @@
 				A026 /* SettingsView.swift in Sources */,
 				A027 /* PlaceDetails.swift in Sources */,
 				A028 /* PlaceDetailView.swift in Sources */,
+				A029 /* RecipeImages.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

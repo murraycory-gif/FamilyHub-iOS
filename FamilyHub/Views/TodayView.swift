@@ -779,7 +779,7 @@ struct TodayView: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color(hex: "FFEDD5"))
                     if let photoURL {
-                        RecipePhoto(url: photoURL)
+                        RecipePhoto(url: photoURL, searchName: recipe?.name ?? "")
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     } else {
                         Image(systemName: plan?.placeName != nil ? "mappin.and.ellipse" : "fork.knife")

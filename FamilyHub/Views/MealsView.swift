@@ -85,7 +85,7 @@ struct MealsView: View {
     private func dayThumb(plan: DinnerPlan?, recipe: Recipe?) -> some View {
         Group {
             if let recipe, let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
-                RecipePhoto(url: url)
+                RecipePhoto(url: url, searchName: recipe.name)
             } else if let plan, let name = plan.placeName {
                 PlaceHeroPhoto(
                     name: name,
@@ -197,7 +197,7 @@ struct TonightDinnerView: View {
     private func cookView(_ recipe: Recipe) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             if let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
-                RecipePhoto(url: url)
+                RecipePhoto(url: url, searchName: recipe.name)
                     .frame(maxWidth: .infinity)
                     .frame(height: 240)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -432,7 +432,7 @@ private struct DinnerChoiceCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RecipePhoto(url: photo)
+            RecipePhoto(url: photo, searchName: title)
                 .frame(maxWidth: .infinity)
                 .frame(height: 148)
                 .clipped()
@@ -736,7 +736,7 @@ private struct FamilyRecipeDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
-                    RecipePhoto(url: url)
+                    RecipePhoto(url: url, searchName: recipe.name)
                         .frame(maxWidth: .infinity)
                         .frame(height: 220)
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -837,7 +837,7 @@ private struct CatalogRecipePicker: View {
                         Task { opened = await catalog.detail(id: recipe.id) ?? recipe }
                     } label: {
                         HStack(spacing: 14) {
-                            RecipePhoto(url: recipe.thumb)
+                            RecipePhoto(url: recipe.thumb, searchName: recipe.name)
                                 .frame(width: 88, height: 88)
                                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             VStack(alignment: .leading, spacing: 4) {
@@ -887,7 +887,7 @@ private struct CatalogRecipeDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                RecipePhoto(url: recipe.thumb)
+                RecipePhoto(url: recipe.thumb, searchName: recipe.name)
                     .frame(maxWidth: .infinity)
                     .frame(height: 280)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -948,17 +948,11 @@ private struct CatalogRecipeDetail: View {
     }
 }
 
-final class RecipeImageCache {
-    static let shared = RecipeImageCache()
-    private var map: [URL: UIImage] = [:]
-    func image(for url: URL) -> UIImage? { map[url] }
-    func set(_ image: UIImage, for url: URL) { map[url] = image }
-}
-
 struct RecipePhoto: View {
     let url: URL?
     var searchName: String = ""
     @State private var image: UIImage?
+    @State private var finished = false
 
     var body: some View {
         Color.clear
@@ -969,7 +963,7 @@ struct RecipePhoto: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
-                    } else if url != nil || !searchName.isEmpty {
+                    } else if !finished && (url != nil || !searchName.isEmpty) {
                         ProgressView()
                     } else {
                         Image(systemName: "fork.knife").foregroundStyle(AppTheme.blue)
@@ -978,55 +972,10 @@ struct RecipePhoto: View {
             }
             .clipped()
             .contentShape(Rectangle())
-            .task(id: "\(url?.absoluteString ?? "")-\(searchName)") { await load() }
-    }
-
-    private func load() async {
-        if let url {
-            if let cached = RecipeImageCache.shared.image(for: url) {
-                image = cached
-                return
+            .task(id: "\(url?.absoluteString ?? "")-\(searchName)") {
+                image = await RecipeImages.photo(url: url, name: searchName)
+                finished = true
             }
-            if url.isFileURL, let data = try? Data(contentsOf: url), let loaded = UIImage(data: data) {
-                RecipeImageCache.shared.set(loaded, for: url)
-                image = loaded
-                return
-            }
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 20
-            if let (data, _) = try? await URLSession.shared.data(for: request),
-               let loaded = UIImage(data: data) {
-                RecipeImageCache.shared.set(loaded, for: url)
-                image = loaded
-                return
-            }
-        }
-        guard !searchName.isEmpty else { return }
-        let query = searchName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? searchName
-        if let mealURL = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(query)"),
-           let (data, _) = try? await URLSession.shared.data(from: mealURL),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let meals = json["meals"] as? [[String: Any]],
-           let thumb = meals.first?["strMealThumb"] as? String,
-           let thumbURL = URL(string: thumb),
-           let (imgData, _) = try? await URLSession.shared.data(from: thumbURL),
-           let loaded = UIImage(data: imgData) {
-            image = loaded
-            return
-        }
-        if let wiki = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(query.replacingOccurrences(of: " ", with: "_"))"),
-           var request = Optional(URLRequest(url: wiki)) {
-            request.setValue("HUB/1.0", forHTTPHeaderField: "User-Agent")
-            if let (data, _) = try? await URLSession.shared.data(for: request),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let thumb = json["thumbnail"] as? [String: Any],
-               let source = thumb["source"] as? String,
-               let thumbURL = URL(string: source),
-               let (imgData, _) = try? await URLSession.shared.data(from: thumbURL),
-               let loaded = UIImage(data: imgData) {
-                image = loaded
-            }
-        }
     }
 }
 

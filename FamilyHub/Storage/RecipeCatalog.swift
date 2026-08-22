@@ -90,6 +90,14 @@ final class RecipeCatalog: ObservableObject {
             recipes = AmericanKitchen.recipes.filter { $0.category == category }
         }
         if recipes.isEmpty { message = "No recipes in that category yet." }
+        let thumbs = Array(recipes.prefix(24))
+        Task {
+            await withTaskGroup(of: Void.self) { group in
+                for recipe in thumbs {
+                    group.addTask { _ = await RecipeImages.photo(url: recipe.thumb, name: recipe.name) }
+                }
+            }
+        }
     }
 
     private func matches(_ item: CatalogRecipe, _ needle: String) -> Bool {
