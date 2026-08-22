@@ -22,6 +22,7 @@ struct CalendarHubView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             header
                             monthHeader
+                            colorLegend
                             weekdayHeader
                             monthGrid
                             dayList
@@ -158,6 +159,37 @@ struct CalendarHubView: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var colorLegend: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                legendChip(store.householdName.isEmpty ? "Family" : store.householdName, AppTheme.blue)
+                ForEach(store.members) { member in
+                    legendChip(member.name.split(separator: " ").first.map(String.init) ?? member.name, Color(hex: member.colorHex))
+                }
+            }
+        }
+    }
+
+    private func legendChip(_ name: String, _ color: Color) -> some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(color)
+                .frame(width: 16, height: 16)
+            Text(name)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(AppTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(color, lineWidth: 2)
+        )
     }
 
     private var weekdayHeader: some View {
