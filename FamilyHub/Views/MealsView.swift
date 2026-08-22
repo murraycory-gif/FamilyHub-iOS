@@ -233,8 +233,11 @@ struct TonightDinnerView: View {
     var body: some View {
         NavigationStack { content }
             .fullScreenCover(isPresented: $showPicker) {
-                MealChoiceSheet(day: day)
-                    .environmentObject(store)
+                MealChoiceSheet(day: day) {
+                    showPicker = false
+                    dismiss()
+                }
+                .environmentObject(store)
             }
             .onAppear {
                 if store.dinner(on: day) == nil { showPicker = true }
@@ -396,6 +399,7 @@ struct MealChoiceSheet: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.dismiss) private var dismiss
     let day: Date
+    var onComplete: () -> Void = {}
     @State private var path: [MealPath] = []
 
     var body: some View {
@@ -507,7 +511,7 @@ struct MealChoiceSheet: View {
                 case .recipes: CatalogRecipePicker(day: day) { path.append(.sides) }
                 case .manual: ManualMealSheet(day: day) { path.append(.sides) }
                 case .sides: SidePicker(day: day) { path.append(.review) }
-                case .review: DinnerReviewView(day: day) { dismiss() }
+                case .review: DinnerReviewView(day: day, onDone: onComplete)
                 }
             }
         }
