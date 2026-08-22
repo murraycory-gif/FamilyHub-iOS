@@ -111,13 +111,18 @@ struct TodayView: View {
                 }
             }
             while !Task.isCancelled {
-                await weather.load(place: store.weatherPlace ?? .chicago)
+                await weather.load(place: store.weatherPlace ?? .chicago, units: store.units)
                 try? await Task.sleep(for: .seconds(10 * 60))
             }
         }
         .onChange(of: store.weatherPlace?.id) { _, _ in
             if let place = store.weatherPlace {
-                Task { await weather.load(place: place) }
+                Task { await weather.load(place: place, units: store.units) }
+            }
+        }
+        .onChange(of: store.units) { _, _ in
+            if let place = store.weatherPlace {
+                Task { await weather.load(place: place, units: store.units) }
             }
         }
         .alert("Add to shopping list", isPresented: $showAddShopping) {

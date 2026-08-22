@@ -31,12 +31,12 @@ final class WeatherLoader: ObservableObject {
         return ofDay
     }
 
-    func load(place: WeatherPlace) async {
+    func load(place: WeatherPlace, units: HubUnits = .us) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         do {
-            let bundle = try await WeatherAPI.forecast(for: place)
+            let bundle = try await WeatherAPI.forecast(for: place, units: units)
             days = bundle.days
             hours = bundle.hours
             now = bundle.now
@@ -111,7 +111,7 @@ enum WeatherAPI {
         )
     }
 
-    static func forecast(for place: WeatherPlace) async throws -> WeatherBundle {
+    static func forecast(for place: WeatherPlace, units: HubUnits = .us) async throws -> WeatherBundle {
         var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
         components.queryItems = [
             URLQueryItem(name: "latitude", value: String(place.latitude)),
@@ -119,8 +119,9 @@ enum WeatherAPI {
             URLQueryItem(name: "current", value: "temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m,precipitation"),
             URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation_probability,is_day,uv_index"),
             URLQueryItem(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max,wind_speed_10m_max"),
-            URLQueryItem(name: "temperature_unit", value: "fahrenheit"),
-            URLQueryItem(name: "wind_speed_unit", value: "mph"),
+            URLQueryItem(name: "temperature_unit", value: units.temperature.api),
+            URLQueryItem(name: "wind_speed_unit", value: units.wind.rawValue),
+            URLQueryItem(name: "precipitation_unit", value: units.precipitation.api),
             URLQueryItem(name: "timezone", value: "auto"),
             URLQueryItem(name: "forecast_days", value: "16"),
         ]

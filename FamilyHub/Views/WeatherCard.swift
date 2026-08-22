@@ -707,12 +707,12 @@ struct WeatherOutlookView: View {
         let rise = selected?.sunrise
         let set = selected?.sunset
         let tiles: [(String, String, String)] = [
-            ("thermometer.medium", "Feels like", isToday ? "\(now?.feelsLike ?? 0)°" : "—"),
+            ("thermometer.medium", "Feels like", isToday ? "\(now?.feelsLike ?? 0)°\(store.units.temperature == .celsius ? "C" : "F")" : "—"),
             ("humidity", "Humidity", isToday ? "\(humidity)%" : "—"),
-            ("wind", "Wind", "\(wind) mph"),
+            ("wind", "Wind", "\(wind) \(store.units.wind.label)"),
             ("sun.max", "UV index", uvLabel(uv)),
-            ("sunrise", "Sunrise", rise.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—"),
-            ("sunset", "Sunset", set.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—"),
+            ("sunrise", "Sunrise", rise.map { timeLabel($0) } ?? "—"),
+            ("sunset", "Sunset", set.map { timeLabel($0) } ?? "—"),
             ("cloud.rain", "Rain chance", "\(rain)%"),
         ]
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -890,6 +890,13 @@ struct WeatherOutlookView: View {
         return stamp.string(from: focusedDay) == iso
     }
 
+    private func timeLabel(_ date: Date) -> String {
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.dateFormat = store.units.time == .twentyFour ? "HH:mm" : "h:mm a"
+        return stamp.string(from: date)
+    }
+
     private func uvLabel(_ value: Int) -> String {
         switch value {
         case 0: return "0 Low"
@@ -937,7 +944,7 @@ struct WeatherPlacePicker: View {
                     ForEach(weather.searchResults) { place in
                         Button {
                             store.setWeatherPlace(place)
-                            Task { await weather.load(place: place) }
+                            Task { await weather.load(place: place, units: store.units) }
                             dismiss()
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
@@ -962,7 +969,7 @@ struct WeatherPlacePicker: View {
         do {
             let place = try await weather.placeFromCurrentLocation()
             store.setWeatherPlace(place)
-            await weather.load(place: place)
+            await weather.load(place: place, units: store.units)
             dismiss()
         } catch {
             locateError = error.localizedDescription

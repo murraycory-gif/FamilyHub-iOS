@@ -460,6 +460,7 @@ struct HubSnapshot: Codable {
     var recipes: [Recipe]?
     var dinners: [DinnerPlan]?
     var shoppingItems: [ShoppingItem]?
+    var units: HubUnits?
 }
 
 struct ShoppingItem: Identifiable, Codable, Hashable {
@@ -922,6 +923,114 @@ struct WeatherPlace: Codable, Hashable, Identifiable {
     var id: String { "\(latitude),\(longitude)" }
 
     static let chicago = WeatherPlace(label: "Chicago, IL", latitude: 41.8781, longitude: -87.6298)
+}
+
+struct HubUnits: Codable, Equatable {
+    var temperature: TemperatureUnit
+    var wind: WindUnit
+    var precipitation: PrecipUnit
+    var distance: DistanceUnit
+    var speed: SpeedUnit
+    var weight: WeightUnit
+    var volume: VolumeUnit
+    var length: LengthUnit
+    var time: TimeFormatUnit
+
+    static let us = HubUnits(
+        temperature: .fahrenheit,
+        wind: .mph,
+        precipitation: .inch,
+        distance: .miles,
+        speed: .mph,
+        weight: .pounds,
+        volume: .us,
+        length: .inches,
+        time: .twelve
+    )
+
+    static let metric = HubUnits(
+        temperature: .celsius,
+        wind: .kmh,
+        precipitation: .mm,
+        distance: .kilometers,
+        speed: .kmh,
+        weight: .kilograms,
+        volume: .metric,
+        length: .centimeters,
+        time: .twentyFour
+    )
+}
+
+enum TemperatureUnit: String, Codable, CaseIterable, Identifiable {
+    case fahrenheit, celsius
+    var id: String { rawValue }
+    var label: String { self == .fahrenheit ? "°F" : "°C" }
+    var name: String { self == .fahrenheit ? "Fahrenheit" : "Celsius" }
+    var api: String { rawValue }
+}
+
+enum WindUnit: String, Codable, CaseIterable, Identifiable {
+    case mph, kmh, ms, kn
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .mph: return "mph"
+        case .kmh: return "km/h"
+        case .ms: return "m/s"
+        case .kn: return "knots"
+        }
+    }
+    var name: String { label }
+}
+
+enum PrecipUnit: String, Codable, CaseIterable, Identifiable {
+    case inch, mm
+    var id: String { rawValue }
+    var label: String { self == .inch ? "in" : "mm" }
+    var name: String { self == .inch ? "Inches" : "Millimeters" }
+    var api: String { rawValue }
+}
+
+enum DistanceUnit: String, Codable, CaseIterable, Identifiable {
+    case miles, kilometers
+    var id: String { rawValue }
+    var label: String { self == .miles ? "mi" : "km" }
+    var name: String { self == .miles ? "Miles" : "Kilometers" }
+}
+
+enum SpeedUnit: String, Codable, CaseIterable, Identifiable {
+    case mph, kmh
+    var id: String { rawValue }
+    var label: String { self == .mph ? "mph" : "km/h" }
+    var name: String { self == .mph ? "Miles per hour" : "Kilometers per hour" }
+}
+
+enum WeightUnit: String, Codable, CaseIterable, Identifiable {
+    case pounds, kilograms
+    var id: String { rawValue }
+    var label: String { self == .pounds ? "lb" : "kg" }
+    var name: String { self == .pounds ? "Pounds" : "Kilograms" }
+}
+
+enum VolumeUnit: String, Codable, CaseIterable, Identifiable {
+    case us, metric
+    var id: String { rawValue }
+    var label: String { self == .us ? "cups" : "mL" }
+    var name: String { self == .us ? "US cups / fl oz" : "Milliliters / liters" }
+}
+
+enum LengthUnit: String, Codable, CaseIterable, Identifiable {
+    case inches, centimeters
+    var id: String { rawValue }
+    var label: String { self == .inches ? "in" : "cm" }
+    var name: String { self == .inches ? "Inches / feet" : "Centimeters / meters" }
+}
+
+enum TimeFormatUnit: String, Codable, CaseIterable, Identifiable {
+    case twelve, twentyFour
+    var id: String { rawValue }
+    var label: String { self == .twelve ? "12h" : "24h" }
+    var name: String { self == .twelve ? "12-hour" : "24-hour" }
 }
 
 struct WeatherDay: Identifiable, Hashable {

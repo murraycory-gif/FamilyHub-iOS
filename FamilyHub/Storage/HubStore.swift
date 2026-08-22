@@ -12,6 +12,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var assignments: [ChoreAssignment]
     @Published private(set) var ledger: [LedgerEntry]
     @Published private(set) var weatherPlace: WeatherPlace?
+    @Published private(set) var units: HubUnits
     @Published private(set) var hubWidgets: [HubWidget]
     @Published private(set) var calendarSources: [CalendarSource]
     @Published private(set) var recipes: [Recipe]
@@ -42,6 +43,7 @@ final class HubStore: ObservableObject {
         assignments = []
         ledger = []
         weatherPlace = WeatherPlace.chicago
+        units = .us
         hubWidgets = HubWidget.defaultSet
         calendarSources = []
         recipes = []
@@ -414,6 +416,11 @@ final class HubStore: ObservableObject {
         persist()
     }
 
+    func setUnits(_ units: HubUnits) {
+        self.units = units
+        persist()
+    }
+
     func addHubWidget(_ kind: HubWidgetKind) {
         guard !hubWidgets.contains(where: { $0.kind == kind }) else { return }
         hubWidgets.append(.make(kind))
@@ -712,6 +719,7 @@ final class HubStore: ObservableObject {
         assignments = snapshot.assignments
         ledger = snapshot.ledger.sorted { $0.createdAt > $1.createdAt }
         weatherPlace = snapshot.weatherPlace ?? WeatherPlace.chicago
+        units = snapshot.units ?? .us
         let widgets = snapshot.hubWidgets ?? []
         hubWidgets = widgets.isEmpty ? HubWidget.defaultSet : widgets
         calendarSources = snapshot.calendarSources ?? []
@@ -735,7 +743,8 @@ final class HubStore: ObservableObject {
             calendarSources: calendarSources,
             recipes: recipes,
             dinners: dinners,
-            shoppingItems: shoppingItems
+            shoppingItems: shoppingItems,
+            units: units
         )
         do {
             let encoder = JSONEncoder()
