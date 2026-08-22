@@ -1722,35 +1722,6 @@ struct PlaceThumb: View {
     }
 }
 
-struct PlacePhoto: View {
-    let coordinate: CLLocationCoordinate2D
-    @State private var image: UIImage?
-
-    var body: some View {
-        ZStack {
-            AppTheme.blueSoft
-            if let image {
-                Image(uiImage: image).resizable().scaledToFill()
-            } else {
-                ProgressView()
-            }
-        }
-        .task(id: "\(coordinate.latitude),\(coordinate.longitude)") {
-            await load()
-        }
-    }
-
-    private func load() async {
-        let options = MKMapSnapshotter.Options()
-        options.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 350, longitudinalMeters: 350)
-        options.size = CGSize(width: 600, height: 400)
-        options.showsBuildings = true
-        if let snapshot = try? await MKMapSnapshotter(options: options).start() {
-            image = snapshot.image
-        }
-    }
-}
-
 private struct PlaceInfoView: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.openURL) private var openURL
