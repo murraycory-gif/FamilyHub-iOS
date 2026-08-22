@@ -561,6 +561,23 @@ final class HubStore: ObservableObject {
         persist()
     }
 
+    func setBillsCalendar(_ id: UUID?) {
+        for i in calendarSources.indices {
+            let sourceID = calendarSources[i].id
+            if sourceID == id {
+                calendarSources[i].use = .billsDue
+                calendarSources[i].useChosen = true
+                calendarSources[i].isEnabled = true
+                events.removeAll { $0.sourceID == sourceID }
+            } else if calendarSources[i].use == .billsDue {
+                calendarSources[i].use = .familyCalendar
+                calendarSources[i].useChosen = true
+                reminders.removeAll { $0.sourceID == sourceID }
+            }
+        }
+        persist()
+    }
+
     func setSourceUse(_ id: UUID, use: CalendarHubUse) {
         guard let idx = calendarSources.firstIndex(where: { $0.id == id }) else { return }
         calendarSources[idx].use = use

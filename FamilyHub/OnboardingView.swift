@@ -20,7 +20,7 @@ struct OnboardingView: View {
 
     enum Path { case create, join }
 
-    private var lastPage: Int { path == .join ? 2 : 7 }
+    private var lastPage: Int { path == .join ? 2 : 8 }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,8 +59,9 @@ struct OnboardingView: View {
                     peoplePage.tag(3)
                     placePage.tag(4)
                     calendarPage.tag(5)
-                    pingsPage.tag(6)
-                    readyPage.tag(7)
+                    billsPage.tag(6)
+                    pingsPage.tag(7)
+                    readyPage.tag(8)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -317,7 +318,14 @@ struct OnboardingView: View {
                     ForEach(store.calendarSources.prefix(8)) { source in
                         HStack {
                             Image(systemName: source.brand.symbol).foregroundStyle(AppTheme.blue)
-                            Text(source.title).font(.headline)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(source.title).font(.headline)
+                                if CalendarSource.looksLikeBills(source.title) {
+                                    Text("Looks like bills — next screen sets this as Bills Due")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(AppTheme.reminder)
+                                }
+                            }
                             Spacer()
                             Toggle("", isOn: Binding(
                                 get: { source.isEnabled },
@@ -354,6 +362,12 @@ struct OnboardingView: View {
                 ingest.refreshStatus()
                 if ingest.isAuthorized { store.upsertCalendarSources(ingest.available) }
             }
+        }
+    }
+
+    private var billsPage: some View {
+        setupCard("Bills Due", "If you keep bills on their own calendar, pick it. Those dates become Bills Due reminders and stay off everyone’s family calendar.") {
+            BillsCalendarPicker(compact: true)
         }
     }
 

@@ -45,6 +45,17 @@ struct SettingsView: View {
                     }
                     .coachSpot("setHouse")
                     SettingsFold(
+                        symbol: "dollarsign.circle.fill",
+                        title: "Bills Due",
+                        subtitle: store.calendarSources.first(where: { $0.use == .billsDue })?.title ?? "Pick a bills calendar",
+                        isOpen: open.contains("bills")
+                    ) {
+                        toggle("bills")
+                    } content: {
+                        BillsCalendarPicker()
+                    }
+                    .coachSpot("setBills")
+                    SettingsFold(
                         symbol: "cloud.sun.fill",
                         title: "Weather",
                         subtitle: store.weatherPlace?.label ?? "Location and units",

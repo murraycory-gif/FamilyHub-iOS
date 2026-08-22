@@ -209,7 +209,7 @@ private struct CoachArrow: Shape {
 enum HubTours {
     static let hub: [CoachStep] = [
         .init(id: "hub", symbol: "house.fill", title: "This is the Hub", detail: "The whole board. Agenda, weather, dinner, and family live on this one screen."),
-        .init(id: "agenda", symbol: "calendar", title: "On Today's Agenda", detail: "Today’s events for whoever is selected. Swipe this top row to change days."),
+        .init(id: "agenda", symbol: "calendar", title: "On Today's Agenda", detail: "Today’s events for whoever is selected. Bills Due reminders show here for the family, not on each person’s calendar."),
         .init(id: "weather", symbol: "cloud.sun.fill", title: "Weather", detail: "Tap for the full forecast. Location and units are in Settings."),
         .init(id: "dinner", symbol: "fork.knife", title: "What's For Dinner", detail: "Tap to plan tonight. Saved family recipes, TikTok links, and sides live here."),
         .init(id: "family", symbol: "person.3.fill", title: "Family cards", detail: "Tap a person to color the board. Tap an event on their card to open the calendar.")
@@ -228,7 +228,7 @@ enum HubTours {
     ]
 
     static let lists: [CoachStep] = [
-        .init(id: "listKind", symbol: "list.bullet.rectangle", title: "Reminders and to-dos", detail: "Flip between reminders and to-dos. Filter by person along the top."),
+        .init(id: "listKind", symbol: "list.bullet.rectangle", title: "Reminders and to-dos", detail: "Flip between reminders and to-dos. Bills Due from your bills calendar lives here, not on the family calendar."),
         .init(id: "listBody", symbol: "checkmark.square", title: "The list", detail: "Tap an item to complete it. Use + to add one for anyone in the house.")
     ]
 
@@ -244,6 +244,7 @@ enum HubTours {
 
     static let settings: [CoachStep] = [
         .init(id: "setHouse", symbol: "gearshape.fill", title: "Household", detail: "Open this box for HUB Profiles, calendars, who is signed in, and the family join code."),
+        .init(id: "setBills", symbol: "dollarsign.circle.fill", title: "Bills Due", detail: "If you have a bills calendar, pick it here. Those dates become Bills Due reminders and stay off family calendars."),
         .init(id: "setWeather", symbol: "cloud.sun.fill", title: "Weather", detail: "Set the city and every measurement HUB should use.")
     ]
 

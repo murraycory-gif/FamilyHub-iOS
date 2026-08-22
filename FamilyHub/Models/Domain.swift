@@ -969,7 +969,8 @@ struct CalendarSource: Identifiable, Codable, Hashable {
 
     static func looksLikeBills(_ title: String) -> Bool {
         let hay = title.lowercased()
-        return hay.contains("bill")
+        let keys = ["bill", "bills", "utilities", "utility", "payments", "payment", "invoice", "invoices"]
+        return keys.contains(where: { hay.contains($0) })
     }
 
     static func make(

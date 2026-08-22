@@ -17,6 +17,7 @@ struct CalendarSourcesView: View {
 
                     brandRow
                     deviceAccess
+                    BillsCalendarPicker()
                     if !store.calendarSources.isEmpty {
                         connected
                     }
@@ -248,5 +249,109 @@ private struct AddICSSheet: View {
         default:
             return "Paste any public or secret .ics / webcal link. FamilyHub imports the next six months."
         }
+    }
+}
+
+struct BillsCalendarPicker: View {
+    @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var ingest: CalendarIngestor
+    var compact: Bool = false
+
+    private var selectedID: UUID? {
+        store.calendarSources.first(where: { $0.use == .billsDue })?.id
+    }
+
+    private var suggested: [CalendarSource] {
+        store.calendarSources.filter { CalendarSource.looksLikeBills($0.title) || $0.use == .billsDue }
+    }
+
+    private var others: [CalendarSource] {
+        store.calendarSources.filter { source in
+            !suggested.contains(where: { $0.id == source.id })
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if !compact {
+                SectionLabel(title: "Bills Due")
+                Text("Pick the calendar that holds your bills. HUB names it Bills Due and keeps it off family calendars.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+            if store.calendarSources.isEmpty {
+                Text("Connect calendars first, then pick the bills one here.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.textSecondary)
+            } else {
+                if !suggested.isEmpty {
+                    Text("Looks like bills")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AppTheme.reminder)
+                    ForEach(suggested) { source in
+                        pickRow(source, highlight: true)
+                    }
+                }
+                if !others.isEmpty {
+                    Text(suggested.isEmpty ? "Pick a calendar" : "Or pick a different one")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    ForEach(others) { source in
+                        pickRow(source, highlight: false)
+                    }
+                }
+                if selectedID != nil {
+                    Button("Don’t use a bills calendar") {
+                        store.setBillsCalendar(nil)
+                        ingest.scheduleSync(quiet: true)
+                    }
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.reminder)
+                }
+            }
+        }
+    }
+
+    private func pickRow(_ source: CalendarSource, highlight: Bool) -> some View {
+        let on = source.id == selectedID
+        return Button {
+            if on {
+                store.setBillsCalendar(nil)
+            } else {
+                store.setBillsCalendar(source.id)
+            }
+            ingest.scheduleSync(quiet: true)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: highlight || on ? "dollarsign.circle.fill" : source.brand.symbol)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(on ? .white : (highlight ? AppTheme.reminder : AppTheme.blue))
+                    .frame(width: 36, height: 36)
+                    .background(
+                        (on ? AppTheme.reminder : (highlight ? AppTheme.reminderSoft : AppTheme.blueSoft)),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(source.title)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(AppTheme.text)
+                    Text(on ? "Set as Bills Due reminders" : (highlight ? "Suggested bills calendar" : source.brand.title))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(on ? AppTheme.reminder : AppTheme.textSecondary)
+                }
+                Spacer()
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(on ? AppTheme.reminder : AppTheme.cardBorder)
+            }
+            .padding(12)
+            .background(on ? AppTheme.reminderSoft : AppTheme.bg)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(on ? AppTheme.reminder : AppTheme.cardBorder, lineWidth: on ? 3 : 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
