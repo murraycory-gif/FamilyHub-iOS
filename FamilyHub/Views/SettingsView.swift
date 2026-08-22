@@ -452,20 +452,37 @@ struct SettingsView: View {
             Text("HUB’s sender")
                 .font(.headline.weight(.bold))
                 .padding(.top, 4)
-            Text("Apple will not let this iPad send a text as HUB. Add HUB’s own number once. Then HUB texts you.")
+            Text("Get this from Twilio (free trial is enough). Open the console, copy the three values, paste them here.")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.textSecondary)
-            labeledField("Number texts come from", store.notifyPrefs.twilioFrom) { value in
+            VStack(alignment: .leading, spacing: 4) {
+                Text("1. Sign up at twilio.com/try-twilio")
+                Text("2. Account ID = Account SID on the home page")
+                Text("3. Secret key = Auth Token (click to show)")
+                Text("4. Number texts come from = Get a number → buy a US number")
+                Text("5. Verify your phone under Phone Numbers → Verified Caller IDs (trial only texts verified numbers)")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(AppTheme.text)
+            Link(destination: URL(string: "https://console.twilio.com")!) {
+                Text("Open Twilio console")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(AppTheme.blue, in: Capsule())
+            }
+            labeledField("Number texts come from", store.notifyPrefs.twilioFrom, placeholder: "+1 555 111 2222") { value in
                 var next = store.notifyPrefs
                 next.twilioFrom = HubPinger.prettyPhone(value)
                 store.setNotifyPrefs(next)
             }
-            labeledField("Account ID", store.notifyPrefs.twilioSID) { value in
+            labeledField("Account ID", store.notifyPrefs.twilioSID, placeholder: "ACxxxxxxxx") { value in
                 var next = store.notifyPrefs
                 next.twilioSID = value.trimmingCharacters(in: .whitespacesAndNewlines)
                 store.setNotifyPrefs(next)
             }
-            labeledField("Secret key", store.notifyPrefs.twilioToken, secret: true) { value in
+            labeledField("Secret key", store.notifyPrefs.twilioToken, secret: true, placeholder: "Auth Token") { value in
                 var next = store.notifyPrefs
                 next.twilioToken = value.trimmingCharacters(in: .whitespacesAndNewlines)
                 store.setNotifyPrefs(next)
@@ -511,20 +528,20 @@ struct SettingsView: View {
         }
     }
 
-    private func labeledField(_ title: String, _ value: String, secret: Bool = false, onChange: @escaping (String) -> Void) -> some View {
+    private func labeledField(_ title: String, _ value: String, secret: Bool = false, placeholder: String = "", onChange: @escaping (String) -> Void) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption.weight(.bold))
                 .foregroundStyle(AppTheme.textSecondary)
             if secret {
-                SecureField("Paste once", text: Binding(
+                SecureField(placeholder.isEmpty ? "Paste once" : placeholder, text: Binding(
                     get: { value },
                     set: onChange
                 ))
                 .textFieldStyle(.roundedBorder)
                 .textContentType(.password)
             } else {
-                TextField("", text: Binding(
+                TextField(placeholder, text: Binding(
                     get: { value },
                     set: onChange
                 ))
