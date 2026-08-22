@@ -492,7 +492,7 @@ struct MealChoiceSheet: View {
                         NavigationLink(value: MealPath.family) {
                             DinnerChoiceCard(
                                 title: "Family recipes",
-                                detail: "Scan a card or type one in",
+                                detail: "Scan, type, or paste a TikTok link",
                                 symbol: "book.closed.fill",
                                 photoQuery: "Cookbook"
                             )
@@ -773,6 +773,7 @@ private struct FamilyRecipePicker: View {
     var onDone: () -> Void
     @State private var showAdd = false
     @State private var showScan = false
+    @State private var showLink = false
     @State private var opened: Recipe?
 
     private var familyRecipes: [Recipe] {
@@ -800,6 +801,15 @@ private struct FamilyRecipePicker: View {
                             .background(AppTheme.blue, in: Capsule())
                     }
                     .buttonStyle(.plain)
+                    Button { showLink = true } label: {
+                        Label("Link", systemImage: "link")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(AppTheme.blue, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
                     Button { showAdd = true } label: {
                         Label("Add", systemImage: "plus")
                             .font(.headline)
@@ -810,7 +820,7 @@ private struct FamilyRecipePicker: View {
                     }
                     .buttonStyle(.plain)
                 }
-                Text("Scan a recipe card or cookbook page. We’ll pull the name, ingredients, and steps.")
+                Text("Scan a card, paste a TikTok / YouTube / Instagram / Pinterest link, or type one in.")
                     .foregroundStyle(AppTheme.textSecondary)
                 if familyRecipes.isEmpty {
                     Button { showScan = true } label: {
@@ -852,6 +862,7 @@ private struct FamilyRecipePicker: View {
         }
         .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet() }
         .fullScreenCover(isPresented: $showScan) { ScanRecipeSheet() }
+        .fullScreenCover(isPresented: $showLink) { ImportSocialRecipeView() }
     }
 }
 
