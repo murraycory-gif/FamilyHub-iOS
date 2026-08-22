@@ -909,76 +909,31 @@ private struct CatalogRecipePicker: View {
     var onDone: () -> Void
     @State private var opened: CatalogRecipe?
 
+    private let columns = [GridItem(.adaptive(minimum: 220), spacing: 14)]
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 10) {
-                    Text("All")
-                        .foregroundStyle(AppTheme.text)
-                    Text("Recipes")
-                        .foregroundStyle(AppTheme.blue)
-                }
-                .font(.system(size: 36, weight: .bold))
-                Text("American dinners load instantly. Search or tap a style.")
-                    .foregroundStyle(AppTheme.textSecondary)
-                HStack {
-                    Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                    TextField("Burger, chili, tacos, fried chicken…", text: $catalog.query)
-                        .textFieldStyle(.plain)
-                        .onSubmit { Task { await catalog.search() } }
-                    if catalog.isLoading { ProgressView() }
-                }
-                .padding(14)
-                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(catalog.categories, id: \.self) { item in
-                            FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
-                                catalog.category = item
-                                Task { await catalog.search() }
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "All", tail: "Recipes")
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
+                    Text("Tap a dinner. Photos load as you scroll.")
+                        .foregroundStyle(AppTheme.textSecondary)
+                    searchBar
+                    chips
+                    if let message = catalog.message {
+                        Text(message).foregroundStyle(AppTheme.textSecondary)
+                    }
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(catalog.recipes) { recipe in
+                            Button { opened = recipe } label: {
+                                recipeTile(recipe)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
-                if let message = catalog.message {
-                    Text(message).foregroundStyle(AppTheme.textSecondary)
-                }
-                ForEach(catalog.recipes) { recipe in
-                    Button {
-                        Task { opened = await catalog.detail(id: recipe.id) ?? recipe }
-                    } label: {
-                        HStack(spacing: 14) {
-                            RecipePhoto(url: recipe.thumb, searchName: recipe.name)
-                                .frame(width: 88, height: 88)
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(recipe.name)
-                                    .font(.headline.weight(.bold))
-                                    .foregroundStyle(AppTheme.text)
-                                    .lineLimit(2)
-                                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(AppTheme.textSecondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(AppTheme.textTertiary)
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(AppTheme.cardBorder, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
+                .padding(20)
             }
-            .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
@@ -986,6 +941,31 @@ private struct CatalogRecipePicker: View {
             CatalogRecipeDetail(recipe: recipe, day: day, onDone: onDone)
         }
         .task { await catalog.load() }
+    }
+
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+            TextField("Burger, chili, tacos…", text: $catalog.query)
+                .textFieldStyle(.plain)
+                .onSubmit { Task { await catalog.search() } }
+            if catalog.isLoading { ProgressView() }
+        }
+        .padding(14)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var chips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(catalog.categories, id: \.self) { item in
+                    FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
+                        catalog.category = item
+                        Task { await catalog.search() }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1054,85 +1034,57 @@ private struct SidePicker: View {
     var onDone: () -> Void
     @StateObject private var catalog = SideCatalog()
     @State private var opened: CatalogRecipe?
+    private let columns = [GridItem(.adaptive(minimum: 220), spacing: 14)]
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center, spacing: 12) {
-                    HStack(spacing: 10) {
-                        Text("All")
-                            .foregroundStyle(AppTheme.text)
-                        Text("Sides")
-                            .foregroundStyle(AppTheme.blue)
-                    }
-                    .font(.system(size: 36, weight: .bold))
-                    Spacer()
-                    Button {
-                        store.setDinnerSide(on: day, recipeID: nil)
-                        onDone()
-                    } label: {
-                        Text("Skip side")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(AppTheme.blue, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "All", tail: "Sides") {
+                Button {
+                    store.setDinnerSide(on: day, recipeID: nil)
+                    onDone()
+                } label: {
+                    Text("Skip side")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(AppTheme.blue, in: Capsule())
                 }
-                Text("Same as recipes — search or tap a style. Skip if you don’t want a side.")
-                    .foregroundStyle(AppTheme.textSecondary)
-                HStack {
-                    Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                    TextField("Mashed potatoes, slaw, corn…", text: $catalog.query)
-                        .textFieldStyle(.plain)
-                        .onSubmit { Task { await catalog.search() } }
-                }
-                .padding(14)
-                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(catalog.categories, id: \.self) { item in
-                            FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
-                                catalog.category = item
-                                Task { await catalog.search() }
-                            }
-                        }
-                    }
-                }
-                ForEach(catalog.recipes) { recipe in
-                    Button { opened = recipe } label: {
-                        HStack(spacing: 14) {
-                            RecipePhoto(url: recipe.thumb, searchName: recipe.name)
-                                .frame(width: 88, height: 88)
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(recipe.name)
-                                    .font(.headline.weight(.bold))
-                                    .foregroundStyle(AppTheme.text)
-                                    .lineLimit(2)
-                                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(AppTheme.textSecondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(AppTheme.textTertiary)
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(AppTheme.cardBorder, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
+                .buttonStyle(.plain)
             }
-            .padding(20)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    Text("Tap a side. Photos load as you scroll.")
+                        .foregroundStyle(AppTheme.textSecondary)
+                    HStack {
+                        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+                        TextField("Mashed potatoes, slaw, corn…", text: $catalog.query)
+                            .textFieldStyle(.plain)
+                            .onSubmit { Task { await catalog.search() } }
+                    }
+                    .padding(14)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(catalog.categories, id: \.self) { item in
+                                FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
+                                    catalog.category = item
+                                    Task { await catalog.search() }
+                                }
+                            }
+                        }
+                    }
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(catalog.recipes) { recipe in
+                            Button { opened = recipe } label: {
+                                recipeTile(recipe)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(20)
+            }
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
@@ -1554,6 +1506,32 @@ enum IngredientScale {
     private static func formatDecimal(_ value: Double) -> String {
         String(format: value < 1 ? "%.2f" : "%.1f", value)
     }
+}
+
+private func recipeTile(_ recipe: CatalogRecipe) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+        RecipePhoto(url: recipe.thumb, searchName: recipe.name)
+            .frame(maxWidth: .infinity)
+            .frame(height: 140)
+            .clipped()
+        VStack(alignment: .leading, spacing: 4) {
+            Text(recipe.name)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+            Text(recipe.category)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+        }
+        .padding(12)
+    }
+    .background(AppTheme.card)
+    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    .overlay(
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .stroke(AppTheme.blue, lineWidth: 3)
+    )
 }
 
 struct RecipePhoto: View {

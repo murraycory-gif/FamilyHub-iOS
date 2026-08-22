@@ -84,7 +84,6 @@ final class SideCatalog: ObservableObject {
 
     func load() async {
         applyFilter()
-        Task { await streamMore() }
     }
 
     func search() async {
