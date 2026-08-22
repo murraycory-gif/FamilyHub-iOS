@@ -13,16 +13,19 @@ struct FamilyView: View {
     @State private var profileMember: FamilyMember?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                pageTitle
-                householdCard
-                members
-                if !store.ledger.isEmpty {
-                    ledger
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "HUB", tail: "Profiles")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    householdCard
+                    members
+                    if !store.ledger.isEmpty {
+                        ledger
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
@@ -63,17 +66,6 @@ struct FamilyView: View {
         } message: {
             Text("Use a minus to take money out.")
         }
-    }
-
-    private var pageTitle: some View {
-        HStack(spacing: 10) {
-            Text("HUB")
-                .foregroundStyle(AppTheme.text)
-            Text("Profiles")
-                .foregroundStyle(AppTheme.blue)
-        }
-        .font(.system(size: 36, weight: .bold))
-        .padding(.bottom, 2)
     }
 
     private var householdCard: some View {

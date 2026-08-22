@@ -15,9 +15,10 @@ struct ListsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubPageTitle(lead: kind == .reminders ? "Family" : "Family", tail: kind == .reminders ? "Reminders" : "To-dos")
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
+            HubStickyHeader(
+                lead: "Family",
+                tail: kind == .reminders ? "Reminders" : "To-dos"
+            )
             Picker("List", selection: $kind) {
                 ForEach(ListKind.allCases) { item in
                     Text(item.title).tag(item)
@@ -25,7 +26,9 @@ struct ListsView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 20)
-            .padding(.top, 12)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
+            .background(AppTheme.bg)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -242,21 +245,15 @@ struct ShoppingListView: View {
     private var checkedItems: [ShoppingItem] { store.shoppingItems.filter { $0.isChecked } }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .center, spacing: 12) {
-                    HubPageTitle(lead: "Shopping", tail: "List")
-                    Spacer()
-                    if !store.shoppingItems.isEmpty {
-                        Button("Clear all") { confirmClearAll = true }
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(AppTheme.blue, in: Capsule())
-                    }
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "Shopping", tail: "List") {
+                if !store.shoppingItems.isEmpty {
+                    HubHeaderPill(title: "Clear all") { confirmClearAll = true }
                 }
-                addRow
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    addRow
                 if openItems.isEmpty && checkedItems.isEmpty {
                     HubCard {
                         EmptyHint(
@@ -290,6 +287,7 @@ struct ShoppingListView: View {
                 }
             }
             .padding(20)
+            }
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .alert("Clear the whole list?", isPresented: $confirmClearAll) {

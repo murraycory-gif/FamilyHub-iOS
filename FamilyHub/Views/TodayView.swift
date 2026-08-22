@@ -91,6 +91,7 @@ struct TodayView: View {
         .fullScreenCover(isPresented: $showDinner) {
             TonightDinnerView(day: selectedDay)
                 .environmentObject(store)
+                .environmentObject(router)
         }
         .fullScreenCover(isPresented: $showWeatherOutlook) {
             WeatherOutlookView(day: selectedDay)

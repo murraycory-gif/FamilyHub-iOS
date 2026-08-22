@@ -531,6 +531,51 @@ struct HubPageTitle: View {
     }
 }
 
+struct HubStickyHeader<Trailing: View>: View {
+    let lead: String
+    var tail: String = ""
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            HubPageTitle(lead: lead, tail: tail)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            trailing
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.bg)
+    }
+}
+
+extension HubStickyHeader where Trailing == EmptyView {
+    init(lead: String, tail: String = "") {
+        self.init(lead: lead, tail: tail) { EmptyView() }
+    }
+}
+
+struct HubHeaderPill: View {
+    let title: String
+    var color: Color = AppTheme.blue
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(color, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct HubPanel<Content: View, Trailing: View>: View {
     let symbol: String
     let title: String

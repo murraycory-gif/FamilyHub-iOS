@@ -7,15 +7,18 @@ struct ChoresView: View {
     @State private var selectedKid: UUID?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                HubPageTitle(lead: "Chore", tail: "Board")
-                kidBalances
-                kidFilter
-                board
-                catalog
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "Chore", tail: "Board")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    kidBalances
+                    kidFilter
+                    board
+                    catalog
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")

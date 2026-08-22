@@ -17,20 +17,32 @@ struct CalendarHubView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            header
-                            monthHeader
-                            colorLegend
-                            weekdayHeader
-                            monthGrid
-                            dayList
+                VStack(alignment: .leading, spacing: 0) {
+                    HubStickyHeader(lead: "Family", tail: "Calendar") {
+                        Button { showWho = true } label: {
+                            HubFilterBanner(symbol: "person.3.fill", title: whoTitle)
                         }
-                        .padding(20)
+                        .buttonStyle(.plain)
+                        Button { showAdd = true } label: {
+                            HubFilterBanner(symbol: "plus", title: "Add", chevron: false)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .onAppear { scrollToFocus(proxy) }
-                    .onChange(of: router.focusedEventID) { _, _ in scrollToFocus(proxy) }
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 16) {
+                                monthHeader
+                                colorLegend
+                                weekdayHeader
+                                monthGrid
+                                dayList
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
+                        }
+                        .onAppear { scrollToFocus(proxy) }
+                        .onChange(of: router.focusedEventID) { _, _ in scrollToFocus(proxy) }
+                    }
                 }
                 if showWho {
                     whoOverlay(width: min(560, geo.size.width - 72), height: min(640, geo.size.height - 80))

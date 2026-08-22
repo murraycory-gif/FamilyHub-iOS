@@ -2,10 +2,11 @@ import SwiftUI
 
 struct SettingsView: View {
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HubPageTitle(lead: "HUB", tail: "Settings")
-                HubPanel(symbol: "gearshape.fill", title: "Household") {
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "HUB", tail: "Settings")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HubPanel(symbol: "gearshape.fill", title: "Household") {
                     VStack(spacing: 10) {
                         NavigationLink {
                             FamilyView()
@@ -29,8 +30,10 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")

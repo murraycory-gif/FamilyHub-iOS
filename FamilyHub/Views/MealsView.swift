@@ -4,31 +4,36 @@ import UIKit
 
 struct MealsView: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
     @State private var pickDay: Date?
     @State private var confirmClearAll = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                title
-                HubPanel(symbol: "fork.knife", title: "Next 2 Weeks", trailing: {
-                    Button("Clear all") { confirmClearAll = true }
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.white.opacity(0.22), in: Capsule())
-                }) {
-                    weekGrid
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "Meal", tail: "Planning")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HubPanel(symbol: "fork.knife", title: "Next 2 Weeks", trailing: {
+                        Button("Clear all") { confirmClearAll = true }
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(.white.opacity(0.22), in: Capsule())
+                    }) {
+                        weekGrid
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .padding(20)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("")
         .fullScreenCover(item: pickDayBinding) { day in
             TonightDinnerView(day: day.date)
                 .environmentObject(store)
+                .environmentObject(router)
         }
         .alert("Clear all meals?", isPresented: $confirmClearAll) {
             Button("Clear all", role: .destructive) {
@@ -38,16 +43,6 @@ struct MealsView: View {
         } message: {
             Text("This removes every dinner on the next 2 weeks.")
         }
-    }
-
-    private var title: some View {
-        HStack(spacing: 10) {
-            Text("Meal")
-                .foregroundStyle(AppTheme.text)
-            Text("Planning")
-                .foregroundStyle(AppTheme.blue)
-        }
-        .font(.system(size: 36, weight: .bold))
     }
 
     private var weekGrid: some View {
@@ -218,6 +213,7 @@ private struct DatedDay: Identifiable {
 
 struct TonightDinnerView: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     let day: Date
@@ -231,56 +227,67 @@ struct TonightDinnerView: View {
     }
 
     var body: some View {
-        NavigationStack { content }
-            .fullScreenCover(isPresented: $showPicker) {
-                MealChoiceSheet(day: day) {
-                    showPicker = false
-                    dismiss()
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 0) {
+                HubStickyHeader(lead: "What's For", tail: "Dinner") {
+                    if plan != nil {
+                        HubHeaderPill(title: "Delete", color: AppTheme.chore) {
+                            store.clearDinner(on: day)
+                            dismiss()
+                            router.open(.today)
+                        }
+                        HubHeaderPill(title: "Change Meal") {
+                            dismiss()
+                            router.openMeals(day: day)
+                        }
+                    }
                 }
-                .environmentObject(store)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        dinnerBody
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                }
             }
-            .onAppear {
-                if store.dinner(on: day) == nil { showPicker = true }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .fullScreenCover(isPresented: $showPicker) {
+            MealChoiceSheet(day: day) {
+                showPicker = false
+                dismiss()
             }
+            .environmentObject(store)
+        }
+        .onAppear {
+            if store.dinner(on: day) == nil { showPicker = true }
+        }
     }
 
-    private var content: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if plan == nil {
-                    Text("Nothing planned")
-                        .font(.system(size: 34, weight: .bold))
-                    Button("Plan dinner") { showPicker = true }
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppTheme.blue, in: Capsule())
-                } else if let recipe {
-                    cookView(recipe, heading: "Main", side: false)
-                    if let side = store.dinnerSide(on: day) {
-                        cookView(side, heading: "Side", side: true)
-                    }
-                } else if let plan, plan.placeName != nil {
-                    eatOutView(plan)
-                } else {
-                    noteView
-                    if let side = store.dinnerSide(on: day) {
-                        cookView(side, heading: "Side", side: true)
-                    }
-                }
+    @ViewBuilder
+    private var dinnerBody: some View {
+        if plan == nil {
+            Text("Nothing planned")
+                .font(.system(size: 34, weight: .bold))
+            Button("Plan dinner") { showPicker = true }
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(AppTheme.blue, in: Capsule())
+        } else if let recipe {
+            cookView(recipe, heading: "Main", side: false)
+            if let side = store.dinnerSide(on: day) {
+                cookView(side, heading: "Side", side: true)
             }
-            .padding(20)
-        }
-        .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Done") { dismiss() }.foregroundStyle(AppTheme.blue)
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Change") { showPicker = true }.foregroundStyle(AppTheme.blue)
+        } else if let plan, plan.placeName != nil {
+            eatOutView(plan)
+        } else {
+            noteView
+            if let side = store.dinnerSide(on: day) {
+                cookView(side, heading: "Side", side: true)
             }
         }
     }
