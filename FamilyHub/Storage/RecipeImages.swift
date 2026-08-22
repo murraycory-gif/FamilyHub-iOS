@@ -149,6 +149,11 @@ enum RecipeImages {
     private static func alias(_ name: String) -> String {
         let map = [
             "Classic Cheeseburgers": "Cheeseburger",
+            "Steak dinner": "Steak",
+            "Take-out": "Take-out",
+            "Pizza": "Pizza",
+            "Cookbook": "Cookbook",
+            "Home cooking": "Cooking",
             "Buttermilk Fried Chicken": "Fried chicken",
             "BBQ Baby Back Ribs": "Pork ribs",
             "Pulled Pork Sandwiches": "Pulled pork",

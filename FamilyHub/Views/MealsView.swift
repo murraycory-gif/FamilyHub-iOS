@@ -466,7 +466,7 @@ struct MealChoiceSheet: View {
                                 title: "Eating out",
                                 detail: "Sit down near you",
                                 symbol: "fork.knife",
-                                photo: URL(string: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=60")
+                                photoQuery: "Steak dinner"
                             )
                         }
                         .buttonStyle(.plain)
@@ -475,7 +475,7 @@ struct MealChoiceSheet: View {
                                 title: "Take out",
                                 detail: "Pick it up and bring it home",
                                 symbol: "bag.fill",
-                                photo: URL(string: "https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=800&q=60")
+                                photoQuery: "Take-out"
                             )
                         }
                         .buttonStyle(.plain)
@@ -484,7 +484,7 @@ struct MealChoiceSheet: View {
                                 title: "Delivery",
                                 detail: "Brought to your door",
                                 symbol: "bicycle",
-                                photo: URL(string: "https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&w=800&q=60")
+                                photoQuery: "Pizza"
                             )
                         }
                         .buttonStyle(.plain)
@@ -493,16 +493,16 @@ struct MealChoiceSheet: View {
                                 title: "Family recipes",
                                 detail: "Scan a card or type one in",
                                 symbol: "book.closed.fill",
-                                photo: URL(string: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=800&q=60")
+                                photoQuery: "Cookbook"
                             )
                         }
                         .buttonStyle(.plain)
                         NavigationLink(value: MealPath.recipes) {
                             DinnerChoiceCard(
                                 title: "Recipes",
-                                detail: "A huge American cookbook",
+                                detail: "American and world cookbook",
                                 symbol: "fork.knife.circle.fill",
-                                photo: URL(string: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=60")
+                                photoQuery: "Roast chicken"
                             )
                         }
                         .buttonStyle(.plain)
@@ -511,7 +511,7 @@ struct MealChoiceSheet: View {
                                 title: "Enter a meal",
                                 detail: "Type it yourself",
                                 symbol: "square.and.pencil",
-                                photo: URL(string: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=800&q=60")
+                                photoQuery: "Home cooking"
                             )
                         }
                         .buttonStyle(.plain)
@@ -556,11 +556,11 @@ private struct DinnerChoiceCard: View {
     let title: String
     let detail: String
     let symbol: String
-    let photo: URL?
+    var photoQuery: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RecipePhoto(url: photo, searchName: title)
+            RecipePhoto(url: nil, searchName: photoQuery.isEmpty ? title : photoQuery)
                 .frame(maxWidth: .infinity)
                 .frame(height: 148)
                 .clipped()
@@ -919,7 +919,7 @@ private struct CatalogRecipePicker: View {
     var onDone: () -> Void
     @State private var opened: CatalogRecipe?
 
-    private let columns = [GridItem(.adaptive(minimum: 220), spacing: 14)]
+    private let columns = [GridItem(.adaptive(minimum: 240), spacing: 16)]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1044,7 +1044,7 @@ private struct SidePicker: View {
     var onDone: () -> Void
     @StateObject private var catalog = SideCatalog()
     @State private var opened: CatalogRecipe?
-    private let columns = [GridItem(.adaptive(minimum: 220), spacing: 14)]
+    private let columns = [GridItem(.adaptive(minimum: 240), spacing: 16)]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1519,29 +1519,34 @@ enum IngredientScale {
 }
 
 private func recipeTile(_ recipe: CatalogRecipe) -> some View {
-    VStack(alignment: .leading, spacing: 0) {
+    ZStack(alignment: .bottomLeading) {
         RecipePhoto(url: recipe.thumb, searchName: recipe.name)
-            .frame(maxWidth: .infinity)
-            .frame(height: 140)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
-        VStack(alignment: .leading, spacing: 4) {
+        LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(recipe.category.uppercased())
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(AppTheme.blue, in: Capsule())
             Text(recipe.name)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(AppTheme.text)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
-            Text(recipe.category)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.blue)
         }
         .padding(12)
     }
-    .background(AppTheme.card)
+    .frame(maxWidth: .infinity)
+    .frame(height: 210)
     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     .overlay(
         RoundedRectangle(cornerRadius: 22, style: .continuous)
             .stroke(AppTheme.blue, lineWidth: 3)
     )
+    .shadow(color: .black.opacity(0.16), radius: 12, y: 6)
 }
 
 struct RecipePhoto: View {

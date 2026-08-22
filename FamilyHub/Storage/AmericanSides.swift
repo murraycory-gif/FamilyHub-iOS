@@ -13,9 +13,9 @@ enum AmericanSides {
             sourceURL: nil,
             youtubeURL: nil
         )
-    }
+    } + WorldSides.recipes
 
-    static let categories = ["All", "Potato", "Veg", "Salad", "Bread", "BBQ", "Classic"]
+    static let categories = ["All", "Easy", "Quick", "Potato", "Veg", "Salad", "Bread", "BBQ", "Classic", "World"]
 
     private static let raw: [(String, String, String, [String], String)] = [
         ("Mashed Potatoes", "Potato", "https://images.unsplash.com/photo-1604908177522-04083420eb68?auto=format&fit=crop&w=800&q=80", ["3 lb russet potatoes", "1 stick butter", "1 cup warm milk", "Salt and pepper"], "Boil potatoes until tender. Drain. Mash with butter and milk. Salt and pepper."),
@@ -109,9 +109,16 @@ final class SideCatalog: ObservableObject {
     }
 
     private func applyFilter() {
-        if category == "All" {
+        switch category {
+        case "All":
             recipes = AmericanSides.recipes
-        } else {
+        case "Easy", "Quick":
+            recipes = AmericanSides.recipes.filter {
+                MealEase.tags(name: $0.name, category: $0.category).contains(category)
+            }
+        case "World":
+            recipes = AmericanSides.recipes.filter { $0.area != "American" || $0.category == "World" }
+        default:
             recipes = AmericanSides.recipes.filter { $0.category == category }
         }
     }

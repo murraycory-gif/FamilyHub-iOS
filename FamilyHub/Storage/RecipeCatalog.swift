@@ -27,7 +27,10 @@ struct CatalogRecipe: Identifiable, Hashable {
 @MainActor
 final class RecipeCatalog: ObservableObject {
     @Published var recipes: [CatalogRecipe] = []
-    @Published var categories: [String] = ["American", "BBQ", "Southern", "Tex-Mex", "Diner", "Comfort", "Weeknight", "Holiday", "All"]
+    @Published var categories: [String] = [
+        "All", "Easy", "Quick", "American", "World", "BBQ", "Southern", "Tex-Mex",
+        "Italian", "Mexican", "Asian", "Mediterranean", "Diner", "Comfort", "Weeknight", "Holiday"
+    ]
     @Published var query = ""
     @Published var category = "American"
     @Published var isLoading = false
@@ -56,7 +59,7 @@ final class RecipeCatalog: ObservableObject {
         let needle = trimmed.lowercased()
         var seen = Set<String>()
         var result: [CatalogRecipe] = []
-        for item in AmericanKitchen.recipes where matches(item, needle) {
+        for item in localRecipes where matches(item, needle) {
             if seen.insert(item.id).inserted { result.append(item) }
         }
         recipes = result
@@ -71,7 +74,7 @@ final class RecipeCatalog: ObservableObject {
     }
 
     func detail(id: String) async -> CatalogRecipe? {
-        if let local = AmericanKitchen.recipes.first(where: { $0.id == id }) {
+        if let local = localRecipes.first(where: { $0.id == id }) {
             return local
         }
         if let existing = recipes.first(where: { $0.id == id }), !existing.instructions.isEmpty {
@@ -80,17 +83,41 @@ final class RecipeCatalog: ObservableObject {
         return try? await MealDB.lookup(id)
     }
 
+    private var localRecipes: [CatalogRecipe] { AmericanKitchen.recipes + WorldKitchen.recipes }
+
     private func applyFilter() {
         message = nil
-        if category == "All" {
-            recipes = AmericanKitchen.recipes
-        } else if category == "American" {
-            recipes = AmericanKitchen.recipes
-        } else {
-            recipes = AmericanKitchen.recipes.filter { $0.category == category }
+        let local = localRecipes
+        switch category {
+        case "All":
+            recipes = local
+            Task { await streamWorld() }
+        case "American":
+            recipes = local.filter { $0.area == "American" }
+        case "World":
+            recipes = local.filter { $0.area != "American" }
+            Task { await streamWorld() }
+        case "Easy":
+            recipes = local.filter { MealEase.tags(name: $0.name, category: $0.category).contains("Easy") }
+        case "Quick":
+            recipes = local.filter { MealEase.tags(name: $0.name, category: $0.category).contains("Quick") }
+        case "Asian":
+            recipes = local.filter { Self.asian.contains($0.category) || Self.asian.contains($0.area) }
+            Task { await streamAreas(Self.asian) }
+        case "Mediterranean":
+            recipes = local.filter { Self.med.contains($0.category) || Self.med.contains($0.area) }
+            Task { await streamAreas(["Greek", "French", "Spanish", "Moroccan"]) }
+        default:
+            recipes = local.filter { $0.category == category || $0.area == category }
+            if ["Italian", "Mexican", "Indian", "Thai", "Japanese", "Chinese", "French", "Greek"].contains(category) {
+                Task { await streamAreas([category]) }
+            }
         }
         if recipes.isEmpty { message = "No recipes in that category yet." }
     }
+
+    private static let asian = ["Chinese", "Japanese", "Thai", "Indian", "Korean", "Vietnamese", "Filipino"]
+    private static let med = ["Greek", "French", "Spanish", "Moroccan", "Mediterranean"]
 
     private func matches(_ item: CatalogRecipe, _ needle: String) -> Bool {
         item.name.lowercased().contains(needle)
@@ -100,17 +127,20 @@ final class RecipeCatalog: ObservableObject {
     }
 
     private func streamWorld() async {
-        let areas = [
+        await streamAreas([
             "American", "Canadian", "Mexican", "British", "Italian", "Chinese", "Indian",
             "French", "Japanese", "Thai", "Greek", "Spanish", "Jamaican", "Moroccan",
             "Irish", "Vietnamese", "Turkish", "Polish", "Portuguese", "Filipino"
-        ]
+        ])
+    }
+
+    private func streamAreas(_ areas: [String]) async {
         await withTaskGroup(of: [CatalogRecipe].self) { group in
             for area in areas {
                 group.addTask { (try? await MealDB.filter(area: area)) ?? [] }
             }
             var seen = Set(recipes.map(\.id))
-            seen.formUnion(Set(AmericanKitchen.recipes.map(\.id)))
+            seen.formUnion(Set(localRecipes.map(\.id)))
             for await batch in group {
                 let extra = batch.filter { seen.insert($0.id).inserted }
                 if !extra.isEmpty {
