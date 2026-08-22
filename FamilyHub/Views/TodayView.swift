@@ -1067,6 +1067,7 @@ private struct HubDayItem: Identifiable {
 
 private struct FamilyFocusCard: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
     @Environment(\.hubAccent) private var accent
     let selected: Bool
     let day: Date
@@ -1076,6 +1077,12 @@ private struct FamilyFocusCard: View {
 
     private var events: [CalendarEvent] {
         store.events(on: day, filter: .family)
+    }
+
+    private var billsDue: Int {
+        store.reminders.filter {
+            $0.isBills && !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false)
+        }.count
     }
 
     var body: some View {
@@ -1092,8 +1099,11 @@ private struct FamilyFocusCard: View {
         ) {
             DayStatusRow(
                 chores: store.openAssignments(for: nil).filter { $0.status == .pending && Calendar.current.isDate($0.dueOn, inSameDayAs: day) }.count,
-                reminders: store.reminders.filter { !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false) }.count,
-                todos: store.todos.filter { !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false) }.count
+                bills: billsDue,
+                todos: store.todos.filter { !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false) }.count,
+                onChores: { router.open(.chores) },
+                onBills: { router.open(.lists, list: .reminders) },
+                onTodos: { router.open(.lists, list: .todos) }
             )
             EventScroll(events: events, onEvent: onEvent)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -1108,6 +1118,7 @@ private struct FamilyFocusCard: View {
 
 private struct MemberHomeCard: View {
     @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
     let member: FamilyMember
     var selected = false
     let day: Date
@@ -1117,11 +1128,6 @@ private struct MemberHomeCard: View {
 
     private var chores: [ChoreAssignment] {
         store.openAssignments(for: member.id).filter { $0.status == .pending && Calendar.current.isDate($0.dueOn, inSameDayAs: day) }
-    }
-    private var reminders: [ReminderItem] {
-        store.openReminders(for: member.id).filter { item in
-            item.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false
-        }
     }
     private var todos: [TodoItem] {
         store.openTodos(for: member.id).filter { item in
@@ -1148,7 +1154,12 @@ private struct MemberHomeCard: View {
             onCamera: { showStudio = true },
             onSelect: onSelect
         ) {
-            DayStatusRow(chores: chores.count, reminders: reminders.count, todos: todos.count)
+            DayStatusRow(
+                chores: chores.count,
+                todos: todos.count,
+                onChores: { router.open(.chores) },
+                onTodos: { router.open(.lists, list: .todos) }
+            )
             EventScroll(events: events, onEvent: onEvent)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
@@ -1219,6 +1230,8 @@ private struct AmazonPersonCard<Content: View>: View {
             .frame(maxWidth: .infinity)
             .frame(height: 158)
             .clipped()
+            .contentShape(Rectangle())
+            .onTapGesture { onSelect() }
 
             VStack(alignment: .leading, spacing: 10) {
                 content
@@ -1235,8 +1248,6 @@ private struct AmazonPersonCard<Content: View>: View {
                 .stroke(ring, lineWidth: 3)
         )
         .shadow(color: ring.opacity(selected ? 0.28 : 0.14), radius: selected ? 14 : 10, y: 6)
-        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .onTapGesture { onSelect() }
     }
 }
 
@@ -1301,32 +1312,41 @@ private func posterBanner<Trailing: View>(
 
 private struct DayStatusRow: View {
     let chores: Int
-    let reminders: Int
+    var bills: Int? = nil
     let todos: Int
+    var onChores: () -> Void
+    var onBills: (() -> Void)? = nil
+    var onTodos: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            box(AppTheme.chore, AppTheme.choreSoft, "checkmark.circle.fill", chores, "Chores")
-            box(AppTheme.reminder, AppTheme.reminderSoft, "bell.fill", reminders, "Remind")
-            box(AppTheme.todo, AppTheme.todoSoft, "square.and.pencil", todos, "To-dos")
+            box(AppTheme.chore, AppTheme.choreSoft, "checkmark.circle.fill", chores, "Chores", onChores)
+            if let bills, let onBills {
+                box(AppTheme.reminder, AppTheme.reminderSoft, "dollarsign.circle.fill", bills, "Bills Due", onBills)
+            }
+            box(AppTheme.todo, AppTheme.todoSoft, "square.and.pencil", todos, "To-dos", onTodos)
         }
     }
 
-    private func box(_ color: Color, _ soft: Color, _ symbol: String, _ count: Int, _ title: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: symbol)
-            Text("\(count)")
-                .monospacedDigit()
-            Text(title)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+    private func box(_ color: Color, _ soft: Color, _ symbol: String, _ count: Int, _ title: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: symbol)
+                Text("\(count)")
+                    .monospacedDigit()
+                Text(title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+            }
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity)
+            .background(soft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(Rectangle())
         }
-        .font(.system(size: 11, weight: .bold))
-        .foregroundStyle(color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity)
-        .background(soft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .buttonStyle(.plain)
     }
 }
 
