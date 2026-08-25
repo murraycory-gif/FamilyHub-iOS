@@ -719,13 +719,68 @@ struct HubTileBanner<Trailing: View>: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(accent)
+        .background(
+            LinearGradient(
+                colors: [accent.opacity(0.92), accent],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.22))
+                .frame(height: 1)
+                .allowsHitTesting(false)
+        }
     }
 }
 
 extension HubTileBanner where Trailing == EmptyView {
     init(symbol: String, title: String) {
         self.init(symbol: symbol, title: title) { EmptyView() }
+    }
+}
+
+struct HubLift: ViewModifier {
+    var accent: Color
+    var radius: CGFloat = 22
+    var selected: Bool = false
+
+    func body(content: Content) -> some View {
+        content
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.55),
+                                accent,
+                                accent.opacity(0.85)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: selected ? 4 : 3
+                    )
+            )
+            .compositingGroup()
+            .shadow(color: accent.opacity(selected ? 0.34 : 0.20), radius: selected ? 22 : 16, x: 0, y: selected ? 12 : 8)
+            .shadow(color: .black.opacity(0.12), radius: selected ? 8 : 5, x: 0, y: 2)
+    }
+}
+
+extension View {
+    func hubLift(accent: Color, radius: CGFloat = 22, selected: Bool = false) -> some View {
+        modifier(HubLift(accent: accent, radius: radius, selected: selected))
+    }
+}
+
+struct HubPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
     }
 }
 

@@ -511,12 +511,8 @@ struct HubWeatherTile: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(hubAccent, lineWidth: 3)
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .hubLift(accent: hubAccent, radius: 22)
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .onTapGesture(perform: onOpen)
     }
 

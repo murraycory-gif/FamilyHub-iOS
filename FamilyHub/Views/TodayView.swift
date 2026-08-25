@@ -138,12 +138,12 @@ struct TodayView: View {
     private func dashboard(for day: Date, portrait: Bool) -> some View {
         let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
         if portrait {
-            VStack(spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 16) {
+                HStack(alignment: .top, spacing: 16) {
                     agenda(for: day)
                         .coachSpot("agenda", active: on)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    VStack(spacing: 12) {
+                    VStack(spacing: 16) {
                         weatherTile(for: day)
                             .coachSpot("weather", active: on)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -158,11 +158,11 @@ struct TodayView: View {
                     .frame(height: 176)
             }
         } else {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: 16) {
                 agenda(for: day)
                     .coachSpot("agenda", active: on)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
                     weatherTile(for: day)
                         .coachSpot("weather", active: on)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -478,12 +478,8 @@ struct TodayView: View {
             .padding(14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .background(AppTheme.blueSoft)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accent, lineWidth: 3)
-        )
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
         .frame(maxHeight: .infinity)
     }
 
@@ -559,12 +555,8 @@ struct TodayView: View {
             .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(AppTheme.blueSoft)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(accent, lineWidth: 3)
-        )
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
     }
 
     private var nextEventTile: some View {
@@ -670,12 +662,8 @@ struct TodayView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
-        .background(AppTheme.blueSoft)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accent, lineWidth: 3)
-        )
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
     }
 
     @ViewBuilder
@@ -979,27 +967,25 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(symbol: "house.fill", title: "HUB")
             memberStrip(canvas: canvas)
-                .padding(12)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 16)
         }
-        .background(AppTheme.blueSoft)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accent, lineWidth: 3)
-        )
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
     }
 
     private func memberStrip(canvas: CGSize) -> some View {
         GeometryReader { geo in
             let width = cardWidth(in: geo.size, canvas: canvas)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .top, spacing: 14) {
                     FamilyFocusCard(selected: profile == .family, day: selectedDay) {
                         profile = .family
                     } onEvent: { event in
                         router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                     }
-                    .frame(width: width, height: geo.size.height)
+                    .frame(width: width, height: geo.size.height - 8)
 
                     ForEach(store.members) { member in
                         MemberHomeCard(
@@ -1011,18 +997,22 @@ struct TodayView: View {
                                 router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
                             }
                         )
-                        .frame(width: width, height: geo.size.height)
+                        .frame(width: width, height: geo.size.height - 8)
                     }
                 }
+                .scrollTargetLayout()
+                .padding(.vertical, 4)
+                .padding(.trailing, 8)
             }
+            .scrollTargetBehavior(.viewAligned)
             .scrollBounceBehavior(.basedOnSize)
         }
     }
 
     private func cardWidth(in size: CGSize, canvas: CGSize) -> CGFloat {
         let portrait = canvas.height > canvas.width
-        let visible: CGFloat = portrait ? 3 : 4
-        return max(168, (size.width - 12 * (visible - 1)) / visible)
+        let visible: CGFloat = portrait ? 3.28 : 4.28
+        return max(176, (size.width - 14 * (visible - 1)) / visible)
     }
 }
 
@@ -1286,12 +1276,7 @@ private struct AmazonPersonCard<Content: View>: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(ring, lineWidth: 3)
-        )
-        .shadow(color: ring.opacity(selected ? 0.28 : 0.14), radius: selected ? 14 : 10, y: 6)
+        .hubLift(accent: ring, selected: selected)
     }
 }
 
