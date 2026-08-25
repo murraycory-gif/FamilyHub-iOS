@@ -15,7 +15,7 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var profile: HubProfile = .family
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
-    @State private var pagedDay: Date? = Calendar.current.startOfDay(for: Date())
+    @State private var pageIndex = 0
     @State private var showDayMenu = false
     @State private var showProfileMenu = false
     @StateObject private var weather = WeatherLoader()
@@ -48,21 +48,16 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 14) {
                 header
                     .coachSpot("hub")
-                    GeometryReader { inner in
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHStack(spacing: 0) {
-                                ForEach(swipeDays, id: \.self) { day in
-                                    dashboard(for: day, portrait: portrait)
-                                        .frame(width: inner.size.width, height: inner.size.height)
-                                        .id(day)
-                                }
-                            }
-                            .scrollTargetLayout()
-                        }
-                        .scrollTargetBehavior(.paging)
-                        .scrollPosition(id: $pagedDay)
-                    }
-                    .frame(maxHeight: .infinity)
+                HubDayPager(
+                    days: swipeDays,
+                    index: $pageIndex,
+                    store: store,
+                    router: router,
+                    accent: accent
+                ) { day in
+                    dashboard(for: day, portrait: portrait)
+                }
+                .frame(maxHeight: .infinity)
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
@@ -146,14 +141,16 @@ struct TodayView: View {
                 Task { await weather.load(place: place, units: store.units) }
             }
         }
-        .onChange(of: pagedDay) { _, day in
-            if let day {
-                selectedDay = Calendar.current.startOfDay(for: day)
+        .onChange(of: pageIndex) { _, idx in
+            if swipeDays.indices.contains(idx) {
+                selectedDay = swipeDays[idx]
             }
         }
         .onChange(of: selectedDay) { _, day in
-            let start = Calendar.current.startOfDay(for: day)
-            if pagedDay != start { pagedDay = start }
+            if let idx = swipeDays.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: day) }),
+               idx != pageIndex {
+                pageIndex = idx
+            }
         }
         .alert("Add to shopping list", isPresented: $showAddShopping) {
             TextField("Item", text: $shoppingDraft)
@@ -511,7 +508,9 @@ struct TodayView: View {
         } else {
             selectedDay = day
         }
-        pagedDay = selectedDay
+        if let idx = swipeDays.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: selectedDay) }) {
+            pageIndex = idx
+        }
     }
 
     private var shortDayName: String {

@@ -769,76 +769,128 @@ extension Collection {
     }
 }
 
-struct HubDaySwipeInstaller: UIViewRepresentable {
-    var onPrev: () -> Void
-    var onNext: () -> Void
+struct HubDayPager<Page: View>: UIViewControllerRepresentable {
+    var days: [Date]
+    @Binding var index: Int
+    var store: HubStore
+    var router: HubRouter
+    var accent: Color
+    var page: (Date) -> Page
 
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-        HubDaySwipeGate.shared.attach(region: view, onPrev: onPrev, onNext: onNext)
-        return view
+    func makeCoordinator() -> Coordinator {
+        Coordinator(days: days, index: index, store: store, router: router, accent: accent, page: page)
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {
-        HubDaySwipeGate.shared.attach(region: uiView, onPrev: onPrev, onNext: onNext)
-    }
-}
-
-final class HubDaySwipeGate: NSObject, UIGestureRecognizerDelegate {
-    static let shared = HubDaySwipeGate()
-    private var onPrev: (() -> Void)?
-    private var onNext: (() -> Void)?
-    private weak var region: UIView?
-    private var pan: UIPanGestureRecognizer?
-    private var lastFire = Date.distantPast
-
-    func attach(region: UIView, onPrev: @escaping () -> Void, onNext: @escaping () -> Void) {
-        self.region = region
-        self.onPrev = onPrev
-        self.onNext = onNext
-        guard pan == nil else { return }
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.pan == nil, let window = region.window ?? self.region?.window else { return }
-            let gesture = UIPanGestureRecognizer(target: self, action: #selector(handle))
-            gesture.delegate = self
-            gesture.cancelsTouchesInView = false
-            gesture.maximumNumberOfTouches = 1
-            window.addGestureRecognizer(gesture)
-            self.pan = gesture
+    func makeUIViewController(context: Context) -> UIPageViewController {
+        let controller = UIPageViewController(
+            transitionStyle: .scroll,
+            navigationOrientation: .horizontal
+        )
+        controller.dataSource = context.coordinator
+        controller.delegate = context.coordinator
+        controller.view.backgroundColor = .clear
+        context.coordinator.pager = controller
+        context.coordinator.onIndex = { index = $0 }
+        if let start = context.coordinator.host(at: index) {
+            controller.setViewControllers([start], direction: .forward, animated: false)
+            context.coordinator.applied = index
         }
+        return controller
     }
 
-    func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
-        guard let pan = gesture as? UIPanGestureRecognizer,
-              let view = pan.view,
-              let region,
-              let window = region.window
-        else { return false }
-        let velocity = pan.velocity(in: view)
-        guard abs(velocity.x) > abs(velocity.y) * 1.8, abs(velocity.x) > 240 else { return false }
-        let loc = pan.location(in: window)
-        let box = region.convert(region.bounds, to: window).insetBy(dx: 8, dy: 8)
-        return box.contains(loc) && loc.x > 36
+    func updateUIViewController(_ controller: UIPageViewController, context: Context) {
+        let coordinator = context.coordinator
+        coordinator.days = days
+        coordinator.store = store
+        coordinator.router = router
+        coordinator.accent = accent
+        coordinator.page = page
+        coordinator.onIndex = { index = $0 }
+        guard coordinator.applied != index,
+              controller.transitionCoordinator == nil,
+              let host = coordinator.host(at: index)
+        else { return }
+        let forward = index >= coordinator.applied
+        controller.setViewControllers([host], direction: forward ? .forward : .reverse, animated: false)
+        coordinator.applied = index
     }
 
-    func gestureRecognizer(
-        _ gestureRecognizer: UIGestureRecognizer,
-        shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
-    ) -> Bool { true }
+    final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+        var days: [Date]
+        var store: HubStore
+        var router: HubRouter
+        var accent: Color
+        var page: (Date) -> Page
+        var onIndex: (Int) -> Void = { _ in }
+        weak var pager: UIPageViewController?
+        var applied = 0
+        private var hosts: [Int: UIHostingController<AnyView>] = [:]
 
-    @objc private func handle(_ gesture: UIPanGestureRecognizer) {
-        guard gesture.state == .ended else { return }
-        guard Date().timeIntervalSince(lastFire) > 0.3 else { return }
-        let translation = gesture.translation(in: gesture.view)
-        let velocity = gesture.velocity(in: gesture.view)
-        let dx = abs(velocity.x) > 480 ? velocity.x : translation.x
-        guard abs(dx) > 56 else { return }
-        lastFire = Date()
-        let goNext = dx < 0
-        DispatchQueue.main.async {
-            if goNext { self.onNext?() } else { self.onPrev?() }
+        init(
+            days: [Date],
+            index: Int,
+            store: HubStore,
+            router: HubRouter,
+            accent: Color,
+            page: @escaping (Date) -> Page
+        ) {
+            self.days = days
+            self.store = store
+            self.router = router
+            self.accent = accent
+            self.page = page
+            self.applied = index
+        }
+
+        func host(at index: Int) -> UIHostingController<AnyView>? {
+            guard days.indices.contains(index) else { return nil }
+            let root = AnyView(
+                page(days[index])
+                    .environmentObject(store)
+                    .environmentObject(router)
+                    .environment(\.hubAccent, accent)
+            )
+            if let existing = hosts[index] {
+                existing.rootView = root
+                return existing
+            }
+            let host = UIHostingController(rootView: root)
+            host.view.backgroundColor = .clear
+            host.view.clipsToBounds = true
+            hosts[index] = host
+            hosts = hosts.filter { abs($0.key - index) <= 2 }
+            return host
+        }
+
+        func pageViewController(
+            _ pageViewController: UIPageViewController,
+            viewControllerBefore viewController: UIViewController
+        ) -> UIViewController? {
+            guard let current = index(of: viewController) else { return nil }
+            return host(at: current - 1)
+        }
+
+        func pageViewController(
+            _ pageViewController: UIPageViewController,
+            viewControllerAfter viewController: UIViewController
+        ) -> UIViewController? {
+            guard let current = index(of: viewController) else { return nil }
+            return host(at: current + 1)
+        }
+
+        func pageViewController(
+            _ pageViewController: UIPageViewController,
+            didFinishAnimating finished: Bool,
+            previousViewControllers: [UIViewController],
+            transitionCompleted completed: Bool
+        ) {
+            guard completed, let visible = pageViewController.viewControllers?.first, let current = index(of: visible) else { return }
+            applied = current
+            onIndex(current)
+        }
+
+        private func index(of controller: UIViewController) -> Int? {
+            hosts.first(where: { $0.value === controller })?.key
         }
     }
 }
