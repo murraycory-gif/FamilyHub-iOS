@@ -27,6 +27,7 @@ struct TodayView: View {
     @State private var showWidgetPicker = false
     @State private var showAddFlight = false
     @State private var showAddPackage = false
+    @State private var dayDrag: CGFloat = 0
 
     private var accent: Color {
         switch profile {
@@ -51,6 +52,8 @@ struct TodayView: View {
                         .padding(.bottom, 12)
                     dashboard(for: selectedDay, portrait: portrait)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .offset(x: dayDrag * 0.18)
+                        .simultaneousGesture(daySwipe)
                     familySection(canvas: geo.size, height: familyH)
                         .frame(height: familyH)
                         .padding(.top, 12)
@@ -464,29 +467,52 @@ struct TodayView: View {
         }
     }
 
+    private var daySwipe: some Gesture {
+        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+            .onChanged { value in
+                let horizontal = abs(value.translation.width) > abs(value.translation.height) * 1.15
+                dayDrag = horizontal ? value.translation.width : 0
+            }
+            .onEnded { value in
+                let dx = value.translation.width
+                let dy = value.translation.height
+                dayDrag = 0
+                guard abs(dx) > abs(dy) * 1.15, abs(dx) > 70 else { return }
+                shiftSelectedDay(dx < 0 ? 1 : -1)
+            }
+    }
+
     private var dayStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Array(swipeDays.enumerated()), id: \.offset) { _, day in
-                    let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
-                    Button {
-                        selectedDay = Calendar.current.startOfDay(for: day)
-                    } label: {
-                        VStack(spacing: 2) {
-                            Text(Calendar.current.isDateInToday(day) ? "Today" : Date.hubWeekday(day))
-                                .font(.caption.weight(.bold))
-                            Text(Date.hubDayNumber(day))
-                                .font(.headline.weight(.bold))
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(swipeDays.enumerated()), id: \.offset) { index, day in
+                        let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
+                        Button {
+                            selectedDay = Calendar.current.startOfDay(for: day)
+                        } label: {
+                            VStack(spacing: 2) {
+                                Text(Calendar.current.isDateInToday(day) ? "Today" : Date.hubWeekday(day))
+                                    .font(.caption.weight(.bold))
+                                Text(Date.hubDayNumber(day))
+                                    .font(.headline.weight(.bold))
+                            }
+                            .foregroundStyle(on ? Color.white : AppTheme.text)
+                            .frame(width: 66, height: 54)
+                            .background(on ? accent : Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(on ? accent : AppTheme.cardBorder, lineWidth: 2)
+                            )
                         }
-                        .foregroundStyle(on ? Color.white : AppTheme.text)
-                        .frame(width: 66, height: 54)
-                        .background(on ? accent : Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(on ? accent : AppTheme.cardBorder, lineWidth: 2)
-                        )
+                        .buttonStyle(.plain)
+                        .id(index)
                     }
-                    .buttonStyle(.plain)
+                }
+            }
+            .onChange(of: selectedDay) { _, day in
+                if let index = swipeDays.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: day) }) {
+                    proxy.scrollTo(index, anchor: .center)
                 }
             }
         }
