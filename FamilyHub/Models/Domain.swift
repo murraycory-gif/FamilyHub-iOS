@@ -1570,9 +1570,8 @@ enum CalendarMath {
                 }
             }
             .filter { event in
-                let key = event.externalID.isEmpty
-                    ? "\(event.title.lowercased())|\(event.startAt.timeIntervalSince1970)"
-                    : event.externalID
+                let key = event.externalID.flatMap { $0.isEmpty ? nil : $0 }
+                    ?? "\(event.title.lowercased())|\(event.startAt.timeIntervalSince1970)"
                 return seen.insert(key).inserted
             }
             .sorted { $0.startAt < $1.startAt }

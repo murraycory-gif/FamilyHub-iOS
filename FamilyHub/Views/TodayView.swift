@@ -1544,7 +1544,7 @@ private struct EventScroll: View {
         var seen = Set<String>()
         return events.filter { event in
             guard event.startAt.timeIntervalSince1970.isFinite else { return false }
-            let key = event.externalID.isEmpty ? event.id.uuidString : event.externalID
+            let key = event.externalID.flatMap { $0.isEmpty ? nil : $0 } ?? event.id.uuidString
             return seen.insert(key).inserted
         }
     }
