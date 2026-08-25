@@ -95,9 +95,10 @@ enum FlightParse {
 
     static func countdown(_ flight: TrackedFlight, now: Date = Date()) -> String {
         let land = flight.arriveAt ?? flight.departAt.addingTimeInterval(6 * 3600)
+        guard flight.departAt.timeIntervalSince1970.isFinite, land.timeIntervalSince1970.isFinite else { return "—" }
         if now >= land { return "Arrived" }
         let target = now >= flight.departAt ? land : flight.departAt
-        let minutes = max(1, Int(target.timeIntervalSince(now) / 60))
+        let minutes = max(1, Int((target.timeIntervalSince(now) / 60).rounded()))
         let hours = minutes / 60
         let mins = minutes % 60
         let label = now >= flight.departAt ? "Lands" : "Departs"

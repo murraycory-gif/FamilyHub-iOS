@@ -763,7 +763,15 @@ extension View {
     }
 }
 
-extension Collection {
+extension Date {
+    static func hubClock(_ date: Date) -> String {
+        guard date.timeIntervalSince1970.isFinite else { return "—" }
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
+    }
+}
     subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
     }
@@ -778,120 +786,155 @@ struct HubDayPager<Page: View>: UIViewControllerRepresentable {
     var page: (Date) -> Page
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(days: days, index: index, store: store, router: router, accent: accent, page: page)
+        Coordinator()
     }
 
-    func makeUIViewController(context: Context) -> UIPageViewController {
-        let controller = UIPageViewController(
-            transitionStyle: .scroll,
-            navigationOrientation: .horizontal
+    func makeUIViewController(context: Context) -> HubDayScrollController {
+        let controller = HubDayScrollController()
+        context.coordinator.controller = controller
+        controller.onIndex = { index = $0 }
+        controller.apply(
+            days: days,
+            index: index,
+            makePage: { day in
+                AnyView(
+                    page(day)
+                        .environmentObject(store)
+                        .environmentObject(router)
+                        .environment(\.hubAccent, accent)
+                )
+            }
         )
-        controller.dataSource = context.coordinator
-        controller.delegate = context.coordinator
-        controller.view.backgroundColor = .clear
-        context.coordinator.pager = controller
-        context.coordinator.onIndex = { index = $0 }
-        if let start = context.coordinator.host(at: index) {
-            controller.setViewControllers([start], direction: .forward, animated: false)
-            context.coordinator.applied = index
-        }
         return controller
     }
 
-    func updateUIViewController(_ controller: UIPageViewController, context: Context) {
-        let coordinator = context.coordinator
-        coordinator.days = days
-        coordinator.store = store
-        coordinator.router = router
-        coordinator.accent = accent
-        coordinator.page = page
-        coordinator.onIndex = { index = $0 }
-        guard coordinator.applied != index,
-              controller.transitionCoordinator == nil,
-              let host = coordinator.host(at: index)
-        else { return }
-        let forward = index >= coordinator.applied
-        controller.setViewControllers([host], direction: forward ? .forward : .reverse, animated: false)
-        coordinator.applied = index
+    func updateUIViewController(_ controller: HubDayScrollController, context: Context) {
+        controller.onIndex = { index = $0 }
+        controller.apply(
+            days: days,
+            index: index,
+            makePage: { day in
+                AnyView(
+                    page(day)
+                        .environmentObject(store)
+                        .environmentObject(router)
+                        .environment(\.hubAccent, accent)
+                )
+            }
+        )
     }
 
-    final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
-        var days: [Date]
-        var store: HubStore
-        var router: HubRouter
-        var accent: Color
-        var page: (Date) -> Page
-        var onIndex: (Int) -> Void = { _ in }
-        weak var pager: UIPageViewController?
-        var applied = 0
-        private var hosts: [Int: UIHostingController<AnyView>] = [:]
+    final class Coordinator {
+        var controller: HubDayScrollController?
+    }
+}
 
-        init(
-            days: [Date],
-            index: Int,
-            store: HubStore,
-            router: HubRouter,
-            accent: Color,
-            page: @escaping (Date) -> Page
-        ) {
-            self.days = days
-            self.store = store
-            self.router = router
-            self.accent = accent
-            self.page = page
-            self.applied = index
-        }
+final class HubDayScrollController: UIViewController, UIScrollViewDelegate {
+    private let scroll = UIScrollView()
+    private var days: [Date] = []
+    private var hosts: [Int: UIHostingController<AnyView>] = [:]
+    private var makePage: (Date) -> AnyView = { _ in AnyView(EmptyView()) }
+    private var lastIndex = 0
+    private var settling = false
+    var onIndex: (Int) -> Void = { _ in }
 
-        func host(at index: Int) -> UIHostingController<AnyView>? {
-            guard days.indices.contains(index) else { return nil }
-            let root = AnyView(
-                page(days[index])
-                    .environmentObject(store)
-                    .environmentObject(router)
-                    .environment(\.hubAccent, accent)
-            )
-            if let existing = hosts[index] {
-                existing.rootView = root
-                return existing
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .clear
+        scroll.backgroundColor = .clear
+        scroll.isPagingEnabled = true
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.showsVerticalScrollIndicator = false
+        scroll.bounces = true
+        scroll.alwaysBounceHorizontal = true
+        scroll.delegate = self
+        scroll.contentInsetAdjustmentBehavior = .never
+        view.addSubview(scroll)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        scroll.frame = view.bounds
+        relayout()
+        load(around: lastIndex)
+        if !settling {
+            let x = CGFloat(lastIndex) * max(view.bounds.width, 1)
+            if abs(scroll.contentOffset.x - x) > 1 {
+                scroll.contentOffset = CGPoint(x: x, y: 0)
             }
-            let host = UIHostingController(rootView: root)
-            host.view.backgroundColor = .clear
-            host.view.clipsToBounds = true
-            hosts[index] = host
-            hosts = hosts.filter { abs($0.key - index) <= 2 }
-            return host
         }
+    }
 
-        func pageViewController(
-            _ pageViewController: UIPageViewController,
-            viewControllerBefore viewController: UIViewController
-        ) -> UIViewController? {
-            guard let current = index(of: viewController) else { return nil }
-            return host(at: current - 1)
+    func apply(
+        days: [Date],
+        index: Int,
+        makePage: @escaping (Date) -> AnyView
+    ) {
+        self.days = days
+        self.makePage = makePage
+        relayout()
+        if index != lastIndex, days.indices.contains(index), !scroll.isDragging, !scroll.isDecelerating {
+            lastIndex = index
+            load(around: index)
+            let x = CGFloat(index) * max(view.bounds.width, 1)
+            scroll.setContentOffset(CGPoint(x: x, y: 0), animated: false)
+        } else {
+            load(around: lastIndex)
         }
+    }
 
-        func pageViewController(
-            _ pageViewController: UIPageViewController,
-            viewControllerAfter viewController: UIViewController
-        ) -> UIViewController? {
-            guard let current = index(of: viewController) else { return nil }
-            return host(at: current + 1)
+    private func relayout() {
+        let w = view.bounds.width
+        let h = view.bounds.height
+        guard w > 8, h > 8 else { return }
+        scroll.contentSize = CGSize(width: w * CGFloat(max(days.count, 1)), height: h)
+        for (i, host) in hosts {
+            host.view.frame = CGRect(x: CGFloat(i) * w, y: 0, width: w, height: h)
         }
+    }
 
-        func pageViewController(
-            _ pageViewController: UIPageViewController,
-            didFinishAnimating finished: Bool,
-            previousViewControllers: [UIViewController],
-            transitionCompleted completed: Bool
-        ) {
-            guard completed, let visible = pageViewController.viewControllers?.first, let current = index(of: visible) else { return }
-            applied = current
-            onIndex(current)
+    private func load(around index: Int) {
+        let w = view.bounds.width
+        let h = view.bounds.height
+        guard w > 8, h > 8 else { return }
+        for i in (index - 1)...(index + 1) where days.indices.contains(i) {
+            if hosts[i] == nil {
+                let host = UIHostingController(rootView: makePage(days[i]))
+                host.view.backgroundColor = .clear
+                host.safeAreaRegions = []
+                host.view.frame = CGRect(x: CGFloat(i) * w, y: 0, width: w, height: h)
+                addChild(host)
+                scroll.addSubview(host.view)
+                host.didMove(toParent: self)
+                hosts[i] = host
+            }
         }
+    }
 
-        private func index(of controller: UIViewController) -> Int? {
-            hosts.first(where: { $0.value === controller })?.key
-        }
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        settling = true
+        let next = lastIndex + 1
+        let prev = lastIndex - 1
+        load(around: lastIndex)
+        if days.indices.contains(next) { load(around: next) }
+        if days.indices.contains(prev) { load(around: prev) }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        finishScroll()
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate { finishScroll() }
+    }
+
+    private func finishScroll() {
+        settling = false
+        let w = max(view.bounds.width, 1)
+        let idx = min(max(Int(round(scroll.contentOffset.x / w)), 0), max(days.count - 1, 0))
+        lastIndex = idx
+        load(around: idx)
+        onIndex(idx)
     }
 }
 

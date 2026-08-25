@@ -529,8 +529,12 @@ struct HubWeatherTile: View {
     }
 
     private func hourLabel(_ date: Date) -> String {
-        date.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated)))
-            .replacingOccurrences(of: " ", with: "")
+        guard date.timeIntervalSince1970.isFinite else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "ha"
+        formatter.amSymbol = "AM"
+        formatter.pmSymbol = "PM"
+        return formatter.string(from: date).lowercased()
     }
 }
 

@@ -1153,7 +1153,7 @@ private struct HubDayItem: Identifiable {
             kind: .event,
             title: event.title,
             detail: event.location,
-            timeLabel: event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened),
+            timeLabel: event.allDay ? "All day" : Date.hubClock(event.startAt),
             sortDate: event.startAt,
             memberID: event.memberID
         )
@@ -1165,7 +1165,7 @@ private struct HubDayItem: Identifiable {
             kind: .reminder,
             title: item.title,
             detail: item.isBills ? "Bills Due" : "",
-            timeLabel: item.dueAt?.formatted(date: .omitted, time: .shortened) ?? "Due",
+            timeLabel: item.dueAt.map(Date.hubClock) ?? "Due",
             sortDate: item.dueAt ?? Date(),
             memberID: item.memberID
         )
@@ -1177,7 +1177,7 @@ private struct HubDayItem: Identifiable {
             kind: .todo,
             title: item.title,
             detail: item.notes,
-            timeLabel: item.dueAt?.formatted(date: .omitted, time: .shortened) ?? "Due",
+            timeLabel: item.dueAt.map(Date.hubClock) ?? "Due",
             sortDate: item.dueAt ?? Date(),
             memberID: item.memberID
         )
@@ -1598,7 +1598,7 @@ private struct EventScroll: View {
                             onEvent(event)
                         } label: {
                             HStack(alignment: .top, spacing: 8) {
-                                Text(event.allDay ? "All day" : event.startAt.formatted(date: .omitted, time: .shortened))
+                                Text(event.allDay ? "All day" : Date.hubClock(event.startAt))
                                     .font(.subheadline.weight(.bold).monospacedDigit())
                                     .foregroundStyle(accent)
                                     .frame(width: 72, alignment: .leading)
