@@ -49,12 +49,11 @@ struct TodayView: View {
                 dayStrip
                 dashboard(for: selectedDay, portrait: portrait)
                     .frame(maxHeight: .infinity)
-                    .simultaneousGesture(dayFlick)
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
                 .padding(.bottom, 8)
-                familySection(canvas: geo.size)
+                familySection(canvas: geo.size, height: familyH)
                     .padding(.horizontal, portrait ? 16 : 24)
                     .padding(.bottom, portrait ? 12 : 18)
                     .frame(height: familyH)
@@ -466,18 +465,6 @@ struct TodayView: View {
         } else {
             selectedDay = day
         }
-    }
-
-    private var dayFlick: some Gesture {
-        DragGesture(minimumDistance: 50)
-            .onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) * 1.4 else { return }
-                if value.translation.width < -60 {
-                    shiftSelectedDay(1)
-                } else if value.translation.width > 60 {
-                    shiftSelectedDay(-1)
-                }
-            }
     }
 
     private var dayStrip: some View {
@@ -1072,24 +1059,15 @@ struct TodayView: View {
         .background(soft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func familySection(canvas: CGSize) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+    private func familySection(canvas: CGSize, height: CGFloat) -> some View {
+        let portrait = canvas.height > canvas.width
+        let visible: CGFloat = portrait ? 3.28 : 4.28
+        let width = max(176, (canvas.width - (portrait ? 32 : 48) - 14 * (visible - 1)) / visible)
+        let cardH = max(220, height - 58)
+        return VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(symbol: "house.fill", title: "HUB")
-            memberStrip(canvas: canvas)
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 16)
-        }
-        .background(AppTheme.card)
-        .hubLift(accent: accent)
-    }
-
-    private func memberStrip(canvas: CGSize) -> some View {
-        GeometryReader { geo in
-            let width = cardWidth(in: geo.size, canvas: canvas)
-            let cardH = max(220, geo.size.height - 8)
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 14) {
+                HStack(alignment: .top, spacing: 14) {
                     FamilyFocusCard(selected: profile == .family, day: selectedDay) {
                         profile = .family
                     } onEvent: { event in
@@ -1110,18 +1088,13 @@ struct TodayView: View {
                         .frame(width: width, height: cardH)
                     }
                 }
-                .frame(height: cardH)
-                .padding(.vertical, 4)
-                .padding(.trailing, 8)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 16)
             }
-            .scrollBounceBehavior(.basedOnSize)
         }
-    }
-
-    private func cardWidth(in size: CGSize, canvas: CGSize) -> CGFloat {
-        let portrait = canvas.height > canvas.width
-        let visible: CGFloat = portrait ? 3.28 : 4.28
-        return max(176, (size.width - 14 * (visible - 1)) / visible)
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
     }
 }
 
@@ -1215,7 +1188,7 @@ private struct FamilyFocusCard: View {
 
     var body: some View {
         AmazonPersonCard(
-            image: store.familyPhotoData.flatMap { UIImage(data: $0) },
+            image: HubPhoto.image(key: "family", data: store.familyPhotoData),
             emoji: nil,
             fallback: "person.3.fill",
             name: "Family",
@@ -1234,7 +1207,7 @@ private struct FamilyFocusCard: View {
                 onTodos: { router.open(.lists, list: .todos) }
             )
             EventScroll(events: events, onEvent: onEvent)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .sheet(isPresented: $showStudio) {
             BannerStudio(title: "Family", current: store.familyPhotoData) { data in
@@ -1272,7 +1245,7 @@ private struct MemberHomeCard: View {
 
     var body: some View {
         AmazonPersonCard(
-            image: store.photo(for: member).flatMap { UIImage(data: $0) },
+            image: HubPhoto.image(key: member.id.uuidString, data: store.photo(for: member)),
             emoji: member.displayEmoji,
             fallback: nil,
             name: firstName,
@@ -1289,7 +1262,7 @@ private struct MemberHomeCard: View {
                 onTodos: { router.open(.lists, list: .todos) }
             )
             EventScroll(events: events, onEvent: onEvent)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .sheet(isPresented: $showStudio) {
             BannerStudio(title: firstName, current: store.photo(for: member)) { data in
@@ -1316,13 +1289,12 @@ private struct AmazonPersonCard<Content: View>: View {
             Color.clear
                 .frame(maxWidth: .infinity)
                 .frame(height: 158)
-                .background {
+                .overlay {
                     ZStack {
                         ring
                         if let image {
                             Image(uiImage: image)
                                 .resizable()
-                                .interpolation(.medium)
                                 .scaledToFill()
                         } else if let emoji {
                             Text(emoji).font(.system(size: 72))
@@ -1332,9 +1304,8 @@ private struct AmazonPersonCard<Content: View>: View {
                                 .foregroundStyle(.white.opacity(0.5))
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
                 }
+                .clipped()
                 .overlay(alignment: .bottom) {
                     LinearGradient(
                         colors: [.clear, .black.opacity(0.45), .black.opacity(0.86)],

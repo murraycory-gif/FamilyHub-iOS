@@ -324,6 +324,7 @@ final class HubStore: ObservableObject {
     }
 
     func setFamilyPhoto(_ data: Data?) {
+        HubPhoto.forget("family")
         if let data, let image = UIImage(data: data) {
             let resized = image.preparingThumbnail(of: CGSize(width: 600, height: 600)) ?? image
             familyPhotoData = resized.jpegData(compressionQuality: 0.82)
@@ -374,6 +375,7 @@ final class HubStore: ObservableObject {
     }
 
     func setMemberPhoto(_ id: UUID, data: Data?) {
+        HubPhoto.forget(id.uuidString)
         if let data, let image = UIImage(data: data) {
             let resized = image.preparingThumbnail(of: CGSize(width: 600, height: 600)) ?? image
             memberPhotos[id] = resized.jpegData(compressionQuality: 0.82)

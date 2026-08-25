@@ -13,6 +13,32 @@ extension EnvironmentValues {
     }
 }
 
+enum HubPhoto {
+    private static var cache: [String: UIImage] = [:]
+
+    static func image(key: String, data: Data?) -> UIImage? {
+        if let hit = cache[key] { return hit }
+        guard let data, let raw = UIImage(data: data) else { return nil }
+        let scaled = downsize(raw)
+        cache[key] = scaled
+        return scaled
+    }
+
+    static func forget(_ key: String) { cache[key] = nil }
+
+    private static func downsize(_ image: UIImage) -> UIImage {
+        let longest = max(image.size.width, image.size.height)
+        guard longest > 640 else { return image }
+        let scale = 640 / longest
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+}
+
 struct HubCard<Content: View>: View {
     var fill: Color = AppTheme.card
     var stroke: Color = AppTheme.cardBorder
