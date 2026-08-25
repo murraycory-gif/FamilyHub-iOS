@@ -1562,7 +1562,7 @@ enum CalendarMath {
         calendar: Calendar = .current
     ) -> [CalendarEvent] {
         var seen = Set<String>()
-        return events
+        let filtered = events
             .filter { $0.startAt.timeIntervalSince1970.isFinite && calendar.isDate($0.startAt, inSameDayAs: day) }
             .filter { event in
                 switch filter {
@@ -1578,6 +1578,7 @@ enum CalendarMath {
                 return seen.insert(key).inserted
             }
             .sorted { $0.startAt < $1.startAt }
+        return Array(filtered.prefix(12))
     }
 
     static func monthDays(containing date: Date, calendar: Calendar = .current) -> [Date] {
