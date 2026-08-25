@@ -772,6 +772,8 @@ extension Date {
         return formatter.string(from: date)
     }
 }
+
+extension Collection {
     subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
     }
