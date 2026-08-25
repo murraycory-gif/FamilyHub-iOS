@@ -942,7 +942,7 @@ struct WeatherPlacePicker: View {
                         }
                     ForEach(weather.searchResults) { place in
                         Button {
-                            store.setWeatherPlace(place)
+                            store.setWeatherPlace(place, followMe: false)
                             Task { await weather.load(place: place, units: store.units) }
                             dismiss()
                         } label: {
@@ -967,7 +967,7 @@ struct WeatherPlacePicker: View {
         defer { locating = false }
         do {
             let place = try await weather.placeFromCurrentLocation()
-            store.setWeatherPlace(place)
+            store.setWeatherPlace(place, followMe: true)
             await weather.load(place: place, units: store.units)
             dismiss()
         } catch {

@@ -12,6 +12,7 @@ struct TodayView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var router: HubRouter
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.scenePhase) private var scenePhase
     @State private var profile: HubProfile = .family
     @State private var selectedDay = Date()
     @State private var showDayMenu = false
@@ -101,15 +102,15 @@ struct TodayView: View {
             EventDetailSheet(event: event)
         }
         .task {
-            let label = store.weatherPlace?.label ?? ""
-            if label.isEmpty || label == "Chicago" || label == "Current location" {
-                if let here = try? await weather.placeFromCurrentLocation() {
-                    store.setWeatherPlace(here)
-                }
-            }
+            await refreshWeatherFromHere()
             while !Task.isCancelled {
                 await weather.load(place: store.weatherPlace ?? .chicago, units: store.units)
                 try? await Task.sleep(for: .seconds(10 * 60))
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await refreshWeatherFromHere() }
             }
         }
         .onChange(of: store.weatherPlace?.id) { _, _ in
@@ -129,6 +130,15 @@ struct TodayView: View {
                 shoppingDraft = ""
             }
             Button("Cancel", role: .cancel) { shoppingDraft = "" }
+        }
+    }
+
+    private func refreshWeatherFromHere() async {
+        if store.weatherFollowsMe, let here = try? await weather.placeFromCurrentLocation() {
+            store.setWeatherPlace(here, followMe: true)
+        }
+        if let place = store.weatherPlace {
+            await weather.load(place: place, units: store.units)
         }
     }
 

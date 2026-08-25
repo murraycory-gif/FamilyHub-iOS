@@ -278,16 +278,35 @@ struct OnboardingView: View {
     }
 
     private var placePage: some View {
-        setupCard("Home base", "Weather and nearby food use this. Change it anytime in Settings.") {
+        setupCard("Home base", "Weather follows this iPad unless you pin a city. Change it anytime in Settings.") {
             VStack(alignment: .leading, spacing: 12) {
-                TextField("City or ZIP", text: $city)
+                Button {
+                    Task {
+                        if let here = try? await weather.placeFromCurrentLocation() {
+                            store.setWeatherPlace(here, followMe: true)
+                            city = here.label
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "location.fill").foregroundStyle(.white)
+                        Text("Use where I am now")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                        Spacer()
+                    }
+                    .padding(14)
+                    .background(AppTheme.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                TextField("Or type a city or ZIP", text: $city)
                     .textFieldStyle(.roundedBorder)
                     .onChange(of: city) { _, value in
                         Task { await weather.search(query: value) }
                     }
                 ForEach(weather.searchResults.prefix(5)) { place in
                     Button {
-                        store.setWeatherPlace(place)
+                        store.setWeatherPlace(place, followMe: false)
                         city = place.label
                     } label: {
                         HStack {

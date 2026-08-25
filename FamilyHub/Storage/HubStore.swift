@@ -12,6 +12,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var assignments: [ChoreAssignment]
     @Published private(set) var ledger: [LedgerEntry]
     @Published private(set) var weatherPlace: WeatherPlace?
+    @Published private(set) var weatherFollowsMe: Bool
     @Published private(set) var units: HubUnits
     @Published private(set) var hubWidgets: [HubWidget]
     @Published private(set) var calendarSources: [CalendarSource]
@@ -47,6 +48,7 @@ final class HubStore: ObservableObject {
         assignments = []
         ledger = []
         weatherPlace = WeatherPlace.chicago
+        weatherFollowsMe = true
         units = .us
         hubWidgets = HubWidget.defaultSet
         calendarSources = []
@@ -426,8 +428,14 @@ final class HubStore: ObservableObject {
         persist()
     }
 
-    func setWeatherPlace(_ place: WeatherPlace) {
+    func setWeatherPlace(_ place: WeatherPlace, followMe: Bool? = nil) {
         weatherPlace = place
+        if let followMe { weatherFollowsMe = followMe }
+        persist()
+    }
+
+    func setWeatherFollowsMe(_ on: Bool) {
+        weatherFollowsMe = on
         persist()
     }
 
@@ -832,6 +840,7 @@ final class HubStore: ObservableObject {
         assignments = snapshot.assignments
         ledger = snapshot.ledger.sorted { $0.createdAt > $1.createdAt }
         weatherPlace = snapshot.weatherPlace ?? WeatherPlace.chicago
+        weatherFollowsMe = snapshot.weatherFollowsMe ?? true
         units = snapshot.units ?? .us
         let widgets = snapshot.hubWidgets ?? []
         hubWidgets = widgets.isEmpty ? HubWidget.defaultSet : widgets
@@ -859,6 +868,7 @@ final class HubStore: ObservableObject {
             assignments: assignments,
             ledger: ledger,
             weatherPlace: weatherPlace,
+            weatherFollowsMe: weatherFollowsMe,
             hubWidgets: hubWidgets,
             calendarSources: calendarSources,
             recipes: recipes,

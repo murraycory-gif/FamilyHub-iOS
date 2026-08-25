@@ -509,6 +509,7 @@ struct HubSnapshot: Codable {
     var assignments: [ChoreAssignment]
     var ledger: [LedgerEntry]
     var weatherPlace: WeatherPlace?
+    var weatherFollowsMe: Bool?
     var hubWidgets: [HubWidget]?
     var calendarSources: [CalendarSource]?
     var recipes: [Recipe]?
