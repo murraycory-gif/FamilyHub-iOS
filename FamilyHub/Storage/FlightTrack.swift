@@ -16,7 +16,7 @@ enum FlightParse {
     }
 
     static func from(event: CalendarEvent) -> TrackedFlight? {
-        let blob = "\(event.title) \(event.location) \(event.notes)"
+        let blob = String("\(event.title) \(event.location) \(event.notes)".prefix(400))
         guard let flight = flightCode(in: blob) else { return nil }
         let route = airports(in: blob)
         let arrive = event.endAt.flatMap { end in

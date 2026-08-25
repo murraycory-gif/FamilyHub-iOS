@@ -471,7 +471,11 @@ struct HubWeatherTile: View {
                 .buttonStyle(.plain)
             }
             ZStack(alignment: .topLeading) {
-                WeatherAtmosphere(code: skyCode, isDay: skyIsDay, showPhotos: false, live: false)
+                LinearGradient(
+                    colors: WeatherSky.colors(code: skyCode, isDay: skyIsDay),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
                 VStack(alignment: .leading, spacing: 6) {
                     if isLoading && now == nil && day == nil {
                         ProgressView().tint(.white)

@@ -218,9 +218,9 @@ struct FlightWidget: View {
     }
 
     private func timeLine(_ flight: TrackedFlight) -> String {
-        let leave = flight.departAt.formatted(date: .omitted, time: .shortened)
+        let leave = Date.hubClock(flight.departAt)
         if let land = flight.arriveAt {
-            return "\(leave) → \(land.formatted(date: .omitted, time: .shortened))"
+            return "\(leave) → \(Date.hubClock(land))"
         }
         return "Departs \(leave)"
     }

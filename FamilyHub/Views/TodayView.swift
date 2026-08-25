@@ -46,7 +46,6 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 14) {
                 header
-                    .coachSpot("hub")
                 dayStrip
                 dashboard(for: selectedDay, portrait: portrait)
                     .frame(maxHeight: .infinity)
@@ -59,7 +58,6 @@ struct TodayView: View {
                     .padding(.horizontal, portrait ? 16 : 24)
                     .padding(.bottom, portrait ? 12 : 18)
                     .frame(height: familyH)
-                    .coachSpot("family")
             }
             if showDayMenu || showProfileMenu {
                 ZStack {
@@ -76,7 +74,6 @@ struct TodayView: View {
         }
         .environment(\.hubAccent, accent)
         .background(AppTheme.bg.ignoresSafeArea())
-        .hubTour("hub", steps: HubTours.hub)
         .onAppear { selectedDay = Calendar.current.startOfDay(for: selectedDay) }
         .fullScreenCover(item: $showDinnerLaunch) { item in
             DinnerLaunchView(item: item) {
@@ -157,8 +154,7 @@ struct TodayView: View {
 
     @ViewBuilder
     private func dashboard(for day: Date, portrait: Bool) -> some View {
-        let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
-        let tiles = visibleWidgets(for: day)
+        let tiles = visibleWidgets()
         let top = tiles[safe: 0] ?? .weather
         let low = tiles[safe: 1] ?? .shopping
         let large = tiles[safe: 2] ?? .dinner
@@ -166,11 +162,9 @@ struct TodayView: View {
             VStack(spacing: 16) {
                 HStack(alignment: .top, spacing: 16) {
                     agenda(for: day)
-                        .coachSpot("agenda", active: on)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     VStack(spacing: 16) {
                         widgetTile(top, day: day, live: false)
-                            .coachSpot("weather", active: on)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         widgetTile(low, day: day, live: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -178,51 +172,33 @@ struct TodayView: View {
                     .frame(maxWidth: .infinity)
                 }
                 widgetTile(large, day: day, live: false)
-                    .coachSpot("dinner", active: on)
                     .frame(maxWidth: .infinity)
                     .frame(height: 176)
             }
         } else {
             HStack(alignment: .top, spacing: 16) {
                 agenda(for: day)
-                    .coachSpot("agenda", active: on)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 VStack(spacing: 16) {
                     widgetTile(top, day: day, live: false)
-                        .coachSpot("weather", active: on)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     widgetTile(low, day: day, live: false)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .frame(maxWidth: .infinity)
                 widgetTile(large, day: day, live: false)
-                    .coachSpot("dinner", active: on)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
 
-    private func visibleWidgets(for day: Date) -> [HubWidgetKind] {
+    private func visibleWidgets() -> [HubWidgetKind] {
         var slots = store.hubWidgets.map(\.kind).filter { HubWidgetKind.choosable.contains($0) }
         if slots.isEmpty { slots = HubWidget.defaultSet.map(\.kind) }
         for kind in HubWidgetKind.choosable where slots.count < 3 && !slots.contains(kind) {
             slots.append(kind)
         }
         slots = Array(slots.prefix(3))
-        let pinnedFlights = store.hubWidgets.contains { $0.kind == .flights }
-        let pinnedPackages = store.hubWidgets.contains { $0.kind == .packages }
-        let todayFlights = FlightParse.flights(on: day, events: store.events, extra: store.flights)
-        let viewingToday = Calendar.current.isDateInToday(day)
-        let liveFlight = todayFlights.contains { viewingToday ? FlightParse.isLive($0) : true }
-        if !pinnedFlights, liveFlight, !slots.contains(.flights) {
-            if let idx = slots.firstIndex(of: .shopping) ?? slots.indices.last {
-                slots[idx] = .flights
-            }
-        } else if !pinnedPackages, store.packages.contains(where: { !$0.isDelivered }), !slots.contains(.packages) {
-            if let idx = slots.firstIndex(of: .shopping) ?? slots.indices.last {
-                slots[idx] = .packages
-            }
-        }
         return slots
     }
 
