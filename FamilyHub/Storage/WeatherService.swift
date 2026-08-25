@@ -22,7 +22,7 @@ final class WeatherLoader: ObservableObject {
 
     func hoursOn(_ date: Date) -> [WeatherHour] {
         let cal = Calendar.current
-        var ofDay = hours.filter { cal.isDate($0.at, inSameDayAs: date) }
+        var ofDay = hours.filter { $0.at.timeIntervalSince1970.isFinite && cal.isDate($0.at, inSameDayAs: date) }
         if cal.isDateInToday(date) {
             ofDay = ofDay.filter { $0.at >= Date().addingTimeInterval(-20 * 60) }
         } else {

@@ -505,36 +505,28 @@ struct TodayView: View {
     }
 
     private var dayStrip: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(swipeDays, id: \.self) { day in
-                        let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
-                        Button {
-                            selectedDay = day
-                        } label: {
-                            VStack(spacing: 2) {
-                                Text(Calendar.current.isDateInToday(day) ? "Today" : day.formatted(.dateTime.weekday(.abbreviated)))
-                                    .font(.caption.weight(.bold))
-                                Text(day.formatted(.dateTime.day()))
-                                    .font(.headline.weight(.bold))
-                            }
-                            .foregroundStyle(on ? .white : AppTheme.text)
-                            .frame(width: 64, height: 52)
-                            .background(on ? accent : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(on ? accent : AppTheme.cardBorder, lineWidth: 2)
-                            )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(swipeDays.enumerated()), id: \.offset) { _, day in
+                    let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
+                    Button {
+                        selectedDay = Calendar.current.startOfDay(for: day)
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(Calendar.current.isDateInToday(day) ? "Today" : Date.hubWeekday(day))
+                                .font(.caption.weight(.bold))
+                            Text(Date.hubDayNumber(day))
+                                .font(.headline.weight(.bold))
                         }
-                        .buttonStyle(.plain)
-                        .id(day)
+                        .foregroundStyle(on ? .white : AppTheme.text)
+                        .frame(width: 64, height: 52)
+                        .background(on ? accent : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(on ? accent : AppTheme.cardBorder, lineWidth: 2)
+                        )
                     }
-                }
-            }
-            .onChange(of: selectedDay) { _, day in
-                withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo(Calendar.current.startOfDay(for: day), anchor: .center)
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -597,7 +589,7 @@ struct TodayView: View {
                 } else {
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 0) {
-                            ForEach(Array(uniqueItems(items).prefix(40))) { item in
+                            ForEach(Array(uniqueItems(items).prefix(12).enumerated()), id: \.offset) { _, item in
                                 Button { openAgendaItem(item) } label: {
                                     dayRow(item)
                                 }
@@ -913,7 +905,9 @@ struct TodayView: View {
                 items.append(.chore(assignment, title: title))
             }
         }
-        return items.sorted { $0.sortDate < $1.sortDate }
+        return items
+            .filter { $0.sortDate.timeIntervalSince1970.isFinite }
+            .sorted { $0.sortDate < $1.sortDate }
     }
 
     private func uniqueItems(_ items: [HubDayItem]) -> [HubDayItem] {
@@ -957,7 +951,7 @@ struct TodayView: View {
                 Text(item.title)
                     .font(.title3.weight(.bold))
                     .foregroundStyle(AppTheme.text)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2)
                 if !item.detail.isEmpty {
                     Text(item.detail)
                         .font(.subheadline)
@@ -1597,53 +1591,49 @@ private struct EventScroll: View {
     var onEvent: (CalendarEvent) -> Void
 
     private func uniqueEvents(_ events: [CalendarEvent]) -> [CalendarEvent] {
-        var seen = Set<UUID>()
-        return events.filter { seen.insert($0.id).inserted }
+        var seen = Set<String>()
+        return events.filter { event in
+            guard event.startAt.timeIntervalSince1970.isFinite else { return false }
+            let key = event.externalID.isEmpty ? event.id.uuidString : event.externalID
+            return seen.insert(key).inserted
+        }
     }
 
     var body: some View {
-        if events.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Up next")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.textTertiary)
-                    .textCase(.uppercase)
+        let rows = Array(uniqueEvents(events).prefix(5))
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Up next")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.textTertiary)
+                .textCase(.uppercase)
+            if rows.isEmpty {
                 Text("Free this day")
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Up next")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(AppTheme.textTertiary)
-                        .textCase(.uppercase)
-                    ForEach(Array(uniqueEvents(events).prefix(8))) { event in
-                        Button {
-                            onEvent(event)
-                        } label: {
-                            HStack(alignment: .top, spacing: 8) {
-                                Text(event.allDay ? "All day" : Date.hubClock(event.startAt))
-                                    .font(.subheadline.weight(.bold).monospacedDigit())
-                                    .foregroundStyle(accent)
-                                    .frame(width: 72, alignment: .leading)
-                                Text(event.title)
-                                    .font(.subheadline.weight(.bold))
-                                    .foregroundStyle(AppTheme.text)
-                                    .multilineTextAlignment(.leading)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 4)
-                            .contentShape(Rectangle())
+            } else {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, event in
+                    Button {
+                        onEvent(event)
+                    } label: {
+                        HStack(alignment: .top, spacing: 8) {
+                            Text(event.allDay ? "All day" : Date.hubClock(event.startAt))
+                                .font(.subheadline.weight(.bold).monospacedDigit())
+                                .foregroundStyle(accent)
+                                .frame(width: 72, alignment: .leading)
+                            Text(event.title)
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(AppTheme.text)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
                         }
-                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

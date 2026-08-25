@@ -771,6 +771,20 @@ extension Date {
         formatter.dateStyle = .none
         return formatter.string(from: date)
     }
+
+    static func hubWeekday(_ date: Date) -> String {
+        guard date.timeIntervalSince1970.isFinite else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date)
+    }
+
+    static func hubDayNumber(_ date: Date) -> String {
+        guard date.timeIntervalSince1970.isFinite else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter.string(from: date)
+    }
 }
 
 extension Collection {

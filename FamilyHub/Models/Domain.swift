@@ -1558,8 +1558,9 @@ enum CalendarMath {
         filter: DayFilter,
         calendar: Calendar = .current
     ) -> [CalendarEvent] {
-        events
-            .filter { calendar.isDate($0.startAt, inSameDayAs: day) }
+        var seen = Set<String>()
+        return events
+            .filter { $0.startAt.timeIntervalSince1970.isFinite && calendar.isDate($0.startAt, inSameDayAs: day) }
             .filter { event in
                 switch filter {
                 case .family:
@@ -1567,6 +1568,12 @@ enum CalendarMath {
                 case .member(let id):
                     return event.memberID == nil || event.memberID == id
                 }
+            }
+            .filter { event in
+                let key = event.externalID.isEmpty
+                    ? "\(event.title.lowercased())|\(event.startAt.timeIntervalSince1970)"
+                    : event.externalID
+                return seen.insert(key).inserted
             }
             .sorted { $0.startAt < $1.startAt }
     }
