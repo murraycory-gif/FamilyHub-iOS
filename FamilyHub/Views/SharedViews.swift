@@ -764,9 +764,8 @@ struct HubLift: ViewModifier {
                         lineWidth: selected ? 4 : 3
                     )
             )
-            .compositingGroup()
-            .shadow(color: accent.opacity(selected ? 0.34 : 0.20), radius: selected ? 22 : 16, x: 0, y: selected ? 12 : 8)
-            .shadow(color: .black.opacity(0.12), radius: selected ? 8 : 5, x: 0, y: 2)
+            .shadow(color: accent.opacity(selected ? 0.28 : 0.16), radius: selected ? 16 : 10, x: 0, y: selected ? 8 : 6)
+            .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
     }
 }
 

@@ -154,7 +154,7 @@ struct TodayView: View {
                         .coachSpot("agenda", active: on)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     VStack(spacing: 16) {
-                        weatherTile(for: day)
+                        weatherTile(for: day, live: on)
                             .coachSpot("weather", active: on)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         shoppingTile
@@ -173,7 +173,7 @@ struct TodayView: View {
                     .coachSpot("agenda", active: on)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 VStack(spacing: 16) {
-                    weatherTile(for: day)
+                    weatherTile(for: day, live: on)
                         .coachSpot("weather", active: on)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     shoppingTile
@@ -493,9 +493,9 @@ struct TodayView: View {
         .frame(maxHeight: .infinity)
     }
 
-    private var weatherTile: some View { weatherTile(for: selectedDay) }
+    private var weatherTile: some View { weatherTile(for: selectedDay, live: true) }
 
-    private func weatherTile(for day: Date) -> some View {
+    private func weatherTile(for day: Date, live: Bool = false) -> some View {
         HubWeatherTile(
             placeLabel: store.weatherPlace?.label ?? "Chicago",
             now: weather.now,
@@ -503,6 +503,7 @@ struct TodayView: View {
             hours: weather.hoursOn(day),
             isToday: Calendar.current.isDateInToday(day),
             isLoading: weather.isLoading,
+            live: live,
             onOpen: { showWeatherOutlook = true },
             onChangePlace: { showWeatherPlace = true }
         )
@@ -988,6 +989,7 @@ struct TodayView: View {
     private func memberStrip(canvas: CGSize) -> some View {
         GeometryReader { geo in
             let width = cardWidth(in: geo.size, canvas: canvas)
+            let cardH = max(220, geo.size.height - 8)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 14) {
                     FamilyFocusCard(selected: profile == .family, day: selectedDay) {
@@ -995,7 +997,7 @@ struct TodayView: View {
                     } onEvent: { event in
                         router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                     }
-                    .frame(width: width, height: geo.size.height - 8)
+                    .frame(width: width, height: cardH)
 
                     ForEach(store.members) { member in
                         MemberHomeCard(
@@ -1007,14 +1009,12 @@ struct TodayView: View {
                                 router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
                             }
                         )
-                        .frame(width: width, height: geo.size.height - 8)
+                        .frame(width: width, height: cardH)
                     }
                 }
-                .scrollTargetLayout()
                 .padding(.vertical, 4)
                 .padding(.trailing, 8)
             }
-            .scrollTargetBehavior(.viewAligned)
             .scrollBounceBehavior(.basedOnSize)
         }
     }

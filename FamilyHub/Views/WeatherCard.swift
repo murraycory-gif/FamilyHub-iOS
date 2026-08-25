@@ -45,15 +45,22 @@ struct WeatherAtmosphere: View {
     let code: Int
     let isDay: Bool
     var showPhotos: Bool = true
+    var live: Bool = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: false)) { timeline in
-            AtmosphereLayers(
-                code: code,
-                isDay: isDay,
-                time: timeline.date.timeIntervalSinceReferenceDate,
-                showPhotos: showPhotos
-            )
+        Group {
+            if live {
+                TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: false)) { timeline in
+                    AtmosphereLayers(
+                        code: code,
+                        isDay: isDay,
+                        time: timeline.date.timeIntervalSinceReferenceDate,
+                        showPhotos: showPhotos
+                    )
+                }
+            } else {
+                AtmosphereLayers(code: code, isDay: isDay, time: 0, showPhotos: showPhotos)
+            }
         }
         .allowsHitTesting(false)
         .clipped()
@@ -423,6 +430,7 @@ struct HubWeatherTile: View {
     let hours: [WeatherHour]
     let isToday: Bool
     let isLoading: Bool
+    var live: Bool = true
     var onOpen: () -> Void
     var onChangePlace: () -> Void
     @Environment(\.hubAccent) private var hubAccent
@@ -463,7 +471,7 @@ struct HubWeatherTile: View {
                 .buttonStyle(.plain)
             }
             ZStack(alignment: .topLeading) {
-                WeatherAtmosphere(code: skyCode, isDay: skyIsDay)
+                WeatherAtmosphere(code: skyCode, isDay: skyIsDay, live: live)
                 VStack(alignment: .leading, spacing: 6) {
                     if isLoading && now == nil && day == nil {
                         ProgressView().tint(.white)
