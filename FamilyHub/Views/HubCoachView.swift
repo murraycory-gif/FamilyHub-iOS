@@ -1,8 +1,8 @@
 import SwiftUI
 
-struct CoachAnchorKey: PreferenceKey {
-    static var defaultValue: [String: Anchor<CGRect>] = [:]
-    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
+struct CoachRectKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
@@ -16,7 +16,14 @@ struct CoachStep: Identifiable, Equatable {
 
 extension View {
     func coachSpot(_ id: String, active: Bool = true) -> some View {
-        anchorPreference(key: CoachAnchorKey.self, value: .bounds) { active ? [id: $0] : [:] }
+        background {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: CoachRectKey.self,
+                    value: active ? [id: proxy.frame(in: .named("hubCoachSpace"))] : [:]
+                )
+            }
+        }
     }
 
     func hubTour(_ page: String, steps: [CoachStep], onStep: ((String) -> Void)? = nil) -> some View {
@@ -36,23 +43,25 @@ private struct HubTourModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlayPreferenceValue(CoachAnchorKey.self) { anchors in
-                GeometryReader { geo in
+            .coordinateSpace(name: "hubCoachSpace")
+            .overlayPreferenceValue(CoachRectKey.self) { rects in
+                Group {
                     if !done.contains(page), !steps.isEmpty {
-                        let rects = Dictionary(uniqueKeysWithValues: anchors.map { ($0.key, geo[$0.value]) })
-                        HubCoachLayer(
-                            rects: rects,
-                            canvas: geo.size,
-                            safe: geo.safeAreaInsets,
-                            steps: steps,
-                            onStep: onStep
-                        ) {
-                            mark()
+                        GeometryReader { geo in
+                            HubCoachLayer(
+                                rects: rects,
+                                canvas: geo.size,
+                                safe: geo.safeAreaInsets,
+                                steps: steps,
+                                onStep: onStep
+                            ) {
+                                mark()
+                            }
                         }
+                        .ignoresSafeArea()
                     }
                 }
-                .ignoresSafeArea()
-                .allowsHitTesting(!done.contains(page))
+                .allowsHitTesting(!done.contains(page) && !steps.isEmpty)
             }
     }
 
