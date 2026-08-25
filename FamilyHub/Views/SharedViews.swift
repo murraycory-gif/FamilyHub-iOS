@@ -763,6 +763,95 @@ extension View {
     }
 }
 
+extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
+struct HubDaySwipeInstaller: UIViewRepresentable {
+    var onPrev: () -> Void
+    var onNext: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPrev: onPrev, onNext: onNext)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        context.coordinator.owner = view
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.onPrev = onPrev
+        context.coordinator.onNext = onNext
+        context.coordinator.attachIfNeeded()
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var onPrev: () -> Void
+        var onNext: () -> Void
+        weak var owner: UIView?
+        private var pan: UIPanGestureRecognizer?
+        private var lastFire = Date.distantPast
+
+        init(onPrev: @escaping () -> Void, onNext: @escaping () -> Void) {
+            self.onPrev = onPrev
+            self.onNext = onNext
+        }
+
+        deinit {
+            if let pan { pan.view?.removeGestureRecognizer(pan) }
+        }
+
+        func attachIfNeeded() {
+            guard pan == nil else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.pan == nil, let window = self.owner?.window else { return }
+                let gesture = UIPanGestureRecognizer(target: self, action: #selector(handle))
+                gesture.delegate = self
+                gesture.cancelsTouchesInView = false
+                gesture.maximumNumberOfTouches = 1
+                window.addGestureRecognizer(gesture)
+                self.pan = gesture
+            }
+        }
+
+        func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+            guard let pan = gesture as? UIPanGestureRecognizer,
+                  let view = pan.view,
+                  let owner,
+                  let window = owner.window
+            else { return false }
+            let velocity = pan.velocity(in: view)
+            guard abs(velocity.x) > abs(velocity.y) * 1.8, abs(velocity.x) > 240 else { return false }
+            let loc = pan.location(in: window)
+            let box = owner.convert(owner.bounds, to: window).insetBy(dx: 8, dy: 8)
+            return box.contains(loc) && loc.x > 36
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool { true }
+
+        @objc func handle(_ gesture: UIPanGestureRecognizer) {
+            guard gesture.state == .ended else { return }
+            guard Date().timeIntervalSince(lastFire) > 0.25 else { return }
+            let view = gesture.view
+            let translation = gesture.translation(in: view)
+            let velocity = gesture.velocity(in: view)
+            let dx = abs(velocity.x) > 480 ? velocity.x : translation.x
+            guard abs(dx) > 56 else { return }
+            lastFire = Date()
+            if dx < 0 { onNext() } else { onPrev() }
+        }
+    }
+}
+
 struct HubPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

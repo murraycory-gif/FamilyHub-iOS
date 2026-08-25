@@ -47,11 +47,17 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 14) {
                 header
                     .coachSpot("hub")
-                    dashboard(for: selectedDay, portrait: portrait)
-                        .frame(maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                        .gesture(daySwipe)
-                        .transaction { $0.animation = nil }
+                    ZStack {
+                        dashboard(for: selectedDay, portrait: portrait)
+                            .frame(maxHeight: .infinity)
+                            .transaction { $0.animation = nil }
+                        HubDaySwipeInstaller(
+                            onPrev: { shiftSelectedDay(-1) },
+                            onNext: { shiftSelectedDay(1) }
+                        )
+                        .allowsHitTesting(false)
+                    }
+                    .frame(maxHeight: .infinity)
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
@@ -159,9 +165,9 @@ struct TodayView: View {
     private func dashboard(for day: Date, portrait: Bool) -> some View {
         let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
         let tiles = visibleWidgets(for: day)
-        let top = tiles[0]
-        let low = tiles[1]
-        let large = tiles[2]
+        let top = tiles[safe: 0] ?? .weather
+        let low = tiles[safe: 1] ?? .shopping
+        let large = tiles[safe: 2] ?? .dinner
         if portrait {
             VStack(spacing: 16) {
                 HStack(alignment: .top, spacing: 16) {
@@ -475,16 +481,6 @@ struct TodayView: View {
         if Calendar.current.isDateInToday(day) { return "Today" }
         if Calendar.current.isDateInTomorrow(day) { return "Tomorrow" }
         return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
-    }
-
-    private var daySwipe: some Gesture {
-        DragGesture(minimumDistance: 16, coordinateSpace: .local)
-            .onEnded { value in
-                let dx = value.predictedEndTranslation.width
-                let dy = value.predictedEndTranslation.height
-                guard abs(dx) > abs(dy), abs(dx) > 36 else { return }
-                shiftSelectedDay(dx < 0 ? 1 : -1)
-            }
     }
 
     private func shiftSelectedDay(_ delta: Int) {

@@ -17,7 +17,6 @@ struct CoachStep: Identifiable, Equatable {
 extension View {
     func coachSpot(_ id: String, active: Bool = true) -> some View {
         anchorPreference(key: CoachAnchorKey.self, value: .bounds) { active ? [id: $0] : [:] }
-            .id(id)
     }
 
     func hubTour(_ page: String, steps: [CoachStep], onStep: ((String) -> Void)? = nil) -> some View {
