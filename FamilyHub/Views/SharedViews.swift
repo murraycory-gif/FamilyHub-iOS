@@ -13,6 +13,14 @@ extension EnvironmentValues {
     }
 }
 
+struct HubCanvasKey: PreferenceKey {
+    static var defaultValue = CGSize.zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        let next = nextValue()
+        if next.width > 1, next.height > 1 { value = next }
+    }
+}
+
 enum HubPhoto {
     private static var cache: [String: UIImage] = [:]
 
@@ -809,6 +817,20 @@ extension Date {
         guard date.timeIntervalSince1970.isFinite else { return "" }
         let formatter = DateFormatter()
         formatter.dateFormat = "d"
+        return formatter.string(from: date)
+    }
+
+    static func hubShortDay(_ date: Date) -> String {
+        guard date.timeIntervalSince1970.isFinite else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE MMM d"
+        return formatter.string(from: date)
+    }
+
+    static func hubLongDay(_ date: Date) -> String {
+        guard date.timeIntervalSince1970.isFinite else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
         return formatter.string(from: date)
     }
 }

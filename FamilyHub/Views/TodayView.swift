@@ -27,6 +27,7 @@ struct TodayView: View {
     @State private var showWidgetPicker = false
     @State private var showAddFlight = false
     @State private var showAddPackage = false
+    @State private var canvas = CGSize(width: 1024, height: 768)
 
     private var accent: Color {
         switch profile {
@@ -39,21 +40,20 @@ struct TodayView: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            let portrait = geo.size.height > geo.size.width
-            let familyH = max(geo.size.height * (portrait ? 0.38 : 0.46), portrait ? 300 : 340)
-            ZStack {
+        let portrait = canvas.height > canvas.width
+        let familyH = max(canvas.height * (portrait ? 0.38 : 0.46), portrait ? 300 : 340)
+        ZStack {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 14) {
-                header
-                dayStrip
-                dashboard(for: selectedDay, portrait: portrait)
-                    .frame(maxHeight: .infinity)
+                    header
+                    dayStrip
+                    dashboard(for: selectedDay, portrait: portrait)
+                        .frame(maxHeight: .infinity)
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
                 .padding(.bottom, 8)
-                familySection(canvas: geo.size, height: familyH)
+                familySection(canvas: canvas, height: familyH)
                     .padding(.horizontal, portrait ? 16 : 24)
                     .padding(.bottom, portrait ? 12 : 18)
                     .frame(height: familyH)
@@ -66,13 +66,18 @@ struct TodayView: View {
                             showDayMenu = false
                             showProfileMenu = false
                         }
-                    filterPanel(width: min(560, geo.size.width - 72), height: min(660, geo.size.height - 80))
+                    filterPanel(width: min(560, canvas.width - 72), height: min(660, canvas.height - 80))
                 }
             }
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .background {
+            GeometryReader { geo in
+                Color.clear.preference(key: HubCanvasKey.self, value: geo.size)
             }
         }
+        .onPreferenceChange(HubCanvasKey.self) { canvas = $0 }
         .environment(\.hubAccent, accent)
-        .background(AppTheme.bg.ignoresSafeArea())
         .onAppear { selectedDay = Calendar.current.startOfDay(for: selectedDay) }
         .fullScreenCover(item: $showDinnerLaunch) { item in
             DinnerLaunchView(item: item) {
@@ -257,7 +262,7 @@ struct TodayView: View {
                             } label: {
                                 filterChoiceRow(
                                     title: menuDayLabel(day),
-                                    detail: day.formatted(.dateTime.month(.abbreviated).day().weekday(.wide)),
+                                    detail: Date.hubLongDay(day),
                                     selected: Calendar.current.isDate(day, inSameDayAs: selectedDay)
                                 )
                             }
@@ -449,7 +454,7 @@ struct TodayView: View {
     private func menuDayLabel(_ day: Date) -> String {
         if Calendar.current.isDateInToday(day) { return "Today" }
         if Calendar.current.isDateInTomorrow(day) { return "Tomorrow" }
-        return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+        return Date.hubLongDay(day)
     }
 
     private func shiftSelectedDay(_ delta: Int) {
@@ -498,7 +503,7 @@ struct TodayView: View {
     private var shortDayName: String {
         if Calendar.current.isDateInToday(selectedDay) { return "Today" }
         if Calendar.current.isDateInTomorrow(selectedDay) { return "Tomorrow" }
-        return selectedDay.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        return Date.hubShortDay(selectedDay)
     }
 
     private var agenda: some View { agenda(for: selectedDay) }
@@ -550,15 +555,13 @@ struct TodayView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 8)
                 } else {
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(uniqueItems(items).prefix(12).enumerated()), id: \.offset) { _, item in
-                                Button { openAgendaItem(item) } label: {
-                                    dayRow(item)
-                                }
-                                .buttonStyle(.plain)
-                                Divider().overlay(AppTheme.cardBorder)
+                    VStack(spacing: 0) {
+                        ForEach(Array(uniqueItems(items).prefix(8).enumerated()), id: \.offset) { _, item in
+                            Button { openAgendaItem(item) } label: {
+                                dayRow(item)
                             }
+                            .buttonStyle(.plain)
+                            Divider().overlay(AppTheme.cardBorder)
                         }
                     }
                 }
@@ -811,7 +814,7 @@ struct TodayView: View {
     private func headline(for day: Date) -> String {
         if Calendar.current.isDateInToday(day) { return "Today" }
         if Calendar.current.isDateInTomorrow(day) { return "Tomorrow" }
-        return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+        return Date.hubLongDay(day)
     }
 
     private var dayHeadline: String { headline(for: selectedDay) }

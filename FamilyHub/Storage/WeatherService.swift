@@ -206,6 +206,10 @@ private struct ForecastResponse: Decodable {
         func parseHour(_ raw: String) -> Date {
             iso.date(from: raw) ?? loose.date(from: raw) ?? Date()
         }
+        func asInt(_ value: Double) -> Int {
+            guard value.isFinite else { return 0 }
+            return Int(value.rounded())
+        }
 
         let sunriseDates = (daily.sunrise ?? []).map(parseHour)
         let sunsetDates = (daily.sunset ?? []).map(parseHour)
@@ -222,9 +226,9 @@ private struct ForecastResponse: Decodable {
         }
         let nowUV: Int = {
             if let idx = nowHourIndex, let uvs = hourly.uv_index, idx < uvs.count {
-                return Int(uvs[idx].rounded())
+                return asInt(uvs[idx])
             }
-            return Int((daily.uv_index_max?.first ?? 0).rounded())
+            return asInt(daily.uv_index_max?.first ?? 0)
         }()
 
         let precipNow = current.precipitation ?? 0
@@ -238,14 +242,14 @@ private struct ForecastResponse: Decodable {
         }
 
         let now = WeatherNow(
-            temp: Int(current.temperature_2m.rounded()),
-            feelsLike: Int(current.apparent_temperature.rounded()),
+            temp: asInt(current.temperature_2m),
+            feelsLike: asInt(current.apparent_temperature),
             code: code,
             isDay: sunIsUp,
             humidity: current.relative_humidity_2m ?? 0,
-            windMph: Int((current.wind_speed_10m ?? 0).rounded()),
+            windMph: asInt(current.wind_speed_10m ?? 0),
             uv: nowUV,
-            precip: Int((current.precipitation ?? 0).rounded())
+            precip: asInt(current.precipitation ?? 0)
         )
 
         let start = Date().addingTimeInterval(-30 * 60)
@@ -267,7 +271,7 @@ private struct ForecastResponse: Decodable {
             let pop = hourly.precipitation_probability.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0
             return WeatherHour(
                 at: at,
-                temp: Int(hourly.temperature_2m[index].rounded()),
+                temp: asInt(hourly.temperature_2m[index]),
                 code: hourly.weather_code[index],
                 precip: pop,
                 isDay: hourIsDay
@@ -285,12 +289,12 @@ private struct ForecastResponse: Decodable {
             return WeatherDay(
                 dateISO: isoDay,
                 weekday: weekday.string(from: date),
-                high: Int(daily.temperature_2m_max[index].rounded()),
-                low: Int(daily.temperature_2m_min[index].rounded()),
+                high: asInt(daily.temperature_2m_max[index]),
+                low: asInt(daily.temperature_2m_min[index]),
                 code: daily.weather_code[index],
                 precip: daily.precipitation_probability_max.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0,
-                uv: Int((daily.uv_index_max.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0).rounded()),
-                windMph: Int((daily.wind_speed_10m_max.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0).rounded()),
+                uv: asInt(daily.uv_index_max.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0),
+                windMph: asInt(daily.wind_speed_10m_max.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0),
                 sunrise: sunriseDates.indices.contains(index) ? sunriseDates[index] : nil,
                 sunset: sunsetDates.indices.contains(index) ? sunsetDates[index] : nil
             )
