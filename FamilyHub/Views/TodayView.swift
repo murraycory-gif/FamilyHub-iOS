@@ -27,7 +27,6 @@ struct TodayView: View {
     @State private var showWidgetPicker = false
     @State private var showAddFlight = false
     @State private var showAddPackage = false
-    @State private var canvas = CGSize(width: 1024, height: 768)
 
     private var accent: Color {
         switch profile {
@@ -40,43 +39,42 @@ struct TodayView: View {
     }
 
     var body: some View {
-        let portrait = canvas.height > canvas.width
-        let familyH = max(canvas.height * (portrait ? 0.38 : 0.46), portrait ? 300 : 340)
-        ZStack {
-            VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 14) {
+        GeometryReader { geo in
+            let portrait = geo.size.height > geo.size.width + 40
+            let familyH = min(max(geo.size.height * (portrait ? 0.32 : 0.34), 250), geo.size.height * 0.38)
+            ZStack {
+                VStack(alignment: .leading, spacing: 0) {
                     header
+                        .padding(.bottom, 10)
                     dayStrip
+                        .frame(height: 58)
+                        .padding(.bottom, 12)
                     dashboard(for: selectedDay, portrait: portrait)
-                        .frame(maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    familySection(canvas: geo.size, height: familyH)
+                        .frame(height: familyH)
+                        .padding(.top, 12)
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
-                .padding(.top, 2)
-                .padding(.bottom, 8)
-                familySection(canvas: canvas, height: familyH)
-                    .padding(.horizontal, portrait ? 16 : 24)
-                    .padding(.bottom, portrait ? 12 : 18)
-                    .frame(height: familyH)
-            }
-            if showDayMenu || showProfileMenu {
-                ZStack {
-                    Color.black.opacity(0.38)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            showDayMenu = false
-                            showProfileMenu = false
-                        }
-                    filterPanel(width: min(560, canvas.width - 72), height: min(660, canvas.height - 80))
+                .padding(.top, 4)
+                .padding(.bottom, portrait ? 12 : 16)
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+
+                if showDayMenu || showProfileMenu {
+                    ZStack {
+                        Color.black.opacity(0.38)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                showDayMenu = false
+                                showProfileMenu = false
+                            }
+                        filterPanel(width: min(560, geo.size.width - 72), height: min(660, geo.size.height - 80))
+                    }
                 }
             }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .background {
-            GeometryReader { geo in
-                Color.clear.preference(key: HubCanvasKey.self, value: geo.size)
-            }
-        }
-        .onPreferenceChange(HubCanvasKey.self) { canvas = $0 }
         .environment(\.hubAccent, accent)
         .onAppear { selectedDay = Calendar.current.startOfDay(for: selectedDay) }
         .fullScreenCover(item: $showDinnerLaunch) { item in
@@ -197,13 +195,7 @@ struct TodayView: View {
     }
 
     private func visibleWidgets() -> [HubWidgetKind] {
-        var slots = store.hubWidgets.map(\.kind).filter { HubWidgetKind.choosable.contains($0) }
-        if slots.isEmpty { slots = HubWidget.defaultSet.map(\.kind) }
-        for kind in HubWidgetKind.choosable where slots.count < 3 && !slots.contains(kind) {
-            slots.append(kind)
-        }
-        slots = Array(slots.prefix(3))
-        return slots
+        [.weather, .shopping, .dinner]
     }
 
     @ViewBuilder
@@ -486,9 +478,9 @@ struct TodayView: View {
                             Text(Date.hubDayNumber(day))
                                 .font(.headline.weight(.bold))
                         }
-                        .foregroundStyle(on ? .white : AppTheme.text)
-                        .frame(width: 64, height: 52)
-                        .background(on ? accent : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .foregroundStyle(on ? Color.white : AppTheme.text)
+                        .frame(width: 66, height: 54)
+                        .background(on ? accent : Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .stroke(on ? accent : AppTheme.cardBorder, lineWidth: 2)
@@ -498,6 +490,7 @@ struct TodayView: View {
                 }
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var shortDayName: String {

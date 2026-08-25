@@ -1068,8 +1068,11 @@ struct HubWidget: Codable, Identifiable, Hashable {
     ]
 
     static func migrated(_ raw: [HubWidget]) -> [HubWidget] {
-        let kept = raw.filter { HubWidgetKind.choosable.contains($0.kind) }
-        return kept.isEmpty ? defaultSet : kept
+        let kinds = raw.map(\.kind)
+        if kinds.contains(.weather), kinds.contains(.shopping), kinds.contains(.dinner) {
+            return Array(raw.prefix(3))
+        }
+        return defaultSet
     }
 }
 
