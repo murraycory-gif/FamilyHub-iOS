@@ -48,14 +48,9 @@ struct TodayView: View {
                 header
                     .coachSpot("hub")
                     dashboard(for: selectedDay, portrait: portrait)
+                        .id(Calendar.current.startOfDay(for: selectedDay))
                         .frame(maxHeight: .infinity)
                         .transaction { $0.animation = nil }
-                        .background {
-                            HubDaySwipeInstaller(
-                                onPrev: { shiftSelectedDay(-1) },
-                                onNext: { shiftSelectedDay(1) }
-                            )
-                        }
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
@@ -535,6 +530,15 @@ struct TodayView: View {
                         .lineLimit(1)
                 }
             }
+            .contentShape(Rectangle())
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 28)
+                    .onEnded { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                        if value.translation.width < -24 { shiftSelectedDay(1) }
+                        else if value.translation.width > 24 { shiftSelectedDay(-1) }
+                    }
+            )
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(headline(for: day))
@@ -552,15 +556,13 @@ struct TodayView: View {
                         .padding(.vertical, 8)
                 } else {
                     ScrollView(showsIndicators: false) {
-                        VStack(spacing: 0) {
-                            ForEach(uniqueItems(items)) { item in
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(uniqueItems(items).prefix(40))) { item in
                                 Button { openAgendaItem(item) } label: {
                                     dayRow(item)
                                 }
                                 .buttonStyle(.plain)
-                                if item.id != items.last?.id {
-                                    Divider().overlay(AppTheme.cardBorder)
-                                }
+                                Divider().overlay(AppTheme.cardBorder)
                             }
                         }
                     }
@@ -1578,7 +1580,7 @@ private struct EventScroll: View {
                         .font(.caption.weight(.bold))
                         .foregroundStyle(AppTheme.textTertiary)
                         .textCase(.uppercase)
-                    ForEach(uniqueEvents(events)) { event in
+                    ForEach(Array(uniqueEvents(events).prefix(8))) { event in
                         Button {
                             onEvent(event)
                         } label: {

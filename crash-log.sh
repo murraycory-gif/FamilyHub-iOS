@@ -1,50 +1,72 @@
 #!/bin/sh
-# Print the latest FamilyHub crash so we can see the exact line.
+# Dump the latest FamilyHub crash from this Mac or the connected iPad.
 set -eu
 cd "$(dirname "$0")"
 
-echo "Looking for FamilyHub crash reports..."
-FILE=$(ls -t "$HOME/Library/Logs/DiagnosticReports"/FamilyHub*.ips "$HOME/Library/Logs/DiagnosticReports"/FamilyHub*.crash 2>/dev/null | head -1 || true)
-if [ -z "${FILE:-}" ]; then
-  FILE=$(ls -t "$HOME/Library/Logs/CrashReporter"/FamilyHub* 2>/dev/null | head -1 || true)
-fi
-if [ -z "${FILE:-}" ]; then
-  echo "No Mac-side crash file yet. Pulling from the iPad..."
-  python3 - <<'PY'
-import json, subprocess, sys
+python3 - <<'PY'
+import json, os, subprocess, sys
+from pathlib import Path
+home = Path.home()
+roots = [
+    home / "Library/Logs/DiagnosticReports",
+    home / "Library/Logs/CrashReporter",
+    home / "Library/Logs/CrashReporter/MobileDevice",
+    home / "Library/Developer/Xcode/DeviceLogs",
+    home / "Library/Developer/Xcode/iOS Device Logs",
+]
+hits = []
+for root in roots:
+    if not root.exists():
+        continue
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        name = path.name.lower()
+        if "familyhub" in name or (name.endswith((".ips", ".crash")) and "family" in name):
+            hits.append(path)
+hits.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+if hits:
+    path = hits[0]
+    print(f"FILE={path}")
+    text = path.read_text(errors="replace")
+    print(text[:5000])
+    print("-------- matches --------")
+    keys = ("crashed thread", "exception type", "termination", "familyhub", "todayview", "weather", "fatal error", "precondition", "thread 0 crashed", "swift runtime")
+    for i, line in enumerate(text.splitlines(), 1):
+        low = line.lower()
+        if any(k in low for k in keys):
+            print(f"{i}: {line}")
+    sys.exit(0)
+
+print("No FamilyHub crash file on the Mac yet.")
+print("Looking up the connected iPad...")
 raw = subprocess.check_output(["xcrun", "devicectl", "list", "devices", "--json-output", "-"], text=True)
 data = json.loads(raw)
-devs = []
-for d in data.get("result", {}).get("devices", data.get("devices", [])):
-    conn = str(d.get("connectionProperties", {}).get("transportType") or d.get("connectionType") or "")
-    state = str(d.get("connectionProperties", {}).get("tunnelState") or "")
-    name = str(d.get("deviceProperties", {}).get("name") or d.get("name") or "")
-    udid = d.get("hardwareProperties", {}).get("udid") or d.get("identifier") or d.get("udid")
-    if udid and ("wired" in conn.lower() or "connected" in state.lower() or True):
-        if "iPad" in name or "iPhone" in name or True:
-            devs.append((str(udid), name))
-if not devs:
-    sys.exit("No device found. Unlock the iPad and plug it in.")
-udid, name = devs[0]
+devices = data.get("result", {}).get("devices", []) or data.get("devices", [])
+picked = None
+for device in devices:
+    hardware = device.get("hardwareProperties") or {}
+    props = device.get("deviceProperties") or {}
+    conn = device.get("connectionProperties") or {}
+    name = props.get("name") or device.get("name") or ""
+    marketing = str(hardware.get("marketingName") or "")
+    ident = device.get("identifier") or hardware.get("udid") or ""
+    tunnel = str(conn.get("tunnelState") or "").lower()
+    transport = str(conn.get("transportType") or "").lower()
+    is_ipad = "iPad" in name or "iPad" in marketing
+    available = tunnel in ("connected", "ready") or transport in ("wired", "localnetwork", "wifi")
+    if is_ipad and available and ident:
+        picked = (ident, name)
+        break
+if not picked:
+    print("No connected iPad.")
+    sys.exit(1)
+udid, name = picked
 print(f"Device: {name} {udid}")
-PY
-  echo ""
-  echo "Also try Xcode → Window → Devices and Simulators → your iPad → View Device Logs."
-  echo "Or paste this after a crash:"
-  echo "  log show --predicate 'process == \"FamilyHub\"' --last 2m --style compact | tail -80"
-  exit 1
-fi
-
-echo "FILE=$FILE"
-echo "-------- head --------"
-python3 - <<PY
-from pathlib import Path
-p = Path("$FILE")
-text = p.read_text(errors="replace")
-print(text[:4000])
-print("-------- crash thread --------")
-keys = ("Crashed Thread", "Exception Type", "Termination Reason", "FamilyHub", "TodayView", "Weather", "Swift runtime", "fatal error", "precondition", "Thread 0")
-for i, line in enumerate(text.splitlines()):
-    if any(k.lower() in line.lower() for k in keys):
-        print(f"{i+1}: {line}")
+print("")
+print("Paste this after you crash once:")
+print(f"  log show --last 3m --predicate 'process == \"FamilyHub\" OR eventMessage CONTAINS \"FamilyHub\"' --style compact | tail -120")
+print("")
+print("Or on the iPad: Settings → Privacy & Security → Analytics & Improvements → Analytics Data")
+print("  open the newest FamilyHub-...ips, Select All, Copy, paste here.")
 PY
