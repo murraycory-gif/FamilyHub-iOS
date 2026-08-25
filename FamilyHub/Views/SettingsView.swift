@@ -6,13 +6,14 @@ struct SettingsView: View {
     @StateObject private var weather = WeatherLoader()
     @ObservedObject private var pinger = HubPinger.shared
     @State private var open: Set<String> = [
-        "profiles", "device", "invite", "calendars", "bills", "allowance", "weather", "notify"
+        "profiles", "device", "invite", "calendars", "bills", "allowance", "weather", "widgets", "notify"
     ]
     @State private var tourFocus = ""
     @State private var testNote: String?
     @State private var pendingDelete: FamilyMember?
     @State private var showAddProfile = false
     @State private var editing: FamilyMember?
+    @State private var showWidgets = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -220,6 +221,31 @@ struct SettingsView: View {
                     }
                     .coachSpot("setWeather")
                     SettingsFold(
+                        symbol: "square.grid.2x2.fill",
+                        title: "Hub widgets",
+                        subtitle: store.hubWidgets.map(\.kind.title).joined(separator: " · "),
+                        isOpen: open.contains("widgets")
+                    ) {
+                        toggle("widgets")
+                    } content: {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Change weather, shopping, dinner, flights, and packages on the Hub.")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Button {
+                                showWidgets = true
+                            } label: {
+                                Text("Customize tiles")
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(AppTheme.blue, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    SettingsFold(
                         symbol: "bell.fill",
                         title: "Notifications",
                         subtitle: store.notifyPrefs.anyOn ? "On" : "Off",
@@ -258,6 +284,10 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showAddProfile) {
             EditMemberSheet(member: nil)
+        }
+        .sheet(isPresented: $showWidgets) {
+            HubWidgetPicker()
+                .environmentObject(store)
         }
         .sheet(item: $editing) { member in
             EditMemberSheet(member: member)

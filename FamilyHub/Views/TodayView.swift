@@ -24,6 +24,9 @@ struct TodayView: View {
     @State private var shoppingDraft = ""
     @State private var showDinnerLaunch: DinnerLaunch?
     @State private var agendaEvent: CalendarEvent?
+    @State private var showWidgetPicker = false
+    @State private var showAddFlight = false
+    @State private var showAddPackage = false
 
     private var accent: Color {
         switch profile {
@@ -97,6 +100,18 @@ struct TodayView: View {
         .sheet(item: $agendaEvent) { event in
             EventDetailSheet(event: event)
         }
+        .sheet(isPresented: $showWidgetPicker) {
+            HubWidgetPicker()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showAddFlight) {
+            AddFlightSheet(day: selectedDay)
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showAddPackage) {
+            AddPackageSheet()
+                .environmentObject(store)
+        }
         .task {
             await refreshWeatherFromHere()
             while !Task.isCancelled {
@@ -143,6 +158,10 @@ struct TodayView: View {
     @ViewBuilder
     private func dashboard(for day: Date, portrait: Bool) -> some View {
         let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
+        let tiles = visibleWidgets(for: day)
+        let top = tiles[0]
+        let low = tiles[1]
+        let large = tiles[2]
         if portrait {
             VStack(spacing: 16) {
                 HStack(alignment: .top, spacing: 16) {
@@ -150,15 +169,15 @@ struct TodayView: View {
                         .coachSpot("agenda", active: on)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     VStack(spacing: 16) {
-                        weatherTile(for: day, live: false)
+                        widgetTile(top, day: day, live: false)
                             .coachSpot("weather", active: on)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        shoppingTile
+                        widgetTile(low, day: day, live: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .frame(maxWidth: .infinity)
                 }
-                dinnerHomeTile(for: day)
+                widgetTile(large, day: day, live: false)
                     .coachSpot("dinner", active: on)
                     .frame(maxWidth: .infinity)
                     .frame(height: 176)
@@ -169,17 +188,59 @@ struct TodayView: View {
                     .coachSpot("agenda", active: on)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 VStack(spacing: 16) {
-                    weatherTile(for: day, live: on)
+                    widgetTile(top, day: day, live: false)
                         .coachSpot("weather", active: on)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    shoppingTile
+                    widgetTile(low, day: day, live: false)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .frame(maxWidth: .infinity)
-                dinnerHomeTile(for: day)
+                widgetTile(large, day: day, live: false)
                     .coachSpot("dinner", active: on)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+    }
+
+    private func visibleWidgets(for day: Date) -> [HubWidgetKind] {
+        var slots = store.hubWidgets.map(\.kind).filter { HubWidgetKind.choosable.contains($0) }
+        if slots.isEmpty { slots = HubWidget.defaultSet.map(\.kind) }
+        for kind in HubWidgetKind.choosable where slots.count < 3 && !slots.contains(kind) {
+            slots.append(kind)
+        }
+        slots = Array(slots.prefix(3))
+        let pinnedFlights = store.hubWidgets.contains { $0.kind == .flights }
+        let pinnedPackages = store.hubWidgets.contains { $0.kind == .packages }
+        let todayFlights = FlightParse.flights(on: day, events: store.events, extra: store.flights)
+        let viewingToday = Calendar.current.isDateInToday(day)
+        let liveFlight = todayFlights.contains { viewingToday ? FlightParse.isLive($0) : true }
+        if !pinnedFlights, liveFlight, !slots.contains(.flights) {
+            if let idx = slots.firstIndex(of: .shopping) ?? slots.indices.last {
+                slots[idx] = .flights
+            }
+        } else if !pinnedPackages, store.packages.contains(where: { !$0.isDelivered }), !slots.contains(.packages) {
+            if let idx = slots.firstIndex(of: .shopping) ?? slots.indices.last {
+                slots[idx] = .packages
+            }
+        }
+        return slots
+    }
+
+    @ViewBuilder
+    private func widgetTile(_ kind: HubWidgetKind, day: Date, live: Bool) -> some View {
+        switch kind {
+        case .weather:
+            weatherTile(for: day, live: live)
+        case .shopping:
+            shoppingTile
+        case .dinner:
+            dinnerHomeTile(for: day)
+        case .flights:
+            FlightWidget(day: day, onAdd: { showAddFlight = true })
+        case .packages:
+            PackageWidget(onAdd: { showAddPackage = true })
+        default:
+            shoppingTile
         }
     }
 
@@ -278,6 +339,10 @@ struct TodayView: View {
             }
             .font(.system(size: 34, weight: .bold))
             Spacer(minLength: 12)
+            Button { showWidgetPicker = true } label: {
+                filterBanner(symbol: "square.grid.2x2.fill", title: "Widgets")
+            }
+            .buttonStyle(.plain)
             dateButton
             profileButton
         }

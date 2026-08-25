@@ -19,6 +19,8 @@ final class HubStore: ObservableObject {
     @Published private(set) var recipes: [Recipe]
     @Published private(set) var dinners: [DinnerPlan]
     @Published private(set) var shoppingItems: [ShoppingItem]
+    @Published private(set) var flights: [TrackedFlight]
+    @Published private(set) var packages: [TrackedPackage]
     @Published private(set) var ownerID: UUID?
     @Published private(set) var joinCode: String
     @Published private(set) var signedInMemberID: UUID?
@@ -55,6 +57,8 @@ final class HubStore: ObservableObject {
         recipes = []
         dinners = []
         shoppingItems = []
+        flights = []
+        packages = []
         ownerID = nil
         joinCode = Self.makeJoinCode()
         signedInMemberID = nil
@@ -493,8 +497,15 @@ final class HubStore: ObservableObject {
     }
 
     func addHubWidget(_ kind: HubWidgetKind) {
+        guard HubWidgetKind.choosable.contains(kind) else { return }
         guard !hubWidgets.contains(where: { $0.kind == kind }) else { return }
         hubWidgets.append(.make(kind))
+        persist()
+    }
+
+    func setHubWidgets(_ kinds: [HubWidgetKind]) {
+        hubWidgets = kinds.filter { HubWidgetKind.choosable.contains($0) }.map(HubWidget.make)
+        if hubWidgets.isEmpty { hubWidgets = HubWidget.defaultSet }
         persist()
     }
 
@@ -512,9 +523,36 @@ final class HubStore: ObservableObject {
     }
 
     func unusedHubWidgets() -> [HubWidgetKind] {
-        HubWidgetKind.allCases.filter { kind in
+        HubWidgetKind.choosable.filter { kind in
             !hubWidgets.contains(where: { $0.kind == kind })
         }
+    }
+
+    func addFlight(_ flight: TrackedFlight) {
+        flights.append(flight)
+        persist()
+    }
+
+    func removeFlight(_ id: UUID) {
+        flights.removeAll { $0.id == id }
+        persist()
+    }
+
+    func addPackage(_ package: TrackedPackage) {
+        packages.insert(package, at: 0)
+        persist()
+    }
+
+    func updatePackage(_ package: TrackedPackage) {
+        if let index = packages.firstIndex(where: { $0.id == package.id }) {
+            packages[index] = package
+            persist()
+        }
+    }
+
+    func removePackage(_ id: UUID) {
+        packages.removeAll { $0.id == id }
+        persist()
     }
 
     // MARK: Calendar sources
@@ -843,11 +881,13 @@ final class HubStore: ObservableObject {
         weatherFollowsMe = snapshot.weatherFollowsMe ?? true
         units = snapshot.units ?? .us
         let widgets = snapshot.hubWidgets ?? []
-        hubWidgets = widgets.isEmpty ? HubWidget.defaultSet : widgets
+        hubWidgets = HubWidget.migrated(widgets)
         calendarSources = snapshot.calendarSources ?? []
         recipes = snapshot.recipes ?? SampleFamily.starterRecipes
         dinners = snapshot.dinners ?? []
         shoppingItems = snapshot.shoppingItems ?? []
+        flights = snapshot.flights ?? []
+        packages = snapshot.packages ?? []
         ownerID = snapshot.ownerID ?? snapshot.members.first(where: { $0.role == .parent })?.id
         joinCode = (snapshot.joinCode?.isEmpty == false) ? (snapshot.joinCode ?? Self.makeJoinCode()) : Self.makeJoinCode()
         signedInMemberID = snapshot.signedInMemberID ?? ownerID
@@ -870,6 +910,8 @@ final class HubStore: ObservableObject {
             weatherPlace: weatherPlace,
             weatherFollowsMe: weatherFollowsMe,
             hubWidgets: hubWidgets,
+            flights: flights,
+            packages: packages,
             calendarSources: calendarSources,
             recipes: recipes,
             dinners: dinners,

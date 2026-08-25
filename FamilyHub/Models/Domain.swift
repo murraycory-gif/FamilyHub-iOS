@@ -511,6 +511,8 @@ struct HubSnapshot: Codable {
     var weatherPlace: WeatherPlace?
     var weatherFollowsMe: Bool?
     var hubWidgets: [HubWidget]?
+    var flights: [TrackedFlight]?
+    var packages: [TrackedPackage]?
     var calendarSources: [CalendarSource]?
     var recipes: [Recipe]?
     var dinners: [DinnerPlan]?
@@ -1003,14 +1005,26 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
     case cameras
     case weather
     case snapshot
+    case shopping
+    case dinner
+    case flights
+    case packages
 
     var id: String { rawValue }
+
+    static var choosable: [HubWidgetKind] {
+        [.weather, .shopping, .dinner, .flights, .packages]
+    }
 
     var title: String {
         switch self {
         case .cameras: return "Cameras"
         case .weather: return "Weather"
         case .snapshot: return "Household"
+        case .shopping: return "Shopping List"
+        case .dinner: return "What's For Dinner"
+        case .flights: return "Flight Tracker"
+        case .packages: return "Packages"
         }
     }
 
@@ -1019,14 +1033,22 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
         case .cameras: return "video.fill"
         case .weather: return "cloud.sun.fill"
         case .snapshot: return "square.grid.2x2.fill"
+        case .shopping: return "cart.fill"
+        case .dinner: return "fork.knife"
+        case .flights: return "airplane"
+        case .packages: return "shippingbox.fill"
         }
     }
 
     var detail: String {
         switch self {
         case .cameras: return "Security cameras for the house"
-        case .weather: return "7-day forecast for your area"
+        case .weather: return "Forecast for your area"
         case .snapshot: return "Open chores, reminders, and to-dos"
+        case .shopping: return "Groceries and things to grab"
+        case .dinner: return "Tonight’s meal"
+        case .flights: return "Pulls flights from the calendar, or add one"
+        case .packages: return "Amazon and carrier tracking"
         }
     }
 }
@@ -1040,10 +1062,15 @@ struct HubWidget: Codable, Identifiable, Hashable {
     }
 
     static let defaultSet: [HubWidget] = [
-        .make(.cameras),
         .make(.weather),
-        .make(.snapshot),
+        .make(.shopping),
+        .make(.dinner),
     ]
+
+    static func migrated(_ raw: [HubWidget]) -> [HubWidget] {
+        let kept = raw.filter { HubWidgetKind.choosable.contains($0.kind) }
+        return kept.isEmpty ? defaultSet : kept
+    }
 }
 
 struct WeatherPlace: Codable, Hashable, Identifiable {
@@ -1054,6 +1081,119 @@ struct WeatherPlace: Codable, Hashable, Identifiable {
     var id: String { "\(latitude),\(longitude)" }
 
     static let chicago = WeatherPlace(label: "Chicago, IL", latitude: 41.8781, longitude: -87.6298)
+}
+
+struct TrackedFlight: Identifiable, Codable, Hashable {
+    var id: UUID
+    var airline: String
+    var number: String
+    var origin: String
+    var destination: String
+    var departAt: Date
+    var arriveAt: Date?
+    var eventID: UUID?
+    var notes: String
+
+    var code: String { "\(airline)\(number)" }
+
+    static func make(
+        airline: String,
+        number: String,
+        origin: String,
+        destination: String,
+        departAt: Date,
+        arriveAt: Date? = nil,
+        eventID: UUID? = nil,
+        notes: String = ""
+    ) -> TrackedFlight {
+        TrackedFlight(
+            id: UUID(),
+            airline: airline.uppercased(),
+            number: number,
+            origin: origin.uppercased(),
+            destination: destination.uppercased(),
+            departAt: departAt,
+            arriveAt: arriveAt,
+            eventID: eventID,
+            notes: notes
+        )
+    }
+}
+
+enum PackageCarrier: String, Codable, CaseIterable, Identifiable {
+    case amazon, ups, usps, fedex, other
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .amazon: return "Amazon"
+        case .ups: return "UPS"
+        case .usps: return "USPS"
+        case .fedex: return "FedEx"
+        case .other: return "Other"
+        }
+    }
+
+    func trackURL(_ tracking: String) -> URL? {
+        let code = tracking.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? tracking
+        switch self {
+        case .amazon:
+            return URL(string: "https://www.amazon.com/progress-tracker/package?trackingId=\(code)")
+        case .ups:
+            return URL(string: "https://www.ups.com/track?tracknum=\(code)")
+        case .usps:
+            return URL(string: "https://tools.usps.com/go/TrackConfirmAction?tLabels=\(code)")
+        case .fedex:
+            return URL(string: "https://www.fedex.com/fedextrack/?trknbr=\(code)")
+        case .other:
+            return URL(string: "https://www.google.com/search?q=\(code)+tracking")
+        }
+    }
+}
+
+enum PackageStatus: String, Codable, CaseIterable, Identifiable {
+    case ordered, shipped, outForDelivery, delivered
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .ordered: return "Ordered"
+        case .shipped: return "Shipped"
+        case .outForDelivery: return "Out for delivery"
+        case .delivered: return "Delivered"
+        }
+    }
+}
+
+struct TrackedPackage: Identifiable, Codable, Hashable {
+    var id: UUID
+    var name: String
+    var tracking: String
+    var carrier: PackageCarrier
+    var status: PackageStatus
+    var eta: Date?
+    var url: String
+    var createdAt: Date
+
+    var isDelivered: Bool { status == .delivered }
+
+    static func make(
+        name: String,
+        tracking: String,
+        carrier: PackageCarrier,
+        status: PackageStatus = .shipped,
+        eta: Date? = nil,
+        url: String = ""
+    ) -> TrackedPackage {
+        TrackedPackage(
+            id: UUID(),
+            name: name,
+            tracking: tracking,
+            carrier: carrier,
+            status: status,
+            eta: eta,
+            url: url,
+            createdAt: Date()
+        )
+    }
 }
 
 struct HubUnits: Codable, Equatable {

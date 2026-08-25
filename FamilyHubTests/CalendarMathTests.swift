@@ -37,8 +37,26 @@ final class CalendarMathTests: XCTestCase {
         XCTAssertEqual(WeatherIcon.condition(for: 3), "Cloudy")
     }
 
-    func testDefaultHubWidgetsStartWithCamerasWeatherAndSnapshot() {
-        XCTAssertEqual(HubWidget.defaultSet.map(\.kind), [.cameras, .weather, .snapshot])
+    func testDefaultHubWidgetsStartWithWeatherShoppingAndDinner() {
+        XCTAssertEqual(HubWidget.defaultSet.map(\.kind), [.weather, .shopping, .dinner])
+    }
+
+    func testLegacyHubWidgetsMigrate() {
+        let old = [HubWidget.make(.cameras), HubWidget.make(.weather), HubWidget.make(.snapshot)]
+        XCTAssertEqual(HubWidget.migrated(old).map(\.kind), [.weather, .shopping, .dinner])
+    }
+
+    func testFlightParseReadsAirlineRoute() {
+        let event = CalendarEvent.make(
+            title: "Flight UA2753 ORD to SJC",
+            startAt: Date(),
+            location: "Departing Chicago, IL"
+        )
+        let flight = FlightParse.from(event: event)
+        XCTAssertEqual(flight?.airline, "UA")
+        XCTAssertEqual(flight?.number, "2753")
+        XCTAssertEqual(flight?.origin, "ORD")
+        XCTAssertEqual(flight?.destination, "SJC")
     }
 
     func testCalendarBrandInfersMajorProviders() {
