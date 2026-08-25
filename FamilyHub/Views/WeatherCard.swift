@@ -493,7 +493,7 @@ struct HubWeatherTile: View {
                     Spacer(minLength: 4)
                     if !hours.isEmpty {
                         HStack(spacing: 0) {
-                            ForEach(Array(hours.prefix(5).enumerated()), id: \.element.id) { index, hour in
+                            ForEach(Array(hours.prefix(5).enumerated()), id: \.offset) { index, hour in
                                 VStack(spacing: 4) {
                                     Text(index == 0 && isToday ? "Now" : hourLabel(hour.at))
                                         .font(.system(size: 11, weight: .semibold))

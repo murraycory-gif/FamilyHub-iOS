@@ -47,17 +47,15 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 14) {
                 header
                     .coachSpot("hub")
-                    ZStack {
-                        dashboard(for: selectedDay, portrait: portrait)
-                            .frame(maxHeight: .infinity)
-                            .transaction { $0.animation = nil }
-                        HubDaySwipeInstaller(
-                            onPrev: { shiftSelectedDay(-1) },
-                            onNext: { shiftSelectedDay(1) }
-                        )
-                        .allowsHitTesting(false)
-                    }
-                    .frame(maxHeight: .infinity)
+                    dashboard(for: selectedDay, portrait: portrait)
+                        .frame(maxHeight: .infinity)
+                        .transaction { $0.animation = nil }
+                        .background {
+                            HubDaySwipeInstaller(
+                                onPrev: { shiftSelectedDay(-1) },
+                                onNext: { shiftSelectedDay(1) }
+                            )
+                        }
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
@@ -514,10 +512,28 @@ struct TodayView: View {
                 symbol: "calendar",
                 title: Calendar.current.isDateInToday(day) ? "On Today's Agenda" : "On the Agenda"
             ) {
-                Text(profileTitle)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Button { shiftSelectedDay(-1) } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(accent)
+                            .frame(width: 28, height: 28)
+                            .background(.white, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    Button { shiftSelectedDay(1) } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(accent)
+                            .frame(width: 28, height: 28)
+                            .background(.white, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    Text(profileTitle)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
             }
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -537,7 +553,7 @@ struct TodayView: View {
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 0) {
-                            ForEach(items) { item in
+                            ForEach(uniqueItems(items)) { item in
                                 Button { openAgendaItem(item) } label: {
                                     dayRow(item)
                                 }
@@ -856,6 +872,11 @@ struct TodayView: View {
             }
         }
         return items.sorted { $0.sortDate < $1.sortDate }
+    }
+
+    private func uniqueItems(_ items: [HubDayItem]) -> [HubDayItem] {
+        var seen = Set<String>()
+        return items.filter { seen.insert($0.id).inserted }
     }
 
     private func matchesProfile(_ memberID: UUID?) -> Bool {
@@ -1533,6 +1554,11 @@ private struct EventScroll: View {
     let events: [CalendarEvent]
     var onEvent: (CalendarEvent) -> Void
 
+    private func uniqueEvents(_ events: [CalendarEvent]) -> [CalendarEvent] {
+        var seen = Set<UUID>()
+        return events.filter { seen.insert($0.id).inserted }
+    }
+
     var body: some View {
         if events.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
@@ -1552,7 +1578,7 @@ private struct EventScroll: View {
                         .font(.caption.weight(.bold))
                         .foregroundStyle(AppTheme.textTertiary)
                         .textCase(.uppercase)
-                    ForEach(events) { event in
+                    ForEach(uniqueEvents(events)) { event in
                         Button {
                             onEvent(event)
                         } label: {
