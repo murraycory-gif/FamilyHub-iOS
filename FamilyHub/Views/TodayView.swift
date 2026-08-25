@@ -48,7 +48,7 @@ struct TodayView: View {
                         .frame(maxHeight: .infinity)
                         .contentShape(Rectangle())
                         .gesture(daySwipe)
-                        .animation(.easeOut(duration: 0.18), value: selectedDay)
+                        .transaction { $0.animation = nil }
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
@@ -150,7 +150,7 @@ struct TodayView: View {
                         .coachSpot("agenda", active: on)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     VStack(spacing: 16) {
-                        weatherTile(for: day, live: on)
+                        weatherTile(for: day, live: false)
                             .coachSpot("weather", active: on)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         shoppingTile
@@ -413,14 +413,12 @@ struct TodayView: View {
     }
 
     private var daySwipe: some Gesture {
-        DragGesture(minimumDistance: 24)
+        DragGesture(minimumDistance: 16, coordinateSpace: .local)
             .onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                if value.translation.width < -24 {
-                    shiftSelectedDay(1)
-                } else if value.translation.width > 24 {
-                    shiftSelectedDay(-1)
-                }
+                let dx = value.predictedEndTranslation.width
+                let dy = value.predictedEndTranslation.height
+                guard abs(dx) > abs(dy), abs(dx) > 36 else { return }
+                shiftSelectedDay(dx < 0 ? 1 : -1)
             }
     }
 
@@ -996,7 +994,7 @@ struct TodayView: View {
             let width = cardWidth(in: geo.size, canvas: canvas)
             let cardH = max(220, geo.size.height - 8)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 14) {
+                LazyHStack(alignment: .top, spacing: 14) {
                     FamilyFocusCard(selected: profile == .family, day: selectedDay) {
                         profile = .family
                     } onEvent: { event in
@@ -1017,6 +1015,7 @@ struct TodayView: View {
                         .frame(width: width, height: cardH)
                     }
                 }
+                .frame(height: cardH)
                 .padding(.vertical, 4)
                 .padding(.trailing, 8)
             }
@@ -1228,6 +1227,7 @@ private struct AmazonPersonCard<Content: View>: View {
                         if let image {
                             Image(uiImage: image)
                                 .resizable()
+                                .interpolation(.medium)
                                 .scaledToFill()
                         } else if let emoji {
                             Text(emoji).font(.system(size: 72))

@@ -50,7 +50,7 @@ struct WeatherAtmosphere: View {
     var body: some View {
         Group {
             if live {
-                TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: false)) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 8.0, paused: false)) { timeline in
                     AtmosphereLayers(
                         code: code,
                         isDay: isDay,
@@ -471,7 +471,7 @@ struct HubWeatherTile: View {
                 .buttonStyle(.plain)
             }
             ZStack(alignment: .topLeading) {
-                WeatherAtmosphere(code: skyCode, isDay: skyIsDay, live: live)
+                WeatherAtmosphere(code: skyCode, isDay: skyIsDay, showPhotos: false, live: false)
                 VStack(alignment: .leading, spacing: 6) {
                     if isLoading && now == nil && day == nil {
                         ProgressView().tint(.white)
