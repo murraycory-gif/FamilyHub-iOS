@@ -15,7 +15,6 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var profile: HubProfile = .family
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
-    @State private var pageIndex = 0
     @State private var showDayMenu = false
     @State private var showProfileMenu = false
     @StateObject private var weather = WeatherLoader()
@@ -48,16 +47,10 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 14) {
                 header
                     .coachSpot("hub")
-                HubDayPager(
-                    days: swipeDays,
-                    index: $pageIndex,
-                    store: store,
-                    router: router,
-                    accent: accent
-                ) { day in
-                    dashboard(for: day, portrait: portrait)
-                }
-                .frame(maxHeight: .infinity)
+                dayStrip
+                dashboard(for: selectedDay, portrait: portrait)
+                    .frame(maxHeight: .infinity)
+                    .simultaneousGesture(dayFlick)
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
@@ -139,17 +132,6 @@ struct TodayView: View {
         .onChange(of: store.units) { _, _ in
             if let place = store.weatherPlace {
                 Task { await weather.load(place: place, units: store.units) }
-            }
-        }
-        .onChange(of: pageIndex) { _, idx in
-            if swipeDays.indices.contains(idx) {
-                selectedDay = swipeDays[idx]
-            }
-        }
-        .onChange(of: selectedDay) { _, day in
-            if let idx = swipeDays.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: day) }),
-               idx != pageIndex {
-                pageIndex = idx
             }
         }
         .alert("Add to shopping list", isPresented: $showAddShopping) {
@@ -508,8 +490,53 @@ struct TodayView: View {
         } else {
             selectedDay = day
         }
-        if let idx = swipeDays.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: selectedDay) }) {
-            pageIndex = idx
+    }
+
+    private var dayFlick: some Gesture {
+        DragGesture(minimumDistance: 50)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.4 else { return }
+                if value.translation.width < -60 {
+                    shiftSelectedDay(1)
+                } else if value.translation.width > 60 {
+                    shiftSelectedDay(-1)
+                }
+            }
+    }
+
+    private var dayStrip: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(swipeDays, id: \.self) { day in
+                        let on = Calendar.current.isDate(day, inSameDayAs: selectedDay)
+                        Button {
+                            selectedDay = day
+                        } label: {
+                            VStack(spacing: 2) {
+                                Text(Calendar.current.isDateInToday(day) ? "Today" : day.formatted(.dateTime.weekday(.abbreviated)))
+                                    .font(.caption.weight(.bold))
+                                Text(day.formatted(.dateTime.day()))
+                                    .font(.headline.weight(.bold))
+                            }
+                            .foregroundStyle(on ? .white : AppTheme.text)
+                            .frame(width: 64, height: 52)
+                            .background(on ? accent : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(on ? accent : AppTheme.cardBorder, lineWidth: 2)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .id(day)
+                    }
+                }
+            }
+            .onChange(of: selectedDay) { _, day in
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo(Calendar.current.startOfDay(for: day), anchor: .center)
+                }
+            }
         }
     }
 
