@@ -4,24 +4,35 @@ struct HubWidgetPicker: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.dismiss) private var dismiss
     @State private var slots: [HubWidgetKind] = []
+    @State private var setup: WidgetSetup?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "Hub", tail: "Widgets") {
-                Button("Save") {
-                    store.setHubWidgets(slots)
+                HubHeaderPill(title: "Done") {
+                    commit()
                     dismiss()
                 }
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Pick what sits next to the agenda. Flights still pop in on travel days even if you don’t pin them.")
+                    Text("Tap a tile to place it. Done saves it on the Hub. Flights and packages can be set up right after you pick them.")
                         .foregroundStyle(AppTheme.textSecondary)
                     ForEach(Array(slots.enumerated()), id: \.offset) { index, kind in
                         slotCard(index: index, kind: kind)
                     }
+                    Button {
+                        commit()
+                        dismiss()
+                    } label: {
+                        Text("Save to Hub")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(AppTheme.blue, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(20)
             }
@@ -30,6 +41,16 @@ struct HubWidgetPicker: View {
         .onAppear {
             let current = store.hubWidgets.map(\.kind).filter { HubWidgetKind.choosable.contains($0) }
             slots = pad(current)
+        }
+        .sheet(item: $setup) { item in
+            Group {
+                if item == .flight {
+                    AddFlightSheet(day: Date())
+                } else {
+                    AddPackageSheet()
+                }
+            }
+            .environmentObject(store)
         }
     }
 
@@ -42,7 +63,7 @@ struct HubWidgetPicker: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 10)], spacing: 10) {
                 ForEach(HubWidgetKind.choosable) { option in
                     Button {
-                        slots[index] = option
+                        pick(option, at: index)
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: option.symbol)
@@ -74,6 +95,21 @@ struct HubWidgetPicker: View {
         )
     }
 
+    private func pick(_ option: HubWidgetKind, at index: Int) {
+        if let other = slots.firstIndex(of: option), other != index {
+            slots.swapAt(index, other)
+        } else {
+            slots[index] = option
+        }
+        commit()
+        if option == .flights, store.flights.isEmpty { setup = .flight }
+        if option == .packages, store.packages.filter({ !$0.isDelivered }).isEmpty { setup = .package }
+    }
+
+    private func commit() {
+        store.setHubWidgets(slots)
+    }
+
     private func pad(_ kinds: [HubWidgetKind]) -> [HubWidgetKind] {
         var next = kinds
         for kind in HubWidgetKind.choosable where next.count < 3 && !next.contains(kind) {
@@ -81,6 +117,11 @@ struct HubWidgetPicker: View {
         }
         return Array(next.prefix(3))
     }
+}
+
+private enum WidgetSetup: String, Identifiable {
+    case flight, package
+    var id: String { rawValue }
 }
 
 struct FlightWidget: View {
@@ -149,15 +190,24 @@ struct FlightWidget: View {
                     }
                     .buttonStyle(.plain)
                 } else {
-                    VStack(alignment: .leading, spacing: 6) {
+                    Button(action: onAdd) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("No flights this day")
                             .font(.headline.weight(.bold))
                             .foregroundStyle(AppTheme.text)
-                        Text("HUB reads Flight UA1234 ORD to SFO from the calendar, or tap + to add one.")
+                        Text("HUB reads Flight UA1234 ORD to SFO from the calendar. Tap to add one yourself.")
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.textSecondary)
+                        Text("Add flight")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(accent, in: Capsule())
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(14)
@@ -199,13 +249,23 @@ struct PackageWidget: View {
             }
             Group {
                 if open.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
+                    Button(action: onAdd) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Nothing in transit")
                             .font(.headline.weight(.bold))
-                        Text("Add an Amazon or carrier tracking number.")
+                            .foregroundStyle(AppTheme.text)
+                        Text("Tap to add an Amazon or carrier tracking number.")
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.textSecondary)
+                        Text("Add package")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(accent, in: Capsule())
                     }
+                    }
+                    .buttonStyle(.plain)
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(open.prefix(4)) { item in

@@ -109,6 +109,7 @@ struct TodayView: View {
         .sheet(isPresented: $showWidgetPicker) {
             HubWidgetPicker()
                 .environmentObject(store)
+                .presentationDetents([.large])
         }
         .sheet(isPresented: $showAddFlight) {
             AddFlightSheet(day: selectedDay)
