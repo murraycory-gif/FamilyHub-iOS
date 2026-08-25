@@ -44,15 +44,11 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 14) {
                 header
                     .coachSpot("hub")
-                    TabView(selection: dayPage) {
-                        ForEach(swipeDays, id: \.self) { day in
-                            dashboard(for: day, portrait: portrait)
-                                .padding(.horizontal, 2)
-                                .tag(day)
-                        }
-                    }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-                    .frame(maxHeight: .infinity)
+                    dashboard(for: selectedDay, portrait: portrait)
+                        .frame(maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .gesture(daySwipe)
+                        .animation(.easeOut(duration: 0.18), value: selectedDay)
                 }
                 .padding(.horizontal, portrait ? 16 : 24)
                 .padding(.top, 2)
@@ -429,8 +425,17 @@ struct TodayView: View {
     }
 
     private func shiftSelectedDay(_ delta: Int) {
-        if let next = Calendar.current.date(byAdding: .day, value: delta, to: selectedDay) {
-            selectedDay = Calendar.current.startOfDay(for: next)
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: Date())
+        guard let next = cal.date(byAdding: .day, value: delta, to: selectedDay) else { return }
+        let day = cal.startOfDay(for: next)
+        let last = cal.date(byAdding: .day, value: 20, to: start) ?? day
+        if day < start {
+            selectedDay = start
+        } else if day > last {
+            selectedDay = last
+        } else {
+            selectedDay = day
         }
     }
 
