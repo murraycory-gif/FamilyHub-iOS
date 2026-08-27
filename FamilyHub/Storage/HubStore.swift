@@ -81,9 +81,14 @@ final class HubStore: ObservableObject {
         recipes.first { $0.id == id }
     }
 
-    func dinner(on day: Date) -> DinnerPlan? {
+    private func dinnerIndex(on day: Date) -> Int? {
         guard let range = CalendarMath.dayRange(day) else { return nil }
-        return dinners.first { CalendarMath.occurs($0.day, in: range) }
+        return dinners.firstIndex { CalendarMath.occurs($0.day, in: range) }
+    }
+
+    func dinner(on day: Date) -> DinnerPlan? {
+        guard let idx = dinnerIndex(on: day) else { return nil }
+        return dinners[idx]
     }
 
     func dinnerTitle(on day: Date) -> String? {
@@ -195,7 +200,7 @@ final class HubStore: ObservableObject {
 
     func setDinnerSide(on day: Date, recipeID: UUID?, cookMethod: CookMethod? = nil) {
         let start = Calendar.current.startOfDay(for: day)
-        guard let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) else { return }
+        guard let idx = dinnerIndex(on: start) else { return }
         if let old = dinners[idx].sideRecipeID {
             removeDinnerShopping(on: start, recipeID: old)
         }
@@ -216,7 +221,7 @@ final class HubStore: ObservableObject {
 
     func setDinnerCookMethod(on day: Date, method: CookMethod, side: Bool = false) {
         let start = Calendar.current.startOfDay(for: day)
-        guard let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) else { return }
+        guard let idx = dinnerIndex(on: start) else { return }
         if side {
             dinners[idx].sideCookMethod = method.rawValue
         } else {
@@ -228,7 +233,9 @@ final class HubStore: ObservableObject {
     func clearDinner(on day: Date) {
         let start = Calendar.current.startOfDay(for: day)
         removeDinnerShopping(on: start)
-        dinners.removeAll { Calendar.current.isDate($0.day, inSameDayAs: start) }
+        if let idx = dinnerIndex(on: start) {
+            dinners.remove(at: idx)
+        }
         persist()
     }
 
@@ -252,7 +259,7 @@ final class HubStore: ObservableObject {
         }
         shoppingItems.removeAll { item in
             if let rid = item.sourceRecipeID, recipeIDs.contains(rid) { return true }
-            if let source = item.sourceDay, Calendar.current.isDate(source, inSameDayAs: start) { return true }
+            if let source = item.sourceDay, let range = CalendarMath.dayRange(start), CalendarMath.occurs(source, in: range) { return true }
             if item.sourceDay == nil, names.contains(Self.shopKey(item.name)) { return true }
             return false
         }

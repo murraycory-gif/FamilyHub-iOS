@@ -569,43 +569,70 @@ private struct EatOutPicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: headerLead, tail: headerTail)
-                .coachSpot("eatHeader")
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
-                    Text("Tap a place.")
-                        .foregroundStyle(AppTheme.textSecondary)
-                    searchBar
-                    chipRow
-                    if !completer.suggestions.isEmpty {
-                        suggestionList
-                    }
-                    if places.isLoading { ProgressView() }
-                    if let message = places.message {
-                        Text(message).foregroundStyle(AppTheme.textSecondary)
-                    }
-                    LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(places.places) { place in
-                            Button { opened = place } label: {
-                                placeTile(place)
+        if let place = opened {
+            VStack(alignment: .leading, spacing: 0) {
+                HubStickyHeader(lead: headerLead, tail: headerTail) {
+                    HubHeaderPill(title: "Back") { opened = nil }
+                }
+                PlaceInfoView(place: place, day: day, mode: mode, onDone: {
+                    DispatchQueue.main.async { onDone() }
+                })
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                HubStickyHeader(lead: headerLead, tail: headerTail)
+                searchBar
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                chipRow
+                    .padding(.horizontal, 20)
+                if places.isLoading { ProgressView().padding(.horizontal, 20) }
+                if let message = places.message {
+                    Text(message).foregroundStyle(AppTheme.textSecondary).padding(.horizontal, 20)
+                }
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(Array(places.places.prefix(40).enumerated()), id: \.offset) { _, place in
+                            Button {
+                                let picked = place
+                                DispatchQueue.main.async { opened = picked }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: mode.symbol)
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(AppTheme.blue)
+                                        .frame(width: 44, height: 44)
+                                        .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(place.name)
+                                            .font(.headline.weight(.bold))
+                                            .foregroundStyle(AppTheme.text)
+                                            .lineLimit(2)
+                                        Text(place.address.isEmpty ? mode.title : place.address)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(AppTheme.textSecondary)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(12)
+                                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                             .buttonStyle(.plain)
                         }
                     }
+                    .padding(20)
                 }
-                .padding(20)
             }
-        }
-        .background(AppTheme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $opened) { place in
-            PlaceInfoView(place: place, day: day, mode: mode, onDone: onDone)
-        }
-        .task {
-            places.mode = mode
-            await places.useHere()
-            if let here = places.userLocation { completer.setRegion(here) }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .onAppear {
+                Task {
+                    places.mode = mode
+                    await places.useHere()
+                    if let here = places.userLocation { completer.setRegion(here) }
+                }
+            }
         }
     }
 
@@ -722,71 +749,72 @@ private struct FamilyRecipePicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Family", tail: "Recipes") {
-                HStack(spacing: 8) {
-                    Button { showScan = true } label: {
-                        Label("Scan", systemImage: "doc.text.viewfinder")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(AppTheme.blue, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    Button { showLink = true } label: {
-                        Label("Link", systemImage: "link")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(AppTheme.blue, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    Button { showAdd = true } label: {
-                        Label("Add", systemImage: "plus")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(AppTheme.blue)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(AppTheme.blueSoft, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
+        if let recipe = opened {
+            VStack(alignment: .leading, spacing: 0) {
+                HubStickyHeader(lead: "Family", tail: "Recipe") {
+                    HubHeaderPill(title: "Back") { opened = nil }
                 }
+                FamilyRecipeDetail(recipe: recipe, day: day, onDone: {
+                    DispatchQueue.main.async { onDone() }
+                })
             }
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
-                    Text("Tap a family recipe.")
-                        .foregroundStyle(AppTheme.textSecondary)
-                    HStack {
-                        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                        TextField("Grandma’s chili, cookies…", text: $query)
-                            .textFieldStyle(.plain)
+            .background(AppTheme.bg.ignoresSafeArea())
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                HubStickyHeader(lead: "Family", tail: "Recipes") {
+                    HStack(spacing: 8) {
+                        Button { showScan = true } label: {
+                            Text("Scan")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(AppTheme.blue, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        Button { showAdd = true } label: {
+                            Text("Add")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(AppTheme.blueSoft, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(14)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    if familyRecipes.isEmpty {
-                        Text(query.isEmpty ? "Nothing saved yet. Scan, link, or add one." : "No match.")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
-                    }
-                    LazyVGrid(columns: columns, spacing: 14) {
+                }
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        if familyRecipes.isEmpty {
+                            Text("Nothing saved yet.")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
                         ForEach(familyRecipes) { recipe in
-                            Button { opened = recipe } label: {
-                                savedRecipeTile(recipe)
+                            Button {
+                                let picked = recipe
+                                DispatchQueue.main.async { opened = picked }
+                            } label: {
+                                HStack {
+                                    Text(recipe.name)
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(AppTheme.text)
+                                    Spacer()
+                                }
+                                .padding(16)
+                                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                             .buttonStyle(.plain)
                         }
                     }
+                    .padding(20)
                 }
-                .padding(20)
             }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet().environmentObject(store) }
+            .sheet(isPresented: $showScan) { ScanRecipeSheet().environmentObject(store) }
+            .sheet(isPresented: $showLink) { ImportSocialRecipeView().environmentObject(store) }
         }
-        .background(AppTheme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet().environmentObject(store) }
-        .fullScreenCover(isPresented: $showScan) { ScanRecipeSheet().environmentObject(store) }
-        .fullScreenCover(isPresented: $showLink) { ImportSocialRecipeView().environmentObject(store) }
     }
 
     private func saveAction(symbol: String, title: String, detail: String) -> some View {
@@ -1810,7 +1838,7 @@ private struct ManualMealSheet: View {
                         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     Button {
                         store.setDinner(on: day, recipeID: nil, note: name.trimmingCharacters(in: .whitespaces))
-                        onDone()
+                        DispatchQueue.main.async { onDone() }
                     } label: {
                         Text("Set dinner")
                             .font(.headline.weight(.bold))
