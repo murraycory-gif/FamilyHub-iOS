@@ -6,7 +6,15 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     var id: String { rawValue }
 
     static var menu: [HubSection] {
-        [.today, .calendar, .chores, .lists, .shopping, .meals, .settings]
+        [.today, .calendar, .lists, .shopping, .meals, .settings]
+    }
+
+    static var sectionItems: [HubSection] {
+        [.today, .calendar, .lists, .shopping, .meals]
+    }
+
+    static var settingsItems: [HubSection] {
+        [.settings]
     }
 
     var title: String {
@@ -115,11 +123,21 @@ struct MainHubView: View {
     }
 
     private var sidebar: some View {
-        List(HubSection.menu, id: \.self, selection: $router.section) { item in
-            Label(item.title, systemImage: item.symbol)
-                .tag(Optional(item))
+        List {
+            Section("Sections") {
+                ForEach(HubSection.sectionItems) { item in
+                    sidebarRow(item)
+                }
+            }
+            Section("Settings") {
+                ForEach(HubSection.settingsItems) { item in
+                    sidebarRow(item)
+                }
+            }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.bg)
         .navigationBarTitleDisplayMode(.inline)
         .navigationTitle("")
         .toolbar(removing: .sidebarToggle)
@@ -144,6 +162,40 @@ struct MainHubView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 8)
         }
+    }
+
+    private func sidebarRow(_ item: HubSection) -> some View {
+        let selected = currentSection == item
+        return Button {
+            router.open(item)
+        } label: {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(AppTheme.blueSoft)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(AppTheme.blue.opacity(0.18), lineWidth: 1)
+                    Image(systemName: item.symbol)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .frame(width: 28, height: 28)
+                Text(item.title)
+                    .font(.body.weight(selected ? .semibold : .regular))
+                    .foregroundStyle(selected ? AppTheme.blue : AppTheme.text)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(selected ? AppTheme.blueSoft.opacity(0.85) : Color.clear)
+        )
+        .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
     }
 
     @ViewBuilder
