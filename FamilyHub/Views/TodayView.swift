@@ -735,14 +735,12 @@ struct TodayView: View {
         } else if let recipe {
             RecipePhoto(url: nil, searchName: recipe.name)
         } else if let plan, plan.placeName != nil {
-            PlaceHeroPhoto(
-                name: plan.placeName ?? "",
-                address: plan.placeAddress,
-                coordinate: plan.placeLatitude.flatMap { lat in
-                    plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
-                },
-                website: plan.placeURL.flatMap(URL.init(string:))
-            )
+            ZStack {
+                AppTheme.blueSoft
+                Image(systemName: "fork.knife.circle.fill")
+                    .font(.system(size: 52, weight: .bold))
+                    .foregroundStyle(accent)
+            }
         } else {
             ZStack {
                 AppTheme.blueSoft

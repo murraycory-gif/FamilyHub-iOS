@@ -28,6 +28,9 @@ enum HubPhoto {
         if let hit = cache[key] { return hit }
         guard let data, let raw = UIImage(data: data) else { return nil }
         let scaled = downsize(raw)
+        if cache.count > 16 {
+            cache.removeAll(keepingCapacity: true)
+        }
         cache[key] = scaled
         return scaled
     }
