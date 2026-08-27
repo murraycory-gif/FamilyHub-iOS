@@ -1675,39 +1675,24 @@ private func recipeTile(_ recipe: CatalogRecipe) -> some View {
 struct RecipePhoto: View {
     let url: URL?
     var searchName: String = ""
-    @State private var image: UIImage?
 
     var body: some View {
-        Color.clear
-            .overlay {
+        Group {
+            if let ui = UIImage(named: "DinnerRecipes") {
+                Image(uiImage: ui)
+                    .resizable()
+                    .scaledToFill()
+            } else {
                 ZStack {
                     AppTheme.blueSoft
-                    if let image {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Image(systemName: "fork.knife")
-                            .font(.system(size: 34, weight: .bold))
-                            .foregroundStyle(AppTheme.blue.opacity(0.45))
-                    }
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(AppTheme.blue.opacity(0.45))
                 }
             }
-            .clipped()
-            .contentShape(Rectangle())
-            .onAppear {
-                if image == nil {
-                    image = RecipeImages.cachedImage(url: url, name: searchName)
-                }
-            }
-            .task(id: "\(url?.absoluteString ?? "")-\(searchName)") {
-                if image == nil {
-                    image = RecipeImages.cachedImage(url: url, name: searchName)
-                }
-                if image == nil {
-                    image = await RecipeImages.photo(url: url, name: searchName)
-                }
-            }
+        }
+        .clipped()
+        .contentShape(Rectangle())
     }
 }
 
