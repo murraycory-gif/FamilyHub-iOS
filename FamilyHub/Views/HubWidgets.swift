@@ -133,6 +133,7 @@ struct FlightWidget: View {
 
     private var flights: [TrackedFlight] {
         FlightParse.flights(on: day, events: store.events, extra: store.flights)
+            .filter { FlightParse.isLive($0) }
     }
 
     var body: some View {
@@ -211,6 +212,8 @@ struct FlightWidget: View {
                 }
             }
             .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.tableFill)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)

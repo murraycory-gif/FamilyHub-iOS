@@ -156,7 +156,7 @@ struct TodayView: View {
 
     @ViewBuilder
     private func dashboard(for day: Date, portrait: Bool) -> some View {
-        let tiles = visibleWidgets()
+        let tiles = visibleWidgets(for: day)
         let top = tiles[safe: 0] ?? .weather
         let low = tiles[safe: 1] ?? .shopping
         let large = tiles[safe: 2] ?? .dinner
@@ -194,8 +194,14 @@ struct TodayView: View {
         }
     }
 
-    private func visibleWidgets() -> [HubWidgetKind] {
-        [.weather, .shopping, .dinner]
+    private func visibleWidgets(for day: Date) -> [HubWidgetKind] {
+        let slot: HubWidgetKind = hasLiveFlight(on: day) ? .flights : .shopping
+        return [.weather, slot, .dinner]
+    }
+
+    private func hasLiveFlight(on day: Date) -> Bool {
+        FlightParse.flights(on: day, events: store.events, extra: store.flights)
+            .contains { FlightParse.isLive($0) }
     }
 
     @ViewBuilder
