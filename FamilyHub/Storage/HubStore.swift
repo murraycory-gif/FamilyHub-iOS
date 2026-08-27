@@ -165,7 +165,6 @@ final class HubStore: ObservableObject {
             guard let range = CalendarMath.dayRange(start) else { return false }
             return CalendarMath.occurs($0.day, in: range)
         }) {
-            removeDinnerShopping(on: start)
             dinners[idx].recipeID = recipeID
             dinners[idx].note = note
             dinners[idx].placeName = placeName

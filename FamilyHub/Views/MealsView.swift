@@ -946,23 +946,43 @@ private struct CatalogRecipePicker: View {
     var onClose: () -> Void
     var onDone: () -> Void
     @State private var opened: CatalogRecipe?
-    @State private var step = 0
+    @State private var addedName: String?
 
     var body: some View {
-        if step == 2 {
-            DinnerReviewView(day: day, onDone: onDone)
-        } else if step == 1 {
-            SidePicker(day: day) {
-                DispatchQueue.main.async { step = 2 }
+        if let name = addedName {
+            VStack(spacing: 18) {
+                HubStickyHeader(lead: "Dinner", tail: "Set") {
+                    HubHeaderPill(title: "Done") { onDone() }
+                }
+                Spacer()
+                Text(name)
+                    .font(.system(size: 34, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                Text("Added for dinner")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
+                Button("Done") { onDone() }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: 280)
+                    .padding(.vertical, 16)
+                    .background(AppTheme.blue, in: Capsule())
+                Spacer()
             }
+            .background(AppTheme.bg.ignoresSafeArea())
         } else if let recipe = opened {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: "Recipe", tail: "") {
                     HubHeaderPill(title: "Back") { opened = nil }
                 }
-                CatalogRecipeDetail(recipe: recipe, day: day, onDone: {
-                    DispatchQueue.main.async { step = 1 }
-                })
+                CatalogRecipeDetail(recipe: recipe) {
+                    let name = recipe.name
+                    DispatchQueue.main.async {
+                        store.setDinner(on: day, recipeID: nil, note: name)
+                        addedName = name
+                    }
+                }
             }
             .background(AppTheme.bg.ignoresSafeArea())
         } else {
@@ -1055,72 +1075,34 @@ private struct CatalogRecipePicker: View {
 }
 
 private struct CatalogRecipeDetail: View {
-    @EnvironmentObject private var store: HubStore
     let recipe: CatalogRecipe
-    let day: Date
     var onDone: () -> Void
-    @State private var servings = 4
-    @State private var method = CookMethod.oven
-
-    private var scaled: [String] { IngredientScale.lines(recipe.ingredients, servings: servings) }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                ZStack {
-                    AppTheme.blueSoft
-                    Image(systemName: "fork.knife")
-                        .font(.system(size: 44, weight: .bold))
-                        .foregroundStyle(AppTheme.blue)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 180)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                Text(recipe.name)
-                    .font(.system(size: 32, weight: .bold))
-                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.blue)
-                ServingsStepper(servings: $servings)
-                if !scaled.isEmpty {
-                    Text("Ingredients for \(servings) \(servings == 1 ? "person" : "people")")
-                        .font(.title3.weight(.bold))
-                    ingredientList(scaled)
-                }
-                Text("How you’ll cook it")
-                    .font(.title3.weight(.bold))
-                CookMethodPicker(method: $method, name: recipe.name, category: recipe.category, instructions: recipe.instructions)
-                CookDirectionsCard(method: method, name: recipe.name, steps: recipe.instructions)
-                Button {
-                    let recipeID = recipe.id
-                    let servings = servings
-                    let method = method
-                    let day = day
-                    DispatchQueue.main.async {
-                        if let existing = store.recipes.first(where: { $0.catalogID == recipeID && !recipeID.isEmpty }) {
-                            store.setDinner(on: day, recipeID: existing.id, servings: servings, cookMethod: method)
-                        } else {
-                            let saved = recipe.asHubRecipe()
-                            store.addRecipe(saved)
-                            store.setDinner(on: day, recipeID: saved.id, servings: servings, cookMethod: method)
-                        }
-                        onDone()
-                    }
-                } label: {
-                    Text("Add for dinner")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppTheme.blue, in: Capsule())
-                }
-                .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 16) {
+            Text(recipe.name)
+                .font(.system(size: 32, weight: .bold))
+            Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.blue)
+            if !recipe.ingredients.isEmpty {
+                Text(recipe.ingredients.prefix(8).joined(separator: "\n"))
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
             }
-            .padding(20)
+            Spacer()
+            Button(action: onDone) {
+                Text("Add for dinner")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(AppTheme.blue, in: Capsule())
+            }
+            .buttonStyle(.plain)
         }
+        .padding(20)
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear { method = CookPlaybook.suggested(name: recipe.name, instructions: recipe.instructions) }
     }
 }
 
