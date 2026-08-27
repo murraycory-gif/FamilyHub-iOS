@@ -378,6 +378,17 @@ struct MealChoiceSheet: View {
     @State private var route: MealPath?
 
     var body: some View {
+        Group {
+            if let item = route {
+                routeView(item)
+            } else {
+                choiceGrid
+            }
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+    }
+
+    private var choiceGrid: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "What's For", tail: "Dinner") {
                 HubHeaderPill(title: "Close") {
@@ -423,16 +434,12 @@ struct MealChoiceSheet: View {
                 .padding(20)
             }
         }
-        .background(AppTheme.bg.ignoresSafeArea())
-        .fullScreenCover(item: $route) { item in
-            routeView(item)
-                .environmentObject(store)
-                .environmentObject(router)
-        }
     }
 
     private func choice(_ item: MealPath, title: String, detail: String, symbol: String, image: String) -> some View {
-        Button { route = item } label: {
+        Button {
+            DispatchQueue.main.async { route = item }
+        } label: {
             DinnerChoiceCard(title: title, detail: detail, symbol: symbol, imageName: image)
         }
         .buttonStyle(.plain)
@@ -442,28 +449,26 @@ struct MealChoiceSheet: View {
     private func routeView(_ item: MealPath) -> some View {
         switch item {
         case .eatOut(let mode):
-            EatOutPicker(day: day, mode: mode) { closeRoute() }
+            EatOutPicker(day: day, mode: mode) { finish() }
         case .family:
-            FamilyRecipePicker(day: day) { openSides() }
+            FamilyRecipePicker(day: day) { go(.sides) }
         case .recipes:
-            CatalogRecipePicker(day: day) { openSides() }
+            CatalogRecipePicker(day: day) { go(.sides) }
         case .manual:
-            ManualMealSheet(day: day) { openSides() }
+            ManualMealSheet(day: day) { go(.sides) }
         case .sides:
-            SidePicker(day: day) { route = .review }
+            SidePicker(day: day) { go(.review) }
         case .review:
-            DinnerReviewView(day: day, onDone: closeRoute)
+            DinnerReviewView(day: day, onDone: finish)
         }
     }
 
-    private func openSides() {
-        route = nil
-        DispatchQueue.main.async { route = .sides }
+    private func go(_ item: MealPath) {
+        DispatchQueue.main.async { route = item }
     }
 
-    private func closeRoute() {
-        route = nil
-        onComplete()
+    private func finish() {
+        DispatchQueue.main.async { onComplete() }
     }
 
     private var dayTitle: String {
@@ -1061,7 +1066,8 @@ private struct CatalogRecipeDetail: View {
                         store.addRecipe(saved)
                         store.setDinner(on: day, recipeID: saved.id, servings: servings, cookMethod: method)
                     }
-                    onDone()
+                    let done = onDone
+                    DispatchQueue.main.async { done() }
                 } label: {
                     Text("Add for dinner")
                         .font(.headline.weight(.bold))
@@ -1089,67 +1095,65 @@ private struct SidePicker: View {
     private let columns = [GridItem(.adaptive(minimum: 240), spacing: 16)]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "All", tail: "Sides") {
-                Button {
-                    store.setDinnerSide(on: day, recipeID: nil)
-                    onDone()
-                } label: {
-                    Text("Skip side")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(AppTheme.blue, in: Capsule())
+        if let recipe = opened {
+            VStack(alignment: .leading, spacing: 0) {
+                HubStickyHeader(lead: "Side", tail: "") {
+                    HubHeaderPill(title: "Back") { opened = nil }
                 }
-                .buttonStyle(.plain)
+                SideDetail(recipe: recipe, day: day, onDone: {
+                    let done = onDone
+                    DispatchQueue.main.async { done() }
+                })
             }
-            .coachSpot("sideHeader")
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    Text("Tap a side.")
-                        .foregroundStyle(AppTheme.textSecondary)
-                    HStack {
-                        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
-                        TextField("Mashed potatoes, slaw, corn…", text: $catalog.query)
-                            .textFieldStyle(.plain)
-                            .onSubmit { Task { await catalog.search() } }
+            .background(AppTheme.bg.ignoresSafeArea())
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                HubStickyHeader(lead: "All", tail: "Sides") {
+                    HubHeaderPill(title: "Skip side") {
+                        store.setDinnerSide(on: day, recipeID: nil)
+                        DispatchQueue.main.async { onDone() }
                     }
-                    .padding(14)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(catalog.categories, id: \.self) { item in
-                                FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
-                                    catalog.category = item
-                                    Task { await catalog.search() }
+                }
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(Array(catalog.recipes.prefix(60).enumerated()), id: \.offset) { _, recipe in
+                            Button {
+                                let picked = recipe
+                                DispatchQueue.main.async { opened = picked }
+                            } label: {
+                                HStack(spacing: 14) {
+                                    ZStack {
+                                        AppTheme.blueSoft
+                                        Image(systemName: "leaf.fill")
+                                            .font(.headline.weight(.bold))
+                                            .foregroundStyle(AppTheme.blue)
+                                    }
+                                    .frame(width: 64, height: 64)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(recipe.name)
+                                            .font(.headline.weight(.bold))
+                                            .foregroundStyle(AppTheme.text)
+                                            .lineLimit(2)
+                                        Text(recipe.category)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(AppTheme.blue)
+                                    }
+                                    Spacer(minLength: 0)
                                 }
-                            }
-                        }
-                    }
-                    LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(Array(catalog.recipes.prefix(80).enumerated()), id: \.offset) { _, recipe in
-                            Button { opened = recipe } label: {
-                                recipeTile(recipe)
+                                .padding(12)
+                                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                             .buttonStyle(.plain)
                         }
                     }
+                    .padding(20)
                 }
-                .padding(20)
             }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .onAppear { Task { await catalog.load() } }
         }
-        .background(AppTheme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $opened) { recipe in
-            NavigationStack {
-                SideDetail(recipe: recipe, day: day, onDone: {
-                    opened = nil
-                    onDone()
-                })
-            }
-        }
-        .task { await catalog.load() }
+    }
     }
 }
 
@@ -1166,10 +1170,15 @@ private struct SideDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                RecipePhoto(url: recipe.thumb, searchName: recipe.name)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 240)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                ZStack {
+                    AppTheme.blueSoft
+                    Image(systemName: "leaf.fill")
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 Text(recipe.name)
                     .font(.system(size: 32, weight: .bold))
                 Text("Side · \(recipe.category) · \(servings) \(servings == 1 ? "person" : "people")")
@@ -1276,9 +1285,14 @@ private struct DinnerReviewView: View {
 
     private func dishCard(title: String, recipe: Recipe?, lines: [String], prefix: String, methodSide: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            RecipePhoto(url: recipe.flatMap { URL(string: $0.imageURL) }, searchName: recipe?.name ?? title)
-                .frame(height: 140)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            ZStack {
+                AppTheme.blueSoft
+                Image(systemName: "fork.knife")
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             Text(title)
                 .font(.caption.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
@@ -1294,7 +1308,7 @@ private struct DinnerReviewView: View {
                 Text("No ingredients")
                     .foregroundStyle(AppTheme.textSecondary)
             } else {
-                ForEach(lines, id: \.self) { line in
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                     let key = "\(prefix)|\(line)"
                     Button {
                         if picked.contains(key) { picked.remove(key) } else { picked.insert(key) }

@@ -156,7 +156,10 @@ final class HubStore: ObservableObject {
     ) {
         let start = Calendar.current.startOfDay(for: day)
         let people = max(1, min(20, servings))
-        if let idx = dinners.firstIndex(where: { Calendar.current.isDate($0.day, inSameDayAs: start) }) {
+        if let idx = dinners.firstIndex(where: {
+            guard let range = CalendarMath.dayRange(start) else { return false }
+            return CalendarMath.occurs($0.day, in: range)
+        }) {
             removeDinnerShopping(on: start)
             dinners[idx].recipeID = recipeID
             dinners[idx].note = note
