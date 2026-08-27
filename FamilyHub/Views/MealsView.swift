@@ -176,15 +176,12 @@ private struct MealDayCard: View {
         Group {
             if let recipe, let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
                 RecipePhoto(url: url, searchName: recipe.name)
-            } else if let plan, let name = plan.placeName {
-                PlaceHeroPhoto(
-                    name: name,
-                    address: plan.placeAddress,
-                    coordinate: plan.placeLatitude.flatMap { lat in
-                        plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
-                    },
-                    website: plan.placeURL.flatMap(URL.init(string:))
-                )
+            } else if let plan, plan.placeName != nil {
+                ZStack {
+                    AppTheme.blueSoft
+                    Image(systemName: "fork.knife")
+                        .foregroundStyle(AppTheme.blue)
+                }
             } else {
                 ZStack {
                     AppTheme.blueSoft

@@ -1407,21 +1407,10 @@ private struct DayStatusRow: View {
 
     private func box(_ color: Color, _ soft: Color, _ symbol: String, _ count: Int, _ title: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 4) {
-                    Image(systemName: symbol)
-                    Text("\(count)").monospacedDigit()
-                    Text(title)
-                }
-                HStack(spacing: 3) {
-                    Image(systemName: symbol)
-                    Text("\(count)").monospacedDigit()
-                    Text(String(title.prefix(5)))
-                }
-                HStack(spacing: 3) {
-                    Image(systemName: symbol)
-                    Text("\(count)").monospacedDigit()
-                }
+            HStack(spacing: 4) {
+                Image(systemName: symbol)
+                Text("\(count)")
+                    .monospacedDigit()
             }
             .lineLimit(1)
             .minimumScaleFactor(0.7)

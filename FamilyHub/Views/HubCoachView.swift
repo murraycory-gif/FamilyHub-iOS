@@ -16,18 +16,11 @@ struct CoachStep: Identifiable, Equatable {
 
 extension View {
     func coachSpot(_ id: String, active: Bool = true) -> some View {
-        background {
-            GeometryReader { proxy in
-                Color.clear.preference(
-                    key: CoachRectKey.self,
-                    value: active ? [id: proxy.frame(in: .named("hubCoachSpace"))] : [:]
-                )
-            }
-        }
+        self
     }
 
     func hubTour(_ page: String, steps: [CoachStep], onStep: ((String) -> Void)? = nil) -> some View {
-        modifier(HubTourModifier(page: page, steps: steps, onStep: onStep))
+        self
     }
 }
 
