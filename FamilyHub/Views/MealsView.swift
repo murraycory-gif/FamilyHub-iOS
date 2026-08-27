@@ -373,23 +373,20 @@ struct TonightDinnerView: View {
 struct MealChoiceSheet: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var router: HubRouter
-    @Environment(\.dismiss) private var dismiss
     let day: Date
     var onComplete: () -> Void = {}
-    @State private var path: [MealPath] = []
+    @State private var route: MealPath?
 
     var body: some View {
-        NavigationStack(path: $path) {
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "What's For", tail: "Dinner") {
+                HubHeaderPill(title: "Close") {
+                    router.open(.today)
+                    onComplete()
+                }
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    HStack(spacing: 10) {
-                        Text("What's For")
-                            .foregroundStyle(AppTheme.text)
-                        Text("Dinner")
-                            .foregroundStyle(AppTheme.blue)
-                    }
-                    .font(.system(size: 36, weight: .bold))
-                    .coachSpot("pickTitle")
                     Text(dayTitle)
                         .font(.title2.weight(.bold))
                         .foregroundStyle(AppTheme.blue)
@@ -415,90 +412,58 @@ struct MealChoiceSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
-                        NavigationLink(value: MealPath.eatOut(.sitdown)) {
-                            DinnerChoiceCard(
-                                title: "Eating out",
-                                detail: "Sit down near you",
-                                symbol: "fork.knife",
-                                imageName: "DinnerEatOut"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        NavigationLink(value: MealPath.eatOut(.takeout)) {
-                            DinnerChoiceCard(
-                                title: "Take out",
-                                detail: "Pick it up and bring it home",
-                                symbol: "bag.fill",
-                                imageName: "DinnerTakeout"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        NavigationLink(value: MealPath.eatOut(.delivery)) {
-                            DinnerChoiceCard(
-                                title: "Delivery",
-                                detail: "Brought to your door",
-                                symbol: "bicycle",
-                                imageName: "DinnerDelivery"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        NavigationLink(value: MealPath.family) {
-                            DinnerChoiceCard(
-                                title: "Family recipes",
-                                detail: "Scan, type, or paste a TikTok link",
-                                symbol: "book.closed.fill",
-                                imageName: "DinnerFamily"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        NavigationLink(value: MealPath.recipes) {
-                            DinnerChoiceCard(
-                                title: "Recipes",
-                                detail: "American and world cookbook",
-                                symbol: "fork.knife.circle.fill",
-                                imageName: "DinnerRecipes"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        NavigationLink(value: MealPath.manual) {
-                            DinnerChoiceCard(
-                                title: "Enter a meal",
-                                detail: "Type it yourself",
-                                symbol: "square.and.pencil",
-                                imageName: "DinnerManual"
-                            )
-                        }
-                        .buttonStyle(.plain)
+                        choice(.eatOut(.sitdown), title: "Eating out", detail: "Sit down near you", symbol: "fork.knife", image: "DinnerEatOut")
+                        choice(.eatOut(.takeout), title: "Take out", detail: "Pick it up and bring it home", symbol: "bag.fill", image: "DinnerTakeout")
+                        choice(.eatOut(.delivery), title: "Delivery", detail: "Brought to your door", symbol: "bicycle", image: "DinnerDelivery")
+                        choice(.family, title: "Family recipes", detail: "Scan, type, or paste a TikTok link", symbol: "book.closed.fill", image: "DinnerFamily")
+                        choice(.recipes, title: "Recipes", detail: "American and world cookbook", symbol: "fork.knife.circle.fill", image: "DinnerRecipes")
+                        choice(.manual, title: "Enter a meal", detail: "Type it yourself", symbol: "square.and.pencil", image: "DinnerManual")
                     }
-                    .coachSpot("pickGrid")
                 }
                 .padding(20)
             }
-            .background(AppTheme.bg.ignoresSafeArea())
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .hubTour("dinnerPick", steps: HubTours.dinnerPick)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") {
-                        router.open(.today)
-                        onComplete()
-                    }
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
-                }
-            }
-            .navigationDestination(for: MealPath.self) { item in
-                switch item {
-                case .eatOut(let mode): EatOutPicker(day: day, mode: mode) { dismiss() }
-                case .family: FamilyRecipePicker(day: day) { path.append(.sides) }
-                case .recipes: CatalogRecipePicker(day: day) { path.append(.sides) }
-                case .manual: ManualMealSheet(day: day) { path.append(.sides) }
-                case .sides: SidePicker(day: day) { path.append(.review) }
-                case .review: DinnerReviewView(day: day, onDone: onComplete)
-                }
-            }
         }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .fullScreenCover(item: $route) { item in
+            routeView(item)
+                .environmentObject(store)
+                .environmentObject(router)
+        }
+    }
+
+    private func choice(_ item: MealPath, title: String, detail: String, symbol: String, image: String) -> some View {
+        Button { route = item } label: {
+            DinnerChoiceCard(title: title, detail: detail, symbol: symbol, imageName: image)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func routeView(_ item: MealPath) -> some View {
+        switch item {
+        case .eatOut(let mode):
+            EatOutPicker(day: day, mode: mode) { closeRoute() }
+        case .family:
+            FamilyRecipePicker(day: day) { openSides() }
+        case .recipes:
+            CatalogRecipePicker(day: day) { openSides() }
+        case .manual:
+            ManualMealSheet(day: day) { openSides() }
+        case .sides:
+            SidePicker(day: day) { route = .review }
+        case .review:
+            DinnerReviewView(day: day, onDone: closeRoute)
+        }
+    }
+
+    private func openSides() {
+        route = nil
+        DispatchQueue.main.async { route = .sides }
+    }
+
+    private func closeRoute() {
+        route = nil
+        onComplete()
     }
 
     private var dayTitle: String {
@@ -556,9 +521,20 @@ private struct DinnerChoiceCard: View {
     }
 }
 
-private enum MealPath: Hashable {
+private enum MealPath: Hashable, Identifiable {
     case eatOut(PlaceMode)
     case family, recipes, manual, sides, review
+
+    var id: String {
+        switch self {
+        case .eatOut(let mode): return "eat-\(mode.rawValue)"
+        case .family: return "family"
+        case .recipes: return "recipes"
+        case .manual: return "manual"
+        case .sides: return "sides"
+        case .review: return "review"
+        }
+    }
 }
 
 private struct EatOutPicker: View {
@@ -618,8 +594,7 @@ private struct EatOutPicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .hubTour("eatOut", steps: HubTours.eatOut)
-        .navigationDestination(item: $opened) { place in
+        .sheet(item: $opened) { place in
             PlaceInfoView(place: place, day: day, mode: mode, onDone: onDone)
         }
         .task {
@@ -804,7 +779,7 @@ private struct FamilyRecipePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $opened) { recipe in
+        .sheet(item: $opened) { recipe in
             FamilyRecipeDetail(recipe: recipe, day: day, onDone: onDone)
         }
         .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet().environmentObject(store) }
@@ -945,40 +920,62 @@ private struct CatalogRecipePicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "All", tail: "Recipes")
-                .coachSpot("recHeader")
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
-                    Text("Tap a dinner.")
-                        .foregroundStyle(AppTheme.textSecondary)
-                    searchBar
-                    chips
-                    if let message = catalog.message {
-                        Text(message).foregroundStyle(AppTheme.textSecondary)
-                    }
-                    LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(Array(catalog.recipes.prefix(80).enumerated()), id: \.offset) { _, recipe in
-                            Button { opened = recipe } label: {
-                                recipeTile(recipe)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-                .padding(20)
+            HubStickyHeader(lead: "All", tail: "Recipes") {
+                HubHeaderPill(title: "Close") { onDone() }
             }
+            searchBar
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+            chips
+                .padding(.horizontal, 20)
+            if let message = catalog.message {
+                Text(message)
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .padding(.horizontal, 20)
+            }
+            List(Array(catalog.recipes.prefix(60).enumerated()), id: \.offset) { _, recipe in
+                Button {
+                    opened = recipe
+                } label: {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            AppTheme.blueSoft
+                            Image(systemName: "fork.knife")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                        }
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(recipe.name)
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.text)
+                                .lineLimit(2)
+                            Text(recipe.category)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.blue)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(AppTheme.card)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $opened) { recipe in
-            NavigationStack {
-                CatalogRecipeDetail(recipe: recipe, day: day, onDone: {
-                    opened = nil
-                    onDone()
-                })
-            }
+            CatalogRecipeDetail(recipe: recipe, day: day, onDone: {
+                opened = nil
+                onDone()
+            })
         }
-        .task { await catalog.load() }
+        .onAppear {
+            Task { await catalog.load() }
+        }
     }
 
     private var searchBar: some View {
