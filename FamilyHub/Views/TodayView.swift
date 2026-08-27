@@ -1151,7 +1151,6 @@ struct TodayView: View {
                         router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                     }
                     .frame(width: 252, height: 300)
-                    .clipped()
 
                     ForEach(store.members) { member in
                         MemberHomeCard(
@@ -1164,13 +1163,12 @@ struct TodayView: View {
                             }
                         )
                         .frame(width: 252, height: 300)
-                        .clipped()
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 12)
-                .padding(.bottom, 12)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
             }
+            .scrollClipDisabled()
         }
         .background(AppTheme.tableFill)
         .hubLift(accent: accent)
@@ -1396,13 +1394,22 @@ private struct AmazonPersonCard<Content: View>: View {
                     }
                 }
                 .clipped()
+                .overlay(alignment: .top) {
+                    LinearGradient(
+                        colors: [.white.opacity(0.28), .clear],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                    .frame(height: 36)
+                    .allowsHitTesting(false)
+                }
                 .overlay(alignment: .bottom) {
                     LinearGradient(
-                        colors: [.clear, .black.opacity(0.45), .black.opacity(0.86)],
+                        colors: [.clear, .black.opacity(0.55), .black.opacity(0.88)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: 84)
+                    .frame(height: 88)
                     .allowsHitTesting(false)
                 }
                 .overlay(alignment: .bottomLeading) {
@@ -1420,6 +1427,7 @@ private struct AmazonPersonCard<Content: View>: View {
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
                                 .background(ring, in: Capsule())
+                                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
                         }
                         Spacer(minLength: 0)
                         Button(action: onCamera) {
@@ -1428,27 +1436,34 @@ private struct AmazonPersonCard<Content: View>: View {
                                 .foregroundStyle(.white)
                                 .frame(width: 32, height: 32)
                                 .background(.black.opacity(0.45), in: Circle())
+                                .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                 }
-                .clipped()
                 .contentShape(Rectangle())
                 .onTapGesture { onSelect() }
 
-            VStack(alignment: .leading, spacing: 10) {
-                content
+            HStack(alignment: .top, spacing: 0) {
+                Capsule()
+                    .fill(ring)
+                    .frame(width: 5)
+                    .padding(.vertical, 12)
+                VStack(alignment: .leading, spacing: 10) {
+                    content
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(AppTheme.card)
+            .background(AppTheme.tableFill)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
         .hubLift(accent: ring, selected: selected)
-        .clipped()
+        .scaleEffect(selected ? 1.015 : 1)
+        .animation(.easeOut(duration: 0.16), value: selected)
     }
 }
 
@@ -1531,22 +1546,29 @@ private struct DayStatusRow: View {
 
     private func box(_ color: Color, _ soft: Color, _ symbol: String, _ count: Int, _ title: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .bold))
                 Text("\(count)")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
                     .monospacedDigit()
             }
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-            .font(.system(size: 11, weight: .bold))
             .foregroundStyle(color)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity)
-            .background(soft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(soft)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(color.opacity(0.22), lineWidth: 1)
+            )
+            .shadow(color: color.opacity(0.16), radius: 4, y: 2)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HubPressStyle())
     }
 }
 
@@ -1643,21 +1665,34 @@ private struct EventScroll: View {
                         Button {
                             onEvent(event)
                         } label: {
-                            HStack(alignment: .top, spacing: 8) {
+                            HStack(alignment: .center, spacing: 10) {
+                                Capsule()
+                                    .fill(accent)
+                                    .frame(width: 4, height: 28)
                                 Text(event.allDay ? "All day" : Date.hubClock(event.startAt))
-                                    .font(.subheadline.weight(.bold).monospacedDigit())
+                                    .font(.caption.weight(.bold).monospacedDigit())
                                     .foregroundStyle(accent)
-                                    .frame(width: 72, alignment: .leading)
+                                    .frame(width: 58, alignment: .leading)
                                 Text(String(event.title.prefix(48)))
                                     .font(.subheadline.weight(.bold))
                                     .foregroundStyle(AppTheme.text)
                                     .lineLimit(1)
                                     .multilineTextAlignment(.leading)
+                                Spacer(minLength: 0)
                             }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 8)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                            )
+                            .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HubPressStyle())
                     }
                 }
             }
