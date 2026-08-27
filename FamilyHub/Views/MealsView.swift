@@ -1154,7 +1154,6 @@ private struct SidePicker: View {
             .onAppear { Task { await catalog.load() } }
         }
     }
-    }
 }
 
 private struct SideDetail: View {
