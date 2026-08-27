@@ -31,6 +31,7 @@ struct TodayView: View {
     @State private var showAddFlight = false
     @State private var flightDay = Date()
     @State private var showAddPackage = false
+    @State private var pageIndex: Int? = 0
 
     private var accent: Color {
         switch profile {
@@ -45,15 +46,14 @@ struct TodayView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-                .padding(.bottom, 12)
-                .contentShape(Rectangle())
-                .simultaneousGesture(daySwipe)
-            dashboard(for: selectedDay, portrait: sizeClass != .regular)
+                .padding(.bottom, 10)
+            dayPager
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+            dayDots
+                .padding(.top, 10)
             familySection
                 .frame(height: 380)
-                .padding(.top, 12)
+                .padding(.top, 10)
         }
         .animation(nil, value: selectedDay)
         .padding(.horizontal, 24)
@@ -61,7 +61,18 @@ struct TodayView: View {
         .padding(.bottom, 16)
         .background(AppTheme.bg.ignoresSafeArea())
         .environment(\.hubAccent, accent)
-        .onAppear { selectedDay = Calendar.current.startOfDay(for: selectedDay) }
+        .onAppear {
+            let start = Calendar.current.startOfDay(for: selectedDay)
+            selectedDay = start
+            pageIndex = indexOfDay(start)
+        }
+        .onChange(of: pageIndex) { _, idx in
+            guard let idx else { return }
+            let day = dayAt(idx)
+            if dayStamp(day) != dayStamp(selectedDay) {
+                selectedDay = day
+            }
+        }
         .sheet(isPresented: $showDayMenu, onDismiss: commitPendingDay) {
             daySheet
         }
@@ -156,8 +167,6 @@ struct TodayView: View {
                 HStack(alignment: .top, spacing: 16) {
                     agenda(for: day)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                        .simultaneousGesture(daySwipe)
                     VStack(spacing: 16) {
                         widgetTile(top, day: day, live: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -174,8 +183,6 @@ struct TodayView: View {
                 HStack(alignment: .top, spacing: 16) {
                     agenda(for: day)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                        .simultaneousGesture(daySwipe)
                     VStack(spacing: 16) {
                         widgetTile(top, day: day, live: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -421,20 +428,91 @@ struct TodayView: View {
         }
     }
 
-    private var upcomingDays: [Date] {
-        swipeDays
-    }
+    private var hubDayCount: Int { 14 }
 
-    private var swipeDays: [Date] {
+    private func dayAt(_ index: Int) -> Date {
         let start = Calendar.current.startOfDay(for: Date())
-        return (0..<21).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
+        return Calendar.current.date(byAdding: .day, value: min(max(0, index), hubDayCount - 1), to: start) ?? start
     }
 
-    private var dayPage: Binding<Date> {
-        Binding(
-            get: { Calendar.current.startOfDay(for: selectedDay) },
-            set: { selectedDay = Calendar.current.startOfDay(for: $0) }
-        )
+    private func indexOfDay(_ day: Date) -> Int {
+        let start = Calendar.current.startOfDay(for: Date())
+        let target = Calendar.current.startOfDay(for: day)
+        let n = Calendar.current.dateComponents([.day], from: start, to: target).day ?? 0
+        return min(max(0, n), hubDayCount - 1)
+    }
+
+    private func dayStamp(_ date: Date) -> Int {
+        Int(Calendar.current.startOfDay(for: date).timeIntervalSince1970)
+    }
+
+    private var dayPager: some View {
+        let portrait = sizeClass != .regular
+        return ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 14) {
+                ForEach(0..<hubDayCount, id: \.self) { index in
+                    dashboard(for: dayAt(index), portrait: portrait)
+                        .containerRelativeFrame(.horizontal) { width, _ in
+                            max(280, width - 36)
+                        }
+                        .id(index)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $pageIndex, anchor: .leading)
+        .overlay(alignment: .trailing) {
+            LinearGradient(
+                colors: [.clear, AppTheme.bg.opacity(0.55)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: 22)
+            .allowsHitTesting(false)
+        }
+    }
+
+    private var dayDots: some View {
+        let current = pageIndex ?? 0
+        return HStack(spacing: 10) {
+            Button { shiftSelectedDay(-1) } label: {
+                Image(systemName: "chevron.left")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 32, height: 32)
+                    .background(current == 0 ? accent.opacity(0.35) : accent, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(current == 0)
+            HStack(spacing: 6) {
+                ForEach(0..<hubDayCount, id: \.self) { index in
+                    Capsule()
+                        .fill(index == current ? accent : accent.opacity(0.22))
+                        .frame(width: index == current ? 22 : 7, height: 7)
+                }
+            }
+            .onTapGesture { showDayMenu = true }
+            Text(shortDayName)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(accent)
+                .frame(minWidth: 72, alignment: .leading)
+            Button { shiftSelectedDay(1) } label: {
+                Image(systemName: "chevron.right")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 32, height: 32)
+                    .background(current >= hubDayCount - 1 ? accent.opacity(0.35) : accent, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(current >= hubDayCount - 1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 4)
+    }
+
+    private var upcomingDays: [Date] {
+        (0..<hubDayCount).map { dayAt($0) }
     }
 
     private func menuDayLabel(_ day: Date) -> String {
@@ -456,6 +534,7 @@ struct TodayView: View {
     private func commitPendingDay() {
         if let day = pendingDay {
             selectedDay = day
+            pageIndex = indexOfDay(day)
         }
         pendingDay = nil
     }
@@ -540,28 +619,9 @@ struct TodayView: View {
     }
 
     private func shiftSelectedDay(_ delta: Int) {
-        let cal = Calendar.current
-        let start = cal.startOfDay(for: Date())
-        guard let next = cal.date(byAdding: .day, value: delta, to: selectedDay) else { return }
-        let day = cal.startOfDay(for: next)
-        let last = cal.date(byAdding: .day, value: 20, to: start) ?? day
-        if day < start {
-            selectedDay = start
-        } else if day > last {
-            selectedDay = last
-        } else {
-            selectedDay = day
-        }
-    }
-
-    private var daySwipe: some Gesture {
-        DragGesture(minimumDistance: 24, coordinateSpace: .local)
-            .onEnded { value in
-                let dx = value.translation.width
-                let dy = value.translation.height
-                guard abs(dx) > 36, abs(dx) > abs(dy) * 1.15 else { return }
-                shiftSelectedDay(dx < 0 ? 1 : -1)
-            }
+        let next = min(max(0, (pageIndex ?? indexOfDay(selectedDay)) + delta), hubDayCount - 1)
+        pageIndex = next
+        selectedDay = dayAt(next)
     }
 
     private var shortDayName: String {
