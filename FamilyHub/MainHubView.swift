@@ -1,12 +1,14 @@
 import SwiftUI
 
 enum HubSection: String, CaseIterable, Identifiable, Hashable {
-    case today, calendar, chores, lists, shopping, meals, settings, family, looks
+    case today, calendar, chores, lists, shopping, meals
+    case profiles, device, invite, calendars, bills, allowance, weather, widgets, notify
+    case settings, family, looks
 
     var id: String { rawValue }
 
     static var menu: [HubSection] {
-        [.today, .calendar, .lists, .shopping, .meals, .settings]
+        sectionItems + [.profiles]
     }
 
     static var sectionItems: [HubSection] {
@@ -14,7 +16,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     }
 
     static var settingsItems: [HubSection] {
-        [.settings]
+        [.profiles, .device, .invite, .calendars, .bills, .allowance, .weather, .widgets, .notify]
     }
 
     var title: String {
@@ -26,8 +28,16 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .shopping: return "Shopping"
         case .meals: return "Meals"
         case .settings: return "Settings"
-        case .family: return "HUB Profiles"
+        case .family, .profiles: return "Profiles"
         case .looks: return "Looks"
+        case .device: return "This iPad"
+        case .invite: return "Invite"
+        case .calendars: return "Calendars"
+        case .bills: return "Bills Due"
+        case .allowance: return "Allowance"
+        case .weather: return "Weather"
+        case .widgets: return "Widgets"
+        case .notify: return "Notifications"
         }
     }
 
@@ -40,8 +50,16 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .shopping: return "cart.fill"
         case .meals: return "fork.knife"
         case .settings: return "gearshape.fill"
-        case .family: return "person.3.fill"
+        case .family, .profiles: return "person.3.fill"
         case .looks: return "square.grid.2x2.fill"
+        case .device: return "ipad"
+        case .invite: return "person.badge.plus"
+        case .calendars: return "calendar.badge.plus"
+        case .bills: return "dollarsign.circle.fill"
+        case .allowance: return "banknote.fill"
+        case .weather: return "cloud.sun.fill"
+        case .widgets: return "square.grid.2x2.fill"
+        case .notify: return "bell.fill"
         }
     }
 }
@@ -213,9 +231,16 @@ struct MainHubView: View {
         case .lists: ListsView().hubChrome(showBack: true)
         case .shopping: ShoppingListView().hubChrome(showBack: true)
         case .meals: MealsView().hubChrome(showBack: true)
-        case .settings: SettingsView().hubChrome(showBack: true)
-        case .family: SettingsView().hubChrome(showBack: true)
+        case .settings, .family, .profiles: ProfilesSettingsView().hubChrome(showBack: true)
         case .looks: HubLooksView().hubChrome(showBack: true)
+        case .device: DeviceSettingsView().hubChrome(showBack: true)
+        case .invite: InviteSettingsView().hubChrome(showBack: true)
+        case .calendars: CalendarSourcesView().hubChrome(showBack: true)
+        case .bills: BillsSettingsView().hubChrome(showBack: true)
+        case .allowance: AllowanceSettingsPage().hubChrome(showBack: true)
+        case .weather: WeatherSettingsView().hubChrome(showBack: true)
+        case .widgets: HubWidgetPicker().hubChrome(showBack: true)
+        case .notify: NotifySettingsView().hubChrome(showBack: true)
         }
     }
 }

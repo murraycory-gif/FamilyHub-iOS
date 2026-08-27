@@ -2,13 +2,17 @@ import SwiftUI
 
 struct CalendarSourcesView: View {
     @EnvironmentObject private var store: HubStore
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var ingest: CalendarIngestor
     @State private var showICS = false
     @State private var brandHint: CalendarBrand?
 
     var body: some View {
-        NavigationStack {
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "HUB", tail: "Calendars") {
+                HubHeaderPill(title: ingest.isSyncing ? "Syncing" : "Sync") {
+                    Task { await ingest.sync(into: store) }
+                }
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("HUB stays in sync with iCloud, Google, and Outlook calendars already on this iPad. Changes here write back to those calendars. Link-only calendars stay read-only.")
@@ -31,32 +35,21 @@ struct CalendarSourcesView: View {
                 }
                 .padding(20)
             }
-            .background(AppTheme.bg.ignoresSafeArea())
-            .hubTour("calendars", steps: HubTours.calendars)
-            .navigationTitle("Calendars")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        Task { await ingest.sync(into: store) }
-                    } label: {
-                        if ingest.isSyncing { ProgressView() } else { Text("Sync") }
-                    }
-                    .disabled(!store.calendarSources.contains(where: \.isEnabled))
-                }
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .hubTour("calendars", steps: HubTours.calendars)
+        .navigationTitle("")
+        .onAppear {
+            ingest.refreshStatus()
+            if ingest.isAuthorized {
+                store.upsertCalendarSources(ingest.available)
             }
-            .onAppear {
-                ingest.refreshStatus()
-                if ingest.isAuthorized {
-                    store.upsertCalendarSources(ingest.available)
-                }
-            }
-            .onChange(of: ingest.available) { _, next in
-                store.upsertCalendarSources(next)
-            }
-            .sheet(isPresented: $showICS) {
-                AddICSSheet(brand: brandHint ?? .ics)
-            }
+        }
+        .onChange(of: ingest.available) { _, next in
+            store.upsertCalendarSources(next)
+        }
+        .sheet(isPresented: $showICS) {
+            AddICSSheet(brand: brandHint ?? .ics)
         }
     }
 
