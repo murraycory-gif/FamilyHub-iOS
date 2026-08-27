@@ -495,26 +495,26 @@ struct HubWeatherTile: View {
                             .lineLimit(1)
                     }
                     Spacer(minLength: 4)
-                    if !hours.isEmpty {
-                        HStack(spacing: 0) {
-                            ForEach(Array(hours.prefix(5).enumerated()), id: \.offset) { index, hour in
-                                VStack(spacing: 4) {
-                                    Text(index == 0 && isToday ? "Now" : hourLabel(hour.at))
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(.white.opacity(0.8))
-                                    Image(systemName: hour.symbolName)
-                                        .font(.body)
-                                        .symbolRenderingMode(.multicolor)
-                                        .frame(height: 18)
-                                    Text("\(hour.temp)°")
-                                        .font(.subheadline.weight(.semibold).monospacedDigit())
-                                        .foregroundStyle(.white)
-                                }
-                                .frame(maxWidth: .infinity)
+                    HStack(spacing: 0) {
+                        ForEach(0..<5, id: \.self) { index in
+                            let hour = hours.indices.contains(index) ? hours[index] : nil
+                            VStack(spacing: 4) {
+                                Text(hour.map { index == 0 && isToday ? "Now" : hourLabel($0.at) } ?? "—")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.8))
+                                Image(systemName: hour?.symbolName ?? "circle")
+                                    .font(.body)
+                                    .symbolRenderingMode(.multicolor)
+                                    .opacity(hour == nil ? 0 : 1)
+                                    .frame(height: 18)
+                                Text(hour.map { "\($0.temp)°" } ?? " ")
+                                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(.white)
                             }
+                            .frame(maxWidth: .infinity)
                         }
-                        .padding(.bottom, 8)
                     }
+                    .padding(.bottom, 8)
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
