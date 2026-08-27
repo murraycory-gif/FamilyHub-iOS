@@ -31,6 +31,7 @@ struct TodayView: View {
     @State private var showAddFlight = false
     @State private var flightDay = Date()
     @State private var showAddPackage = false
+    @State private var showAddMember = false
     @State private var pageIndex: Int? = 0
 
     private var accent: Color {
@@ -109,6 +110,10 @@ struct TodayView: View {
         }
         .sheet(isPresented: $showAddPackage) {
             AddPackageSheet()
+                .environmentObject(store)
+        }
+        .fullScreenCover(isPresented: $showAddMember) {
+            EditMemberSheet(member: nil)
                 .environmentObject(store)
         }
         .task {
@@ -1142,7 +1147,21 @@ struct TodayView: View {
 
     private var familySection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: "house.fill", title: "HUB")
+            HubTileBanner(symbol: "house.fill", title: "HUB") {
+                Button { showAddMember = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.badge.plus")
+                        Text("Add Hub Member")
+                    }
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.white, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add Hub Member")
+            }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .center, spacing: 14) {
                     FamilyFocusCard(selected: profile == .family, day: selectedDay) {

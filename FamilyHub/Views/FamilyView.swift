@@ -658,7 +658,7 @@ struct EditMemberSheet: View {
                 .padding(20)
             }
             .background(AppTheme.bg.ignoresSafeArea())
-            .navigationTitle(member == nil ? "Add family" : "Edit family")
+            .navigationTitle(member == nil ? "Add Hub Member" : "Edit Hub Member")
             .onAppear {
                 if let member {
                     name = member.name
