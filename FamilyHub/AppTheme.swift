@@ -2,9 +2,10 @@ import SwiftUI
 
 /// EnviroMap light paper: cool white surfaces, brand blue, quiet type.
 enum AppTheme {
-    static let blue = Color(red: 0.15, green: 0.42, blue: 0.95)
-    static let blueSoft = Color(red: 0.88, green: 0.92, blue: 1.0)
-    static let blueDeep = Color(red: 0.08, green: 0.28, blue: 0.72)
+    /// Same dark Albertsons blue as Heartbeat — banners, chrome, and blue text.
+    static let blue = Color(hex: "003DA5")
+    static let blueSoft = Color(hex: "DCE6F4")
+    static let blueDeep = Color(hex: "003DA5")
 
     static let navy = blue
     static let navySoft = blueSoft
@@ -51,7 +52,7 @@ extension Color {
         case 6:
             (r, g, b) = ((int >> 16) & 0xFF, (int >> 8) & 0xFF, int & 0xFF)
         default:
-            (r, g, b) = (38, 107, 242)
+            (r, g, b) = (0, 61, 165)
         }
         self.init(
             red: Double(r) / 255,
