@@ -49,8 +49,6 @@ struct TodayView: View {
             dashboard(for: selectedDay, portrait: sizeClass != .regular)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
-                .contentShape(Rectangle())
-                .simultaneousGesture(daySwipe)
             familySection
                 .frame(height: 380)
                 .padding(.top, 12)
@@ -156,6 +154,8 @@ struct TodayView: View {
                 HStack(alignment: .top, spacing: 16) {
                     agenda(for: day)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(daySwipe)
                     VStack(spacing: 16) {
                         widgetTile(top, day: day, live: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -169,19 +169,21 @@ struct TodayView: View {
                     .frame(height: 176)
             }
         } else {
-            HStack(alignment: .top, spacing: 16) {
-                agenda(for: day)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                VStack(spacing: 16) {
-                    widgetTile(top, day: day, live: false)
+                HStack(alignment: .top, spacing: 16) {
+                    agenda(for: day)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    widgetTile(low, day: day, live: false)
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(daySwipe)
+                    VStack(spacing: 16) {
+                        widgetTile(top, day: day, live: false)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        widgetTile(low, day: day, live: false)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    .frame(maxWidth: .infinity)
+                    widgetTile(large, day: day, live: false)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity)
-                widgetTile(large, day: day, live: false)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
         }
     }
 
@@ -411,7 +413,10 @@ struct TodayView: View {
 
     private func openDinner() {
         let day = Calendar.current.startOfDay(for: selectedDay)
-        showDinnerLaunch = DinnerLaunch(day: day, pick: store.dinner(on: day) == nil)
+        let pick = store.dinner(on: day) == nil
+        DispatchQueue.main.async {
+            showDinnerLaunch = DinnerLaunch(day: day, pick: pick)
+        }
     }
 
     private var upcomingDays: [Date] {

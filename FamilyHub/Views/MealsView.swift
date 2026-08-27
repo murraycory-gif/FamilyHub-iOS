@@ -195,39 +195,33 @@ struct TonightDinnerView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 0) {
-                HubStickyHeader(lead: "What's For", tail: "Dinner") {
-                    HubHeaderPill(title: "Close") {
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "What's For", tail: "Dinner") {
+                HubHeaderPill(title: "Close") {
+                    dismiss()
+                    router.open(.today)
+                }
+                if plan != nil {
+                    HubHeaderPill(title: "Delete", color: AppTheme.chore) {
+                        store.clearDinner(on: day)
                         dismiss()
                         router.open(.today)
                     }
-                    if plan != nil {
-                        HubHeaderPill(title: "Delete", color: AppTheme.chore) {
-                            store.clearDinner(on: day)
-                            dismiss()
-                            router.open(.today)
-                        }
-                        HubHeaderPill(title: "Change Meal") {
-                            dismiss()
-                            router.openMeals(day: day)
-                        }
+                    HubHeaderPill(title: "Change Meal") {
+                        dismiss()
+                        router.openMeals(day: day)
                     }
-                }
-                .coachSpot("tonHeader")
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        dinnerBody
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
                 }
             }
-            .background(AppTheme.bg.ignoresSafeArea())
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .hubTour("tonight", steps: HubTours.tonight)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    dinnerBody
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
         }
+        .background(AppTheme.bg.ignoresSafeArea())
     }
 
     @ViewBuilder
@@ -290,7 +284,7 @@ struct TonightDinnerView: View {
                 Text("What you need")
                     .font(.title3.weight(.bold))
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(recipe.ingredients, id: \.self) { line in
+                    ForEach(Array(recipe.ingredients.enumerated()), id: \.offset) { _, line in
                         HStack(alignment: .top, spacing: 10) {
                             Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
                             Text(line)
@@ -1930,7 +1924,7 @@ private struct CatalogRecipeSheet: View {
                             .foregroundStyle(AppTheme.textSecondary)
                         if !recipe.ingredients.isEmpty {
                             SectionLabel(title: "Ingredients")
-                            ForEach(recipe.ingredients, id: \.self) { line in
+                            ForEach(Array(recipe.ingredients.enumerated()), id: \.offset) { _, line in
                                 Text("· \(line)").font(.body)
                             }
                         }
@@ -1983,7 +1977,7 @@ private struct SavedRecipeSheet: View {
                     if !recipe.notes.isEmpty { Text(recipe.notes) }
                     if !recipe.ingredients.isEmpty {
                         SectionLabel(title: "Ingredients")
-                        ForEach(recipe.ingredients, id: \.self) { line in
+                        ForEach(Array(recipe.ingredients.enumerated()), id: \.offset) { _, line in
                             Text("· \(line)")
                         }
                     }
