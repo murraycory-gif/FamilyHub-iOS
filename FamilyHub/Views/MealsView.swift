@@ -947,6 +947,9 @@ private struct CatalogRecipePicker: View {
     var onDone: () -> Void
     @State private var opened: CatalogRecipe?
     @State private var addedName: String?
+    @State private var pendingServings = 4
+    @State private var pendingMethod = CookMethod.oven
+    @State private var didSave = false
 
     var body: some View {
         if let name = addedName {
@@ -971,17 +974,20 @@ private struct CatalogRecipePicker: View {
                 Spacer()
             }
             .background(AppTheme.bg.ignoresSafeArea())
+            .onAppear {
+                guard !didSave else { return }
+                didSave = true
+                store.setDinner(on: day, recipeID: nil, note: name, servings: pendingServings, cookMethod: pendingMethod)
+            }
         } else if let recipe = opened {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: "Recipe", tail: "") {
                     HubHeaderPill(title: "Back") { opened = nil }
                 }
-                CatalogRecipeDetail(recipe: recipe) {
-                    let name = recipe.name
-                    DispatchQueue.main.async {
-                        store.setDinner(on: day, recipeID: nil, note: name)
-                        addedName = name
-                    }
+                CatalogRecipeDetail(recipe: recipe) { servings, method in
+                    pendingServings = servings
+                    pendingMethod = method
+                    DispatchQueue.main.async { addedName = recipe.name }
                 }
             }
             .background(AppTheme.bg.ignoresSafeArea())
@@ -1006,34 +1012,13 @@ private struct CatalogRecipePicker: View {
                     .padding(.horizontal, 20)
             }
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 14) {
                     ForEach(Array(catalog.recipes.prefix(60).enumerated()), id: \.offset) { _, recipe in
                         Button {
                             let picked = recipe
                             DispatchQueue.main.async { opened = picked }
                         } label: {
-                            HStack(spacing: 14) {
-                                ZStack {
-                                    AppTheme.blueSoft
-                                    Image(systemName: "fork.knife")
-                                        .font(.headline.weight(.bold))
-                                        .foregroundStyle(AppTheme.blue)
-                                }
-                                .frame(width: 64, height: 64)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(recipe.name)
-                                        .font(.headline.weight(.bold))
-                                        .foregroundStyle(AppTheme.text)
-                                        .lineLimit(2)
-                                    Text(recipe.category)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(AppTheme.blue)
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            .padding(12)
-                            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            recipeTile(recipe)
                         }
                         .buttonStyle(.plain)
                     }
@@ -1076,33 +1061,52 @@ private struct CatalogRecipePicker: View {
 
 private struct CatalogRecipeDetail: View {
     let recipe: CatalogRecipe
-    var onDone: () -> Void
+    var onAdd: (Int, CookMethod) -> Void
+    @State private var servings = 4
+    @State private var method = CookMethod.oven
+
+    private var scaled: [String] { IngredientScale.lines(recipe.ingredients, servings: servings) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(recipe.name)
-                .font(.system(size: 32, weight: .bold))
-            Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.blue)
-            if !recipe.ingredients.isEmpty {
-                Text(recipe.ingredients.prefix(8).joined(separator: "\n"))
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
-            }
-            Spacer()
-            Button(action: onDone) {
-                Text("Add for dinner")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                RecipePhoto(url: recipe.thumb, searchName: recipe.name)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(AppTheme.blue, in: Capsule())
+                    .frame(height: 240)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                Text(recipe.name)
+                    .font(.system(size: 32, weight: .bold))
+                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
+                ServingsStepper(servings: $servings)
+                if !scaled.isEmpty {
+                    Text("Ingredients for \(servings) \(servings == 1 ? "person" : "people")")
+                        .font(.title3.weight(.bold))
+                    ingredientList(scaled)
+                }
+                Text("How you’ll cook it")
+                    .font(.title3.weight(.bold))
+                CookMethodPicker(method: $method, name: recipe.name, category: recipe.category, instructions: recipe.instructions)
+                CookDirectionsCard(method: method, name: recipe.name, steps: recipe.instructions)
+                Button {
+                    onAdd(servings, method)
+                } label: {
+                    Text("Add for dinner")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .padding(20)
         }
-        .padding(20)
         .background(AppTheme.bg.ignoresSafeArea())
+        .onAppear {
+            method = CookPlaybook.suggested(name: recipe.name, instructions: recipe.instructions)
+        }
     }
 }
 
