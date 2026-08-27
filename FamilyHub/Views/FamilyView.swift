@@ -645,106 +645,124 @@ struct EditMemberSheet: View {
     private let emojiColumns = [GridItem(.adaptive(minimum: 44), spacing: 8)]
 
     var body: some View {
-        NavigationStack {
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "HUB", tail: member == nil ? "Add Member" : "Edit Member") {
+                HStack(spacing: 8) {
+                    Button { dismiss() } label: {
+                        Text("Cancel")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(Color.white, in: Capsule())
+                            .overlay(Capsule().stroke(AppTheme.blue, lineWidth: 1.5))
+                    }
+                    .buttonStyle(.plain)
+                    HubHeaderPill(title: "Save", action: saveMember)
+                        .opacity(canSave ? 1 : 0.4)
+                        .disabled(!canSave)
+                }
+            }
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    preview
-                    nameAndRole
-                    contactSection
-                    photoSection
-                    colorSection
-                    emojiSection
+                VStack(alignment: .leading, spacing: 16) {
+                    HubPanel(symbol: "person.fill", title: "Profile") { preview }
+                    HubPanel(symbol: "textformat", title: "Name and role") { nameAndRole }
+                    HubPanel(symbol: "envelope.fill", title: "Contact") { contactSection }
+                    HubPanel(symbol: "camera.fill", title: "Photo") { photoSection }
+                    HubPanel(symbol: "paintpalette.fill", title: "Color") { colorSection }
+                    HubPanel(symbol: "face.smiling.fill", title: "Icon") { emojiSection }
                 }
                 .padding(20)
             }
-            .background(AppTheme.bg.ignoresSafeArea())
-            .navigationTitle(member == nil ? "Add Hub Member" : "Edit Hub Member")
-            .onAppear {
-                if let member {
-                    name = member.name
-                    role = member.role
-                    colorHex = member.colorHex
-                    symbol = member.displayEmoji
-                    photoData = store.photo(for: member)
-                    email = member.email
-                    phone = member.phone
-                    if let day = member.birthday {
-                        birthday = day
-                        hasBirthday = true
-                    }
-                } else {
-                    symbol = role.defaultEmoji
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("")
+        .onAppear {
+            if let member {
+                name = member.name
+                role = member.role
+                colorHex = member.colorHex
+                symbol = member.displayEmoji
+                photoData = store.photo(for: member)
+                email = member.email
+                phone = member.phone
+                if let day = member.birthday {
+                    birthday = day
+                    hasBirthday = true
                 }
+            } else {
+                symbol = role.defaultEmoji
+                colorHex = "003DA5"
             }
-            .onChange(of: role) { _, newRole in
-                if PersonStyle.emojis.contains(symbol) == false || MemberRole.allCases.contains(where: { $0.defaultEmoji == symbol }) {
-                    symbol = newRole.defaultEmoji
-                }
+        }
+        .onChange(of: role) { _, newRole in
+            if PersonStyle.emojis.contains(symbol) == false || MemberRole.allCases.contains(where: { $0.defaultEmoji == symbol }) {
+                symbol = newRole.defaultEmoji
             }
-            .onChange(of: photoItem) { _, item in
-                guard let item else { return }
-                Task {
-                    if let data = try? await item.loadTransferable(type: Data.self),
-                       let image = UIImage(data: data) {
-                        cropPayload = PhotoCropPayload(image: image)
-                    }
-                }
-            }
-            .fullScreenCover(item: $cropPayload) { payload in
-                PhotoCropper(
-                    image: payload.image,
-                    onCancel: { cropPayload = nil },
-                    onCrop: { data in
-                        photoData = data
-                        cropPayload = nil
-                    }
-                )
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        let trimmed = name.trimmingCharacters(in: .whitespaces)
-                        if var existing = member {
-                            existing.name = trimmed
-                            existing.role = role
-                            existing.colorHex = colorHex
-                            existing.symbol = symbol
-                            existing.email = email.trimmingCharacters(in: .whitespaces)
-                            existing.phone = phone.trimmingCharacters(in: .whitespaces)
-                            existing.birthday = hasBirthday ? birthday : nil
-                            store.updateMember(existing)
-                            store.setMemberPhoto(existing.id, data: photoData)
-                        } else {
-                            var created = FamilyMember.make(name: trimmed, role: role, colorHex: colorHex, symbol: symbol)
-                            created.email = email.trimmingCharacters(in: .whitespaces)
-                            created.phone = phone.trimmingCharacters(in: .whitespaces)
-                            created.birthday = hasBirthday ? birthday : nil
-                            store.addMember(created)
-                            store.setMemberPhoto(created.id, data: photoData)
-                        }
-                        dismiss()
-                    }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    cropPayload = PhotoCropPayload(image: image)
                 }
             }
         }
+        .fullScreenCover(item: $cropPayload) { payload in
+            PhotoCropper(
+                image: payload.image,
+                onCancel: { cropPayload = nil },
+                onCrop: { data in
+                    photoData = data
+                    cropPayload = nil
+                }
+            )
+        }
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private func saveMember() {
+        guard canSave else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        if var existing = member {
+            existing.name = trimmed
+            existing.role = role
+            existing.colorHex = colorHex
+            existing.symbol = symbol
+            existing.email = email.trimmingCharacters(in: .whitespaces)
+            existing.phone = phone.trimmingCharacters(in: .whitespaces)
+            existing.birthday = hasBirthday ? birthday : nil
+            store.updateMember(existing)
+            store.setMemberPhoto(existing.id, data: photoData)
+        } else {
+            var created = FamilyMember.make(name: trimmed, role: role, colorHex: colorHex, symbol: symbol)
+            created.email = email.trimmingCharacters(in: .whitespaces)
+            created.phone = phone.trimmingCharacters(in: .whitespaces)
+            created.birthday = hasBirthday ? birthday : nil
+            store.addMember(created)
+            store.setMemberPhoto(created.id, data: photoData)
+        }
+        dismiss()
     }
 
     private var preview: some View {
         HStack(spacing: 14) {
             avatarPreview
             VStack(alignment: .leading, spacing: 4) {
-                Text(name.isEmpty ? "New family member" : name)
-                    .font(.system(size: 24, weight: .semibold, design: .serif))
+                Text(name.isEmpty ? "New Hub member" : name)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
                 Text(role.label)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
             }
             Spacer()
         }
-        .padding(16)
-        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(4)
     }
 
     private var avatarPreview: some View {
@@ -765,7 +783,8 @@ struct EditMemberSheet: View {
             }
             .frame(width: 72, height: 72)
             .clipShape(Circle())
-            .overlay(Circle().stroke(AppTheme.cardBorder, lineWidth: 1))
+            .overlay(Circle().stroke(Color(hex: colorHex), lineWidth: 3))
+            .shadow(color: Color(hex: colorHex).opacity(0.28), radius: 8, y: 3)
         }
         .buttonStyle(.plain)
         .disabled(photoData == nil)
@@ -774,14 +793,31 @@ struct EditMemberSheet: View {
     private var nameAndRole: some View {
         VStack(alignment: .leading, spacing: 12) {
             TextField("Name", text: $name)
-                .font(.title3)
+                .font(.title3.weight(.semibold))
                 .padding(14)
-                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
                 ForEach(MemberRole.allCases) { item in
-                    FilterChip(title: item.label, color: AppTheme.blue, selected: role == item) {
+                    Button {
                         role = item
+                    } label: {
+                        Text(item.label)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(role == item ? .white : AppTheme.blue)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(role == item ? AppTheme.blue : Color.white, in: Capsule())
+                            .overlay(Capsule().stroke(AppTheme.blue.opacity(role == item ? 0 : 0.25), lineWidth: 1.5))
+                            .shadow(color: .black.opacity(role == item ? 0.12 : 0.06), radius: 4, y: 2)
                     }
+                    .buttonStyle(HubPressStyle())
                 }
             }
         }
@@ -789,101 +825,99 @@ struct EditMemberSheet: View {
 
     private var contactSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel(title: "Contact")
-            VStack(spacing: 10) {
+            fieldCard {
                 TextField("Email", text: $email)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .padding(14)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .font(.headline)
+            }
+            fieldCard {
                 TextField("Phone", text: $phone)
                     .keyboardType(.phonePad)
-                    .padding(14)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                Toggle("Birthday", isOn: $hasBirthday)
                     .font(.headline)
+            }
+            fieldCard {
+                Toggle("Birthday", isOn: $hasBirthday)
+                    .font(.headline.weight(.bold))
                     .tint(AppTheme.blue)
-                    .padding(14)
-                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                if hasBirthday {
+            }
+            if hasBirthday {
+                fieldCard {
                     DatePicker("Birthday", selection: $birthday, displayedComponents: .date)
                         .datePickerStyle(.compact)
-                        .padding(14)
-                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .font(.headline.weight(.bold))
+                        .tint(AppTheme.blue)
                 }
             }
         }
     }
 
     private var photoSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionLabel(title: "Photo")
-            HStack(spacing: 10) {
-                PhotosPicker(selection: $photoItem, matching: .images) {
-                    Label(photoData == nil ? "Add photo" : "Change photo", systemImage: "camera.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(AppTheme.blueSoft, in: Capsule())
-                        .foregroundStyle(AppTheme.blue)
-                }
-                .buttonStyle(.plain)
-                if photoData != nil {
-                    Button("Adjust") {
-                        if let photoData, let image = UIImage(data: photoData) {
-                            cropPayload = PhotoCropPayload(image: image)
-                        }
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.blue)
-                    Button("Use icon") {
-                        photoData = nil
-                        photoItem = nil
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
-                }
+        HStack(spacing: 10) {
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                Label(photoData == nil ? "Add photo" : "Change photo", systemImage: "camera.fill")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(AppTheme.blue, in: Capsule())
             }
+            .buttonStyle(.plain)
+            if photoData != nil {
+                Button("Adjust") {
+                    if let photoData, let image = UIImage(data: photoData) {
+                        cropPayload = PhotoCropPayload(image: image)
+                    }
+                }
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(AppTheme.blueSoft, in: Capsule())
+                Button("Use icon") {
+                    photoData = nil
+                    photoItem = nil
+                }
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+            }
+            Spacer(minLength: 0)
         }
     }
 
     private var colorSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionLabel(title: "Color")
-            LazyVGrid(columns: colorColumns, spacing: 10) {
-                ForEach(PersonStyle.colors, id: \.self) { hex in
-                    Button {
-                        colorHex = hex
-                    } label: {
-                        Circle()
-                            .fill(Color(hex: hex))
-                            .frame(width: 36, height: 36)
-                            .overlay {
-                                if colorHex.caseInsensitiveCompare(hex) == .orderedSame {
-                                    Image(systemName: "checkmark")
-                                        .font(.caption.bold())
-                                        .foregroundStyle(.white)
-                                }
+        LazyVGrid(columns: colorColumns, spacing: 10) {
+            ForEach(PersonStyle.colors, id: \.self) { hex in
+                Button {
+                    colorHex = hex
+                } label: {
+                    Circle()
+                        .fill(Color(hex: hex))
+                        .frame(width: 36, height: 36)
+                        .overlay {
+                            if colorHex.caseInsensitiveCompare(hex) == .orderedSame {
+                                Image(systemName: "checkmark")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.white)
                             }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Color \(hex)")
+                        }
+                        .overlay(Circle().stroke(.white.opacity(0.4), lineWidth: 1))
+                        .shadow(color: Color(hex: hex).opacity(0.35), radius: 4, y: 2)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Color \(hex)")
             }
-            .padding(14)
-            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
 
     private var emojiSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionLabel(title: "Icon")
             ForEach(PersonStyle.groups, id: \.title) { group in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(group.title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
                     LazyVGrid(columns: emojiColumns, spacing: 8) {
                         ForEach(group.emojis, id: \.self) { emoji in
                             Button {
@@ -894,16 +928,13 @@ struct EditMemberSheet: View {
                                 Text(emoji)
                                     .font(.system(size: 26))
                                     .frame(width: 44, height: 44)
-                                    .background(
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    .overlay(
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .fill(symbol == emoji && photoData == nil ? AppTheme.navySoft : Color.clear)
+                                            .stroke(symbol == emoji && photoData == nil ? AppTheme.blue : Color.black.opacity(0.05), lineWidth: symbol == emoji && photoData == nil ? 2.5 : 1)
                                     )
-                                    .overlay {
-                                        if symbol == emoji && photoData == nil {
-                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                                .stroke(AppTheme.navy, lineWidth: 2)
-                                        }
-                                    }
+                                    .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(emoji)
@@ -911,8 +942,19 @@ struct EditMemberSheet: View {
                     }
                 }
             }
-            .padding(14)
-            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
+    }
+
+    private func fieldCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
     }
 }
