@@ -957,7 +957,7 @@ private struct CatalogRecipePicker: View {
                         Text(message).foregroundStyle(AppTheme.textSecondary)
                     }
                     LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(catalog.recipes) { recipe in
+                        ForEach(Array(catalog.recipes.prefix(80).enumerated()), id: \.offset) { _, recipe in
                             Button { opened = recipe } label: {
                                 recipeTile(recipe)
                             }
@@ -970,9 +970,13 @@ private struct CatalogRecipePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .hubTour("recipes", steps: HubTours.recipes)
-        .navigationDestination(item: $opened) { recipe in
-            CatalogRecipeDetail(recipe: recipe, day: day, onDone: onDone)
+        .sheet(item: $opened) { recipe in
+            NavigationStack {
+                CatalogRecipeDetail(recipe: recipe, day: day, onDone: {
+                    opened = nil
+                    onDone()
+                })
+            }
         }
         .task { await catalog.load() }
     }
@@ -1110,7 +1114,7 @@ private struct SidePicker: View {
                         }
                     }
                     LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(catalog.recipes) { recipe in
+                        ForEach(Array(catalog.recipes.prefix(80).enumerated()), id: \.offset) { _, recipe in
                             Button { opened = recipe } label: {
                                 recipeTile(recipe)
                             }
@@ -1123,9 +1127,13 @@ private struct SidePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .hubTour("sides", steps: HubTours.sides)
-        .navigationDestination(item: $opened) { recipe in
-            SideDetail(recipe: recipe, day: day, onDone: onDone)
+        .sheet(item: $opened) { recipe in
+            NavigationStack {
+                SideDetail(recipe: recipe, day: day, onDone: {
+                    opened = nil
+                    onDone()
+                })
+            }
         }
         .task { await catalog.load() }
     }

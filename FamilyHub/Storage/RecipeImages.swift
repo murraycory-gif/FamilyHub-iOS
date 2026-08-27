@@ -13,16 +13,9 @@ enum RecipeImages {
 
     static func prefetch(_ recipes: [CatalogRecipe]) {
         let unique = Dictionary(grouping: recipes, by: \.name).compactMap(\.value.first)
-        Task.detached(priority: .utility) {
-            for chunkStart in stride(from: 0, to: unique.count, by: 6) {
-                let end = min(chunkStart + 6, unique.count)
-                await withTaskGroup(of: Void.self) { group in
-                    for recipe in unique[chunkStart..<end] {
-                        group.addTask {
-                            _ = await photo(url: recipe.thumb, name: recipe.name)
-                        }
-                    }
-                }
+        Task {
+            for recipe in unique.prefix(12) {
+                _ = await photo(url: recipe.thumb, name: recipe.name)
             }
         }
     }

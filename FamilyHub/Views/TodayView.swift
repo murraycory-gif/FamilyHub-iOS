@@ -46,6 +46,8 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.bottom, 12)
+                .contentShape(Rectangle())
+                .simultaneousGesture(daySwipe)
             dashboard(for: selectedDay, portrait: sizeClass != .regular)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()

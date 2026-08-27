@@ -113,8 +113,16 @@ final class RecipeCatalog: ObservableObject {
                 Task { await streamAreas([category]) }
             }
         }
+        recipes = uniqued(recipes)
         if recipes.isEmpty { message = "No recipes in that category yet." }
-        RecipeImages.prefetch(recipes)
+    }
+
+    private func uniqued(_ items: [CatalogRecipe]) -> [CatalogRecipe] {
+        var seen = Set<String>()
+        return items.filter { item in
+            let key = item.id.isEmpty ? item.name.lowercased() : item.id
+            return seen.insert(key).inserted
+        }
     }
 
     private static let asian = ["Chinese", "Japanese", "Thai", "Indian", "Korean", "Vietnamese", "Filipino"]
