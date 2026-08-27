@@ -87,7 +87,6 @@ struct MainHubView: View {
                 }
                 .navigationSplitViewStyle(.prominentDetail)
                 .toolbar(removing: .sidebarToggle)
-                .background(HideSystemSidebarToggle())
             } else {
                 TabView(selection: tabSelection) {
                     ForEach(HubSection.menu) { item in
@@ -104,9 +103,7 @@ struct MainHubView: View {
         .background(AppTheme.bg.ignoresSafeArea())
         .onChange(of: router.section) { _, _ in
             guard sizeClass == .regular else { return }
-            withAnimation(.easeInOut(duration: 0.2)) {
-                router.columnVisibility = .detailOnly
-            }
+            router.columnVisibility = .detailOnly
         }
     }
 
@@ -147,16 +144,12 @@ struct MainHubView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 8)
         }
-        .background(HideSystemSidebarToggle())
     }
 
     @ViewBuilder
     private var detail: some View {
-        NavigationStack {
-            view(for: currentSection)
-        }
-        .toolbar(removing: .sidebarToggle)
-        .background(HideSystemSidebarToggle())
+        view(for: currentSection)
+            .toolbar(removing: .sidebarToggle)
     }
 
     @ViewBuilder

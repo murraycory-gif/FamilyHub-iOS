@@ -45,8 +45,6 @@ struct TodayView: View {
                     .padding(.bottom, 12)
                 dashboard(for: selectedDay, portrait: sizeClass != .regular)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .simultaneousGesture(daySwipe)
                 familySection
                     .frame(height: 340)
                     .padding(.top, 12)

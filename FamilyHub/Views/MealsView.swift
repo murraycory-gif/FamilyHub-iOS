@@ -83,8 +83,6 @@ private struct MealDayCard: View {
     @EnvironmentObject private var store: HubStore
     let day: Date
     var onOpen: () -> Void
-    @State private var drag: CGFloat = 0
-    @State private var swiped = false
 
     private var plan: DinnerPlan? { store.dinner(on: day) }
     private var title: String? { store.dinnerTitle(on: day) }
@@ -92,51 +90,10 @@ private struct MealDayCard: View {
     private var planned: Bool { plan != nil }
 
     var body: some View {
-        ZStack(alignment: .trailing) {
-            if planned {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(AppTheme.chore)
-                    .overlay(alignment: .trailing) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "trash.fill")
-                            Text("Clear")
-                                .font(.caption.weight(.bold))
-                        }
-                        .foregroundStyle(.white)
-                        .frame(width: 88)
-                    }
-            }
+        Button(action: onOpen) {
             card
-                .contentShape(Rectangle())
-                .offset(x: drag)
-                .onTapGesture {
-                    guard !swiped else {
-                        swiped = false
-                        return
-                    }
-                    onOpen()
-                }
-                .gesture(
-                    DragGesture(minimumDistance: 20)
-                        .onChanged { value in
-                            guard planned, abs(value.translation.width) > abs(value.translation.height) else { return }
-                            drag = min(0, max(value.translation.width, -100))
-                        }
-                        .onEnded { value in
-                            if planned, value.translation.width < -64, abs(value.translation.width) > abs(value.translation.height) {
-                                swiped = true
-                                store.clearDinner(on: day)
-                            }
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                drag = 0
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                                swiped = false
-                            }
-                        }
-                )
         }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .buttonStyle(.plain)
     }
 
     private var card: some View {
@@ -173,22 +130,10 @@ private struct MealDayCard: View {
     }
 
     private var thumb: some View {
-        Group {
-            if let recipe, let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
-                RecipePhoto(url: url, searchName: recipe.name)
-            } else if let plan, plan.placeName != nil {
-                ZStack {
-                    AppTheme.blueSoft
-                    Image(systemName: "fork.knife")
-                        .foregroundStyle(AppTheme.blue)
-                }
-            } else {
-                ZStack {
-                    AppTheme.blueSoft
-                    Image(systemName: "fork.knife")
-                        .foregroundStyle(AppTheme.blue)
-                }
-            }
+        ZStack {
+            AppTheme.blueSoft
+            Image(systemName: planned ? "fork.knife" : "plus")
+                .foregroundStyle(AppTheme.blue)
         }
         .frame(width: 88, height: 88)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
