@@ -445,11 +445,11 @@ struct MealChoiceSheet: View {
         case .eatOut(let mode):
             EatOutPicker(day: day, mode: mode) { finish() }
         case .family:
-            FamilyRecipePicker(day: day) { go(.sides) }
+            FamilyRecipePicker(day: day) { finish() }
         case .recipes:
-            CatalogRecipePicker(day: day) { go(.sides) }
+            CatalogRecipePicker(day: day, onClose: { DispatchQueue.main.async { route = nil } }, onDone: finish)
         case .manual:
-            ManualMealSheet(day: day) { go(.sides) }
+            ManualMealSheet(day: day) { finish() }
         case .sides:
             SidePicker(day: day) { go(.review) }
         case .review:
@@ -943,20 +943,25 @@ private struct CatalogRecipePicker: View {
     @EnvironmentObject private var store: HubStore
     @StateObject private var catalog = RecipeCatalog()
     let day: Date
+    var onClose: () -> Void
     var onDone: () -> Void
     @State private var opened: CatalogRecipe?
-
-    private let columns = [GridItem(.adaptive(minimum: 240), spacing: 16)]
+    @State private var step = 0
 
     var body: some View {
-        if let recipe = opened {
+        if step == 2 {
+            DinnerReviewView(day: day, onDone: onDone)
+        } else if step == 1 {
+            SidePicker(day: day) {
+                DispatchQueue.main.async { step = 2 }
+            }
+        } else if let recipe = opened {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: "Recipe", tail: "") {
                     HubHeaderPill(title: "Back") { opened = nil }
                 }
                 CatalogRecipeDetail(recipe: recipe, day: day, onDone: {
-                    opened = nil
-                    onDone()
+                    DispatchQueue.main.async { step = 1 }
                 })
             }
             .background(AppTheme.bg.ignoresSafeArea())
@@ -968,7 +973,7 @@ private struct CatalogRecipePicker: View {
     private var recipeList: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "All", tail: "Recipes") {
-                HubHeaderPill(title: "Close") { onDone() }
+                HubHeaderPill(title: "Close") { onClose() }
             }
             searchBar
                 .padding(.horizontal, 20)
@@ -1087,15 +1092,20 @@ private struct CatalogRecipeDetail: View {
                 CookMethodPicker(method: $method, name: recipe.name, category: recipe.category, instructions: recipe.instructions)
                 CookDirectionsCard(method: method, name: recipe.name, steps: recipe.instructions)
                 Button {
-                    if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && !recipe.id.isEmpty }) {
-                        store.setDinner(on: day, recipeID: existing.id, servings: servings, cookMethod: method)
-                    } else {
-                        let saved = recipe.asHubRecipe()
-                        store.addRecipe(saved)
-                        store.setDinner(on: day, recipeID: saved.id, servings: servings, cookMethod: method)
+                    let recipeID = recipe.id
+                    let servings = servings
+                    let method = method
+                    let day = day
+                    DispatchQueue.main.async {
+                        if let existing = store.recipes.first(where: { $0.catalogID == recipeID && !recipeID.isEmpty }) {
+                            store.setDinner(on: day, recipeID: existing.id, servings: servings, cookMethod: method)
+                        } else {
+                            let saved = recipe.asHubRecipe()
+                            store.addRecipe(saved)
+                            store.setDinner(on: day, recipeID: saved.id, servings: servings, cookMethod: method)
+                        }
+                        onDone()
                     }
-                    let done = onDone
-                    DispatchQueue.main.async { done() }
                 } label: {
                     Text("Add for dinner")
                         .font(.headline.weight(.bold))
