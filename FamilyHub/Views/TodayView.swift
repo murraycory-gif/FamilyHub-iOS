@@ -49,11 +49,9 @@ struct TodayView: View {
                 .padding(.bottom, 10)
             dayPager
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            dayDots
-                .padding(.top, 10)
             familySection
                 .frame(height: 380)
-                .padding(.top, 10)
+                .padding(.top, 12)
         }
         .animation(nil, value: selectedDay)
         .padding(.horizontal, 24)
@@ -473,44 +471,6 @@ struct TodayView: View {
         }
     }
 
-    private var dayDots: some View {
-        let current = pageIndex ?? 0
-        return HStack(spacing: 10) {
-            Button { shiftSelectedDay(-1) } label: {
-                Image(systemName: "chevron.left")
-                    .font(.body.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 32, height: 32)
-                    .background(current == 0 ? accent.opacity(0.35) : accent, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .disabled(current == 0)
-            HStack(spacing: 6) {
-                ForEach(0..<hubDayCount, id: \.self) { index in
-                    Capsule()
-                        .fill(index == current ? accent : accent.opacity(0.22))
-                        .frame(width: index == current ? 22 : 7, height: 7)
-                }
-            }
-            .onTapGesture { showDayMenu = true }
-            Text(shortDayName)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(accent)
-                .frame(minWidth: 72, alignment: .leading)
-            Button { shiftSelectedDay(1) } label: {
-                Image(systemName: "chevron.right")
-                    .font(.body.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 32, height: 32)
-                    .background(current >= hubDayCount - 1 ? accent.opacity(0.35) : accent, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .disabled(current >= hubDayCount - 1)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 4)
-    }
-
     private var upcomingDays: [Date] {
         (0..<hubDayCount).map { dayAt($0) }
     }
@@ -618,12 +578,6 @@ struct TodayView: View {
         .background(accent)
     }
 
-    private func shiftSelectedDay(_ delta: Int) {
-        let next = min(max(0, (pageIndex ?? indexOfDay(selectedDay)) + delta), hubDayCount - 1)
-        pageIndex = next
-        selectedDay = dayAt(next)
-    }
-
     private var shortDayName: String {
         if Calendar.current.isDateInToday(selectedDay) { return "Today" }
         if Calendar.current.isDateInTomorrow(selectedDay) { return "Tomorrow" }
@@ -639,28 +593,10 @@ struct TodayView: View {
                 symbol: "calendar",
                 title: Calendar.current.isDateInToday(day) ? "On Today's Agenda" : "On the Agenda"
             ) {
-                HStack(spacing: 8) {
-                    Button { shiftSelectedDay(-1) } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .frame(width: 28, height: 28)
-                            .background(.white, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    Button { shiftSelectedDay(1) } label: {
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .frame(width: 28, height: 28)
-                            .background(.white, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    Text(profileTitle)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                }
+                Text(profileTitle)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
             }
             .contentShape(Rectangle())
             VStack(alignment: .leading, spacing: 8) {
