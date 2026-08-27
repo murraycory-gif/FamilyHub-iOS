@@ -643,7 +643,7 @@ struct TodayView: View {
             hours: Array(weather.hoursOn(day).prefix(5)),
             isToday: Calendar.current.isDateInToday(day),
             isLoading: weather.isLoading,
-            live: live && Calendar.current.isDateInToday(day),
+            live: true,
             onOpen: {
                 outlookDay = day
                 showWeatherOutlook = true

@@ -50,7 +50,7 @@ struct WeatherAtmosphere: View {
     var body: some View {
         Group {
             if live {
-                TimelineView(.animation(minimumInterval: 1.0 / 8.0, paused: false)) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: false)) { timeline in
                     AtmosphereLayers(
                         code: code,
                         isDay: isDay,
@@ -129,12 +129,14 @@ private struct AtmosphereLayers: View {
     private func weatherFX(size: CGSize) -> some View {
         switch kind {
         case .rain:
-            Canvas { context, canvas in drawRain(context, size: canvas, count: 46) }
+            Canvas { context, canvas in drawRain(context, size: canvas, count: 72) }
         case .thunder:
-            Canvas { context, canvas in drawRain(context, size: canvas, count: 52) }
-            Color.white.opacity(lightningFlash ? 0.2 : 0)
+            Canvas { context, canvas in drawRain(context, size: canvas, count: 80) }
+            Color.white.opacity(lightningFlash ? 0.28 : 0)
         case .snow:
             Canvas { context, canvas in drawSnow(context, size: canvas) }
+        case .fog:
+            Color.white.opacity(0.12 + 0.08 * (0.5 + 0.5 * sin(time * 0.35)))
         default:
             EmptyView()
         }
@@ -167,18 +169,28 @@ private struct AtmosphereLayers: View {
 
     private func sun(in size: CGSize, scale: CGFloat) -> some View {
         let side = min(size.width, size.height) * scale
-        return Image("WeatherSun")
-            .resizable()
-            .scaledToFit()
-            .frame(width: side, height: side)
-            .position(x: size.width * 0.78, y: size.height * 0.42)
+        let pulse = 0.94 + 0.06 * sin(time * 0.7)
+        let glow = 0.35 + 0.25 * sin(time * 0.7)
+        return ZStack {
+            Circle()
+                .fill(Color.yellow.opacity(0.22 + glow * 0.2))
+                .blur(radius: 18)
+                .frame(width: side * 1.7, height: side * 1.7)
+            Image("WeatherSun")
+                .resizable()
+                .scaledToFit()
+                .frame(width: side, height: side)
+                .scaleEffect(pulse)
+                .shadow(color: .yellow.opacity(0.45 + glow), radius: 18)
+        }
+        .position(x: size.width * 0.78, y: size.height * 0.38)
     }
 
     private func clouds(in size: CGSize, storm: Bool, coverage: CGFloat) -> some View {
         let name = storm ? "WeatherStorm" : "WeatherCloud"
         let travel = size.width + 320
-        let x1 = CGFloat((time * 6).truncatingRemainder(dividingBy: Double(travel))) - 160
-        let x2 = CGFloat((time * 4.2 + 140).truncatingRemainder(dividingBy: Double(travel))) - 160
+        let x1 = CGFloat((time * 14).truncatingRemainder(dividingBy: Double(travel))) - 160
+        let x2 = CGFloat((time * 9 + 140).truncatingRemainder(dividingBy: Double(travel))) - 160
         return ZStack {
             Image(name)
                 .resizable()
@@ -471,8 +483,9 @@ struct HubWeatherTile: View {
                 .buttonStyle(.plain)
             }
             ZStack(alignment: .topLeading) {
+                WeatherAtmosphere(code: skyCode, isDay: skyIsDay, live: live && isToday)
                 LinearGradient(
-                    colors: WeatherSky.colors(code: skyCode, isDay: skyIsDay),
+                    colors: [.black.opacity(0.08), .black.opacity(0.22)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
