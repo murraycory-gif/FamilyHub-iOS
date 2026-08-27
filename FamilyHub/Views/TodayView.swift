@@ -161,11 +161,11 @@ struct TodayView: View {
         let low = tiles[safe: 1] ?? .shopping
         let large = tiles[safe: 2] ?? .dinner
         if portrait {
-            VStack(spacing: 16) {
-                HStack(alignment: .top, spacing: 16) {
+            VStack(spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
                     agenda(for: day)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    VStack(spacing: 16) {
+                    VStack(spacing: 12) {
                         widgetTile(top, day: day, live: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         widgetTile(low, day: day, live: false)
@@ -178,10 +178,10 @@ struct TodayView: View {
                     .frame(height: 176)
             }
         } else {
-                HStack(alignment: .top, spacing: 16) {
+                HStack(alignment: .top, spacing: 12) {
                     agenda(for: day)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    VStack(spacing: 16) {
+                    VStack(spacing: 12) {
                         widgetTile(top, day: day, live: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         widgetTile(low, day: day, live: false)
@@ -589,30 +589,29 @@ struct TodayView: View {
                     .lineLimit(1)
             }
             .contentShape(Rectangle())
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text(headline(for: day))
-                        .font(.headline)
+                        .font(.title3.weight(.bold))
                     Spacer()
                     Text("\(items.count)")
-                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .font(.subheadline.weight(.bold).monospacedDigit())
                         .foregroundStyle(AppTheme.textTertiary)
                 }
                 if items.isEmpty {
                     Text(emptyDayCopy)
-                        .font(.subheadline)
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(AppTheme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 8)
                 } else {
                     ScrollView {
-                        VStack(spacing: 0) {
+                        VStack(spacing: 10) {
                             ForEach(Array(uniqueItems(items).prefix(16).enumerated()), id: \.offset) { _, item in
                                 Button { openAgendaItem(item) } label: {
                                     dayRow(item)
                                 }
-                                .buttonStyle(.plain)
-                                Divider().overlay(AppTheme.cardBorder)
+                                .buttonStyle(HubPressStyle())
                             }
                         }
                     }
@@ -621,6 +620,7 @@ struct TodayView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.tableFill)
         }
         .background(AppTheme.card)
         .hubLift(accent: accent)
@@ -698,9 +698,10 @@ struct TodayView: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(AppTheme.tableFill)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HubPressStyle())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
@@ -966,11 +967,11 @@ struct TodayView: View {
     }
 
     private func dayRow(_ item: HubDayItem) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
+        HStack(alignment: .center, spacing: 14) {
+            Capsule()
                 .fill(assigneeColor(for: item))
-                .frame(width: 6)
-                .frame(maxHeight: .infinity)
+                .frame(width: 5)
+                .padding(.vertical, 8)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.timeLabel)
                     .font(.headline.weight(.bold).monospacedDigit())
@@ -981,7 +982,7 @@ struct TodayView: View {
                     .lineLimit(2)
                 if !item.detail.isEmpty {
                     Text(item.detail)
-                        .font(.subheadline)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.textSecondary)
                         .lineLimit(2)
                 }
@@ -994,7 +995,17 @@ struct TodayView: View {
                 .padding(.vertical, 6)
                 .background(assigneeColor(for: item).opacity(0.16), in: Capsule())
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
+        .shadow(color: .black.opacity(0.03), radius: 1, y: 1)
     }
 
     private func assigneeName(for item: HubDayItem) -> String {
@@ -1155,7 +1166,7 @@ struct TodayView: View {
                 .padding(.bottom, 12)
             }
         }
-        .background(AppTheme.card)
+        .background(AppTheme.tableFill)
         .hubLift(accent: accent)
     }
 }

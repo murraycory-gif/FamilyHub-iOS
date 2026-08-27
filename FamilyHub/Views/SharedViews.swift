@@ -714,12 +714,14 @@ struct HubPanel<Content: View, Trailing: View>: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(AppTheme.blueSoft)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(AppTheme.tableFill)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accent, lineWidth: 3)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(accent, lineWidth: 2.5)
         )
+        .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
+        .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
     }
 }
 
@@ -754,21 +756,9 @@ struct HubTileBanner<Trailing: View>: View {
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [accent.opacity(0.92), accent],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.white.opacity(0.22))
-                .frame(height: 1)
-                .allowsHitTesting(false)
-        }
+        .background(accent)
     }
 }
 
@@ -788,22 +778,14 @@ struct HubLift: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(accent, lineWidth: selected ? 4 : 3)
+                    .stroke(accent, lineWidth: selected ? 2.5 : 2)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.55), .white.opacity(0.08), .clear],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1.2
-                    )
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.06), radius: 1.5, y: 1)
-            .shadow(color: .black.opacity(selected ? 0.18 : 0.12), radius: selected ? 8 : 6, y: selected ? 5 : 4)
-            .shadow(color: .black.opacity(selected ? 0.14 : 0.10), radius: selected ? 24 : 18, y: selected ? 14 : 12)
+            .shadow(color: .black.opacity(selected ? 0.12 : 0.10), radius: selected ? 12 : 10, y: selected ? 6 : 5)
+            .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
     }
 }
 

@@ -15,9 +15,10 @@ enum AppTheme {
     static let forestSoft = blueSoft
     static let clay = blueDeep
 
-    static let bg = Color(red: 0.96, green: 0.97, blue: 0.99)
+    static let bg = Color(hex: "F5F7FC")
     static let elevated = Color.white
     static let card = Color.white
+    static let tableFill = Color(hex: "EEF2FB")
     static let cardBorder = Color.black.opacity(0.06)
 
     static let text = Color(red: 0.08, green: 0.10, blue: 0.16)
@@ -89,5 +90,30 @@ struct SecondaryButtonStyle: ButtonStyle {
                     .fill(AppTheme.blueSoft)
             )
             .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
+struct BrandButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(AppTheme.blue)
+                    .opacity(configuration.isPressed ? 0.88 : 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+struct HubPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.988 : 1)
+            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
     }
 }
