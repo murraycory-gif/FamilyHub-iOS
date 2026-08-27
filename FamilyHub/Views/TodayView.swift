@@ -45,8 +45,10 @@ struct TodayView: View {
                     .padding(.bottom, 12)
                 dashboard(for: selectedDay, portrait: sizeClass != .regular)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(daySwipe)
                 familySection
-                    .frame(height: 340)
+                    .frame(height: 380)
                     .padding(.top, 12)
             }
             .padding(.horizontal, 24)
@@ -238,10 +240,9 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 8) {
                     if showDayMenu {
-                        ForEach(upcomingDays, id: \.self) { day in
+                        ForEach(Array(upcomingDays.enumerated()), id: \.offset) { _, day in
                             Button {
-                                selectedDay = day
-                                showDayMenu = false
+                                applyDay(day)
                             } label: {
                                 filterChoiceRow(
                                     title: menuDayLabel(day),
@@ -251,22 +252,16 @@ struct TodayView: View {
                             }
                             .buttonStyle(.plain)
                         }
-                        DatePicker("Day", selection: $selectedDay, displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .padding(.top, 8)
-                            .tint(AppTheme.blue)
                     } else {
                         Button {
-                            profile = .family
-                            showProfileMenu = false
+                            applyProfile(.family)
                         } label: {
                             filterChoiceRow(title: "Whole family", detail: store.householdName, selected: profile == .family)
                         }
                         .buttonStyle(.plain)
                         ForEach(store.members) { member in
                             Button {
-                                profile = .member(member.id)
-                                showProfileMenu = false
+                                applyProfile(.member(member.id))
                             } label: {
                                 filterChoiceRow(
                                     title: member.name,
@@ -438,6 +433,21 @@ struct TodayView: View {
         if Calendar.current.isDateInToday(day) { return "Today" }
         if Calendar.current.isDateInTomorrow(day) { return "Tomorrow" }
         return Date.hubLongDay(day)
+    }
+
+    private func applyDay(_ day: Date) {
+        let next = Calendar.current.startOfDay(for: day)
+        showDayMenu = false
+        DispatchQueue.main.async {
+            selectedDay = next
+        }
+    }
+
+    private func applyProfile(_ next: HubProfile) {
+        showProfileMenu = false
+        DispatchQueue.main.async {
+            profile = next
+        }
     }
 
     private func shiftSelectedDay(_ delta: Int) {
@@ -1038,7 +1048,7 @@ struct TodayView: View {
                     } onEvent: { event in
                         router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                     }
-                    .frame(width: 236, height: 270)
+                    .frame(width: 252, height: 300)
 
                     ForEach(store.members) { member in
                         MemberHomeCard(
@@ -1050,7 +1060,7 @@ struct TodayView: View {
                                 router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
                             }
                         )
-                        .frame(width: 236, height: 270)
+                        .frame(width: 252, height: 300)
                     }
                 }
                 .padding(.horizontal, 14)
