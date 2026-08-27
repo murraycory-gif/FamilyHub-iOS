@@ -790,7 +790,20 @@ struct HubLift: ViewModifier {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .stroke(accent, lineWidth: selected ? 4 : 3)
             )
-            .shadow(color: .black.opacity(selected ? 0.16 : 0.10), radius: selected ? 10 : 7, y: 5)
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.55), .white.opacity(0.08), .clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1.2
+                    )
+            )
+            .shadow(color: .black.opacity(0.06), radius: 1.5, y: 1)
+            .shadow(color: .black.opacity(selected ? 0.18 : 0.12), radius: selected ? 8 : 6, y: selected ? 5 : 4)
+            .shadow(color: .black.opacity(selected ? 0.14 : 0.10), radius: selected ? 24 : 18, y: selected ? 14 : 12)
     }
 }
 

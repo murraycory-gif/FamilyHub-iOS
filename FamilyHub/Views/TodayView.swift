@@ -447,28 +447,18 @@ struct TodayView: View {
     private var dayPager: some View {
         let portrait = sizeClass != .regular
         return ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 14) {
+            LazyHStack(spacing: 0) {
                 ForEach(0..<hubDayCount, id: \.self) { index in
                     dashboard(for: dayAt(index), portrait: portrait)
-                        .containerRelativeFrame(.horizontal) { width, _ in
-                            max(280, width - 36)
-                        }
+                        .containerRelativeFrame(.horizontal)
                         .id(index)
                 }
             }
             .scrollTargetLayout()
         }
-        .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $pageIndex, anchor: .leading)
-        .overlay(alignment: .trailing) {
-            LinearGradient(
-                colors: [.clear, AppTheme.bg.opacity(0.55)],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(width: 22)
-            .allowsHitTesting(false)
-        }
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $pageIndex)
+        .clipped()
     }
 
     private var upcomingDays: [Date] {
@@ -1371,7 +1361,7 @@ private struct AmazonPersonCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             Color.clear
                 .frame(maxWidth: .infinity)
-                .frame(height: 158)
+                .frame(height: 118)
                 .overlay {
                     ZStack {
                         ring
@@ -1380,10 +1370,10 @@ private struct AmazonPersonCard<Content: View>: View {
                                 .resizable()
                                 .scaledToFill()
                         } else if let emoji {
-                            Text(emoji).font(.system(size: 72))
+                            Text(emoji).font(.system(size: 58))
                         } else {
                             Image(systemName: fallback ?? "person.fill")
-                                .font(.system(size: 56, weight: .bold))
+                                .font(.system(size: 44, weight: .bold))
                                 .foregroundStyle(.white.opacity(0.5))
                         }
                     }
@@ -1395,7 +1385,7 @@ private struct AmazonPersonCard<Content: View>: View {
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: 108)
+                    .frame(height: 84)
                     .allowsHitTesting(false)
                 }
                 .overlay(alignment: .bottomLeading) {
