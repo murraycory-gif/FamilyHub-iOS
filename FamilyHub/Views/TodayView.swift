@@ -39,39 +39,37 @@ struct TodayView: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            let portrait = geo.size.height > geo.size.width + 40
-            let familyH = min(max(geo.size.height * (portrait ? 0.32 : 0.34), 250), geo.size.height * 0.38)
-            ZStack {
-                VStack(alignment: .leading, spacing: 0) {
-                    header
-                        .padding(.bottom, 12)
-                    dashboard(for: selectedDay, portrait: portrait)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                        .simultaneousGesture(daySwipe)
-                    familySection(canvas: geo.size, height: familyH)
-                        .frame(height: familyH)
-                        .padding(.top, 12)
+        ZStack {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                    .padding(.bottom, 12)
+                ViewThatFits(in: .horizontal) {
+                    dashboard(for: selectedDay, portrait: false)
+                        .frame(minWidth: 980)
+                    dashboard(for: selectedDay, portrait: true)
                 }
-                .padding(.horizontal, portrait ? 16 : 24)
-                .padding(.top, 4)
-                .padding(.bottom, portrait ? 12 : 16)
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .simultaneousGesture(daySwipe)
+                familySection
+                    .frame(height: 340)
+                    .padding(.top, 12)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 4)
+            .padding(.bottom, 16)
 
-                if showDayMenu || showProfileMenu {
-                    ZStack {
-                        Color.black.opacity(0.38)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                showDayMenu = false
-                                showProfileMenu = false
-                            }
-                        filterPanel(width: min(560, geo.size.width - 72), height: min(660, geo.size.height - 80))
-                    }
+            if showDayMenu || showProfileMenu {
+                ZStack {
+                    Color.black.opacity(0.38)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            showDayMenu = false
+                            showProfileMenu = false
+                        }
+                    filterPanel(width: 520, height: 620)
                 }
             }
-            .frame(width: geo.size.width, height: geo.size.height)
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .environment(\.hubAccent, accent)
@@ -469,7 +467,10 @@ struct TodayView: View {
                 let dx = value.translation.width
                 let dy = value.translation.height
                 guard abs(dx) > 90, abs(dx) > abs(dy) * 1.4 else { return }
-                shiftSelectedDay(dx < 0 ? 1 : -1)
+                let step = dx < 0 ? 1 : -1
+                DispatchQueue.main.async {
+                    shiftSelectedDay(step)
+                }
             }
     }
 
@@ -1035,12 +1036,8 @@ struct TodayView: View {
         .background(soft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func familySection(canvas: CGSize, height: CGFloat) -> some View {
-        let portrait = canvas.height > canvas.width
-        let visible: CGFloat = portrait ? 3.28 : 4.28
-        let width = max(176, (canvas.width - (portrait ? 32 : 48) - 14 * (visible - 1)) / visible)
-        let cardH = max(220, height - 58)
-        return VStack(alignment: .leading, spacing: 0) {
+    private var familySection: some View {
+        VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(symbol: "house.fill", title: "HUB")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 14) {
@@ -1049,7 +1046,7 @@ struct TodayView: View {
                     } onEvent: { event in
                         router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                     }
-                    .frame(width: width, height: cardH)
+                    .frame(width: 236, height: 270)
 
                     ForEach(store.members) { member in
                         MemberHomeCard(
@@ -1061,12 +1058,12 @@ struct TodayView: View {
                                 router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
                             }
                         )
-                        .frame(width: width, height: cardH)
+                        .frame(width: 236, height: 270)
                     }
                 }
                 .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 12)
             }
         }
         .background(AppTheme.card)
