@@ -43,14 +43,10 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                     .padding(.bottom, 12)
-                ViewThatFits(in: .horizontal) {
-                    dashboard(for: selectedDay, portrait: false)
-                        .frame(minWidth: 980)
-                    dashboard(for: selectedDay, portrait: true)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .simultaneousGesture(daySwipe)
+                dashboard(for: selectedDay, portrait: sizeClass != .regular)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(daySwipe)
                 familySection
                     .frame(height: 340)
                     .padding(.top, 12)
