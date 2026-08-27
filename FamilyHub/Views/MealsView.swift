@@ -172,11 +172,7 @@ struct DinnerLaunchView: View {
     var onClose: () -> Void
 
     var body: some View {
-        if item.pick {
-            MealChoiceSheet(day: item.day, onComplete: onClose)
-        } else {
-            TonightDinnerView(day: item.day)
-        }
+        MealChoiceSheet(day: item.day, onComplete: onClose)
     }
 }
 
@@ -378,14 +374,11 @@ struct MealChoiceSheet: View {
     @State private var route: MealPath?
 
     var body: some View {
-        Group {
-            if let item = route {
-                routeView(item)
-            } else {
-                choiceGrid
-            }
+        if let item = route {
+            routeView(item)
+        } else {
+            choiceGrid
         }
-        .background(AppTheme.bg.ignoresSafeArea())
     }
 
     private var choiceGrid: some View {
@@ -434,6 +427,7 @@ struct MealChoiceSheet: View {
                 .padding(20)
             }
         }
+        .background(AppTheme.bg.ignoresSafeArea())
     }
 
     private func choice(_ item: MealPath, title: String, detail: String, symbol: String, image: String) -> some View {
@@ -486,13 +480,19 @@ private struct DinnerChoiceCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Image(imageName)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity)
-                .frame(height: 148)
-                .clipped()
-                .allowsHitTesting(false)
+            if let ui = UIImage(named: imageName) {
+                Image(uiImage: ui)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 148)
+                    .clipped()
+                    .allowsHitTesting(false)
+            } else {
+                AppTheme.blueSoft
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 148)
+            }
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 10) {
                     Image(systemName: symbol)
@@ -1468,7 +1468,9 @@ private struct CookMethodPicker: View {
                 .buttonStyle(.plain)
             }
         }
-        .onAppear { clamp() }
+        .onAppear {
+            DispatchQueue.main.async { clamp() }
+        }
         .onChange(of: name) { _, _ in clamp() }
     }
 

@@ -82,8 +82,8 @@ final class HubStore: ObservableObject {
     }
 
     func dinner(on day: Date) -> DinnerPlan? {
-        let start = Calendar.current.startOfDay(for: day)
-        return dinners.first { Calendar.current.isDate($0.day, inSameDayAs: start) }
+        guard let range = CalendarMath.dayRange(day) else { return nil }
+        return dinners.first { CalendarMath.occurs($0.day, in: range) }
     }
 
     func dinnerTitle(on day: Date) -> String? {
