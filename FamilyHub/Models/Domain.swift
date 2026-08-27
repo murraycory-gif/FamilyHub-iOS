@@ -1555,30 +1555,52 @@ enum DayFilter: Equatable {
 }
 
 enum CalendarMath {
+    static func dayRange(_ day: Date, calendar: Calendar = .current) -> (TimeInterval, TimeInterval)? {
+        let start = calendar.startOfDay(for: day)
+        let t0 = start.timeIntervalSince1970
+        guard t0.isFinite, t0 > 1_000_000 else { return nil }
+        let t1 = calendar.date(byAdding: .day, value: 1, to: start)?.timeIntervalSince1970 ?? (t0 + 86_400)
+        guard t1.isFinite, t1 > t0 else { return nil }
+        return (t0, t1)
+    }
+
+    static func occurs(_ date: Date, in range: (TimeInterval, TimeInterval)) -> Bool {
+        let t = date.timeIntervalSince1970
+        return t.isFinite && t >= range.0 && t < range.1
+    }
+
     static func events(
         _ events: [CalendarEvent],
         on day: Date,
         filter: DayFilter,
         calendar: Calendar = .current
     ) -> [CalendarEvent] {
+        guard let range = dayRange(day, calendar: calendar) else { return [] }
         var seen = Set<String>()
-        let filtered = events
-            .filter { $0.startAt.timeIntervalSince1970.isFinite && calendar.isDate($0.startAt, inSameDayAs: day) }
-            .filter { event in
-                switch filter {
-                case .family:
-                    return true
-                case .member(let id):
-                    return event.memberID == nil || event.memberID == id
-                }
+        var out: [CalendarEvent] = []
+        for event in events {
+            guard occurs(event.startAt, in: range) else { continue }
+            switch filter {
+            case .family:
+                break
+            case .member(let id):
+                if let memberID = event.memberID, memberID != id { continue }
             }
-            .filter { event in
-                let key = event.externalID.flatMap { $0.isEmpty ? nil : $0 }
-                    ?? "\(event.title.lowercased())|\(event.startAt.timeIntervalSince1970)"
-                return seen.insert(key).inserted
+            let key: String
+            if let ext = event.externalID, !ext.isEmpty {
+                key = String(ext.prefix(64))
+            } else {
+                key = event.id.uuidString
             }
-            .sorted { $0.startAt < $1.startAt }
-        return Array(filtered.prefix(12))
+            guard seen.insert(key).inserted else { continue }
+            out.append(event)
+            if out.count >= 12 { break }
+        }
+        return out.sorted { a, b in
+            let ta = a.startAt.timeIntervalSince1970
+            let tb = b.startAt.timeIntervalSince1970
+            return (ta.isFinite ? ta : 0) < (tb.isFinite ? tb : 0)
+        }
     }
 
     static func monthDays(containing date: Date, calendar: Calendar = .current) -> [Date] {

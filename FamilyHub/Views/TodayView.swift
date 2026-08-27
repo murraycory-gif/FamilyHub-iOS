@@ -19,6 +19,7 @@ struct TodayView: View {
     @State private var showProfileMenu = false
     @StateObject private var weather = WeatherLoader()
     @State private var showWeatherOutlook = false
+    @State private var outlookDay = Date()
     @State private var showWeatherPlace = false
     @State private var showAddShopping = false
     @State private var shoppingDraft = ""
@@ -26,6 +27,7 @@ struct TodayView: View {
     @State private var agendaEvent: CalendarEvent?
     @State private var showWidgetPicker = false
     @State private var showAddFlight = false
+    @State private var flightDay = Date()
     @State private var showAddPackage = false
 
     private var accent: Color {
@@ -79,7 +81,7 @@ struct TodayView: View {
             .environmentObject(router)
         }
         .fullScreenCover(isPresented: $showWeatherOutlook) {
-            WeatherOutlookView(day: selectedDay)
+            WeatherOutlookView(day: outlookDay)
                 .environmentObject(store)
                 .environmentObject(weather)
         }
@@ -97,7 +99,7 @@ struct TodayView: View {
                 .presentationDetents([.large])
         }
         .sheet(isPresented: $showAddFlight) {
-            AddFlightSheet(day: selectedDay)
+            AddFlightSheet(day: flightDay)
                 .environmentObject(store)
         }
         .sheet(isPresented: $showAddPackage) {
@@ -201,7 +203,10 @@ struct TodayView: View {
         case .dinner:
             dinnerHomeTile(for: day)
         case .flights:
-            FlightWidget(day: day, onAdd: { showAddFlight = true })
+            FlightWidget(day: day, onAdd: {
+                flightDay = day
+                showAddFlight = true
+            })
         case .packages:
             PackageWidget(onAdd: { showAddPackage = true })
         default:
@@ -562,8 +567,11 @@ struct TodayView: View {
             hours: Calendar.current.isDateInToday(day) ? Array(weather.hoursOn(day).prefix(5)) : [],
             isToday: Calendar.current.isDateInToday(day),
             isLoading: weather.isLoading,
-            live: live,
-            onOpen: { showWeatherOutlook = true },
+            live: live && Calendar.current.isDateInToday(day),
+            onOpen: {
+                outlookDay = day
+                showWeatherOutlook = true
+            },
             onChangePlace: { showWeatherPlace = true }
         )
     }
@@ -738,10 +746,13 @@ struct TodayView: View {
 
     @ViewBuilder
     private func dinnerPhoto(plan: DinnerPlan?, recipe: Recipe?) -> some View {
-        if let recipe, !recipe.imageURL.isEmpty, let url = URL(string: recipe.imageURL) {
-            RecipePhoto(url: url, searchName: recipe.name)
-        } else if let recipe {
-            RecipePhoto(url: nil, searchName: recipe.name)
+        if let recipe {
+            ZStack {
+                AppTheme.blueSoft
+                Image(systemName: "fork.knife")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundStyle(accent)
+            }
         } else if let plan, plan.placeName != nil {
             ZStack {
                 AppTheme.blueSoft
@@ -821,35 +832,39 @@ struct TodayView: View {
 
     private func itemsOn(_ day: Date) -> [HubDayItem] {
         var items: [HubDayItem] = []
-        let cal = Calendar.current
         for event in store.events(on: day, filter: dayFilter) {
             items.append(.event(event))
         }
+        let calRange = CalendarMath.dayRange(day)
         for reminder in store.reminders where !reminder.isCompleted {
             if reminder.isBills {
                 guard profile == .family else { continue }
             } else {
                 guard matchesProfile(reminder.memberID) else { continue }
             }
-            if let due = reminder.dueAt, cal.isDate(due, inSameDayAs: day) {
+            if let due = reminder.dueAt, let range = calRange, CalendarMath.occurs(due, in: range) {
                 items.append(.reminder(reminder))
             }
         }
         for todo in store.todos where !todo.isCompleted {
             guard matchesProfile(todo.memberID) else { continue }
-            if let due = todo.dueAt, cal.isDate(due, inSameDayAs: day) {
+            if let due = todo.dueAt, let range = calRange, CalendarMath.occurs(due, in: range) {
                 items.append(.todo(todo))
             }
         }
         for assignment in store.openAssignments(for: focusedMemberID) {
-            if cal.isDate(assignment.dueOn, inSameDayAs: day) {
+            if let range = calRange, CalendarMath.occurs(assignment.dueOn, in: range) {
                 let title = store.chore(id: assignment.choreID)?.title ?? "Chore"
                 items.append(.chore(assignment, title: title))
             }
         }
         return items
             .filter { $0.sortDate.timeIntervalSince1970.isFinite }
-            .sorted { $0.sortDate < $1.sortDate }
+            .sorted {
+                let a = $0.sortDate.timeIntervalSince1970
+                let b = $1.sortDate.timeIntervalSince1970
+                return (a.isFinite ? a : 0) < (b.isFinite ? b : 0)
+            }
     }
 
     private func uniqueItems(_ items: [HubDayItem]) -> [HubDayItem] {
@@ -1156,8 +1171,9 @@ private struct FamilyFocusCard: View {
     }
 
     private var billsDue: Int {
-        store.reminders.filter {
-            $0.isBills && !$0.isCompleted && ($0.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false)
+        guard let range = CalendarMath.dayRange(day) else { return 0 }
+        return store.reminders.filter {
+            $0.isBills && !$0.isCompleted && ($0.dueAt.map { CalendarMath.occurs($0, in: range) } ?? false)
         }.count
     }
 
@@ -1203,11 +1219,15 @@ private struct MemberHomeCard: View {
     @State private var showStudio = false
 
     private var chores: [ChoreAssignment] {
-        store.openAssignments(for: member.id).filter { $0.status == .pending && Calendar.current.isDate($0.dueOn, inSameDayAs: day) }
+        guard let range = CalendarMath.dayRange(day) else { return [] }
+        return store.openAssignments(for: member.id).filter {
+            $0.status == .pending && CalendarMath.occurs($0.dueOn, in: range)
+        }
     }
     private var todos: [TodoItem] {
-        store.openTodos(for: member.id).filter { item in
-            item.dueAt.map { Calendar.current.isDate($0, inSameDayAs: day) } ?? false
+        guard let range = CalendarMath.dayRange(day) else { return [] }
+        return store.openTodos(for: member.id).filter { item in
+            item.dueAt.map { CalendarMath.occurs($0, in: range) } ?? false
         }
     }
     private var events: [CalendarEvent] {

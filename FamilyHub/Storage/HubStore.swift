@@ -283,7 +283,11 @@ final class HubStore: ObservableObject {
         assignments
             .filter { $0.status == .pending || $0.status == .done }
             .filter { memberID == nil || $0.memberID == memberID }
-            .sorted { $0.dueOn < $1.dueOn }
+            .sorted {
+                let a = $0.dueOn.timeIntervalSince1970
+                let b = $1.dueOn.timeIntervalSince1970
+                return (a.isFinite ? a : 0) < (b.isFinite ? b : 0)
+            }
     }
 
     func openReminders(for memberID: UUID) -> [ReminderItem] {
