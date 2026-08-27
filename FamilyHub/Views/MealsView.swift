@@ -779,9 +779,6 @@ private struct FamilyRecipePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $opened) { recipe in
-            FamilyRecipeDetail(recipe: recipe, day: day, onDone: onDone)
-        }
         .sheet(isPresented: $showAdd) { AddFamilyRecipeSheet().environmentObject(store) }
         .fullScreenCover(isPresented: $showScan) { ScanRecipeSheet().environmentObject(store) }
         .fullScreenCover(isPresented: $showLink) { ImportSocialRecipeView().environmentObject(store) }
@@ -919,6 +916,23 @@ private struct CatalogRecipePicker: View {
     private let columns = [GridItem(.adaptive(minimum: 240), spacing: 16)]
 
     var body: some View {
+        if let recipe = opened {
+            VStack(alignment: .leading, spacing: 0) {
+                HubStickyHeader(lead: "Recipe", tail: "") {
+                    HubHeaderPill(title: "Back") { opened = nil }
+                }
+                CatalogRecipeDetail(recipe: recipe, day: day, onDone: {
+                    opened = nil
+                    onDone()
+                })
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+        } else {
+            recipeList
+        }
+    }
+
+    private var recipeList: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "All", tail: "Recipes") {
                 HubHeaderPill(title: "Close") { onDone() }
@@ -933,46 +947,44 @@ private struct CatalogRecipePicker: View {
                     .foregroundStyle(AppTheme.textSecondary)
                     .padding(.horizontal, 20)
             }
-            List(Array(catalog.recipes.prefix(60).enumerated()), id: \.offset) { _, recipe in
-                Button {
-                    opened = recipe
-                } label: {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            AppTheme.blueSoft
-                            Image(systemName: "fork.knife")
-                                .font(.headline.weight(.bold))
-                                .foregroundStyle(AppTheme.blue)
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(Array(catalog.recipes.prefix(60).enumerated()), id: \.offset) { _, recipe in
+                        Button {
+                            let picked = recipe
+                            DispatchQueue.main.async { opened = picked }
+                        } label: {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    AppTheme.blueSoft
+                                    Image(systemName: "fork.knife")
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(AppTheme.blue)
+                                }
+                                .frame(width: 64, height: 64)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(recipe.name)
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(AppTheme.text)
+                                        .lineLimit(2)
+                                    Text(recipe.category)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(AppTheme.blue)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(12)
+                            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
-                        .frame(width: 64, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(recipe.name)
-                                .font(.headline.weight(.bold))
-                                .foregroundStyle(AppTheme.text)
-                                .lineLimit(2)
-                            Text(recipe.category)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.blue)
-                        }
-                        Spacer(minLength: 0)
+                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 4)
                 }
-                .buttonStyle(.plain)
-                .listRowBackground(AppTheme.card)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $opened) { recipe in
-            CatalogRecipeDetail(recipe: recipe, day: day, onDone: {
-                opened = nil
-                onDone()
-            })
-        }
         .onAppear {
             Task { await catalog.load() }
         }
@@ -1017,10 +1029,15 @@ private struct CatalogRecipeDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                RecipePhoto(url: recipe.thumb, searchName: recipe.name)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 240)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                ZStack {
+                    AppTheme.blueSoft
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 Text(recipe.name)
                     .font(.system(size: 32, weight: .bold))
                 Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
@@ -1478,7 +1495,7 @@ private struct CookDirectionsCard: View {
 
 private func ingredientList(_ lines: [String]) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-        ForEach(lines, id: \.self) { line in
+        ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
             HStack(alignment: .top, spacing: 10) {
                 Circle().fill(AppTheme.blue).frame(width: 6, height: 6).padding(.top, 8)
                 Text(line)
