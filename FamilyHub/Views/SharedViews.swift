@@ -613,6 +613,104 @@ struct HubHeaderPill: View {
     }
 }
 
+struct HubSearchBar: View {
+    @Binding var text: String
+    var placeholder: String
+    var isLoading: Bool = false
+    var onSubmit: () -> Void = {}
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(AppTheme.blue, in: Circle())
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.text)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .onSubmit(onSubmit)
+            if text.isEmpty == false {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(AppTheme.textTertiary)
+                }
+                .buttonStyle(.plain)
+            }
+            if isLoading { ProgressView() }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+        .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
+    }
+}
+
+struct HubSuggestionRow: Identifiable {
+    var id: String
+    var title: String
+    var subtitle: String
+}
+
+struct HubSuggestionList: View {
+    let items: [HubSuggestionRow]
+    var symbol: String = "fork.knife"
+    var onPick: (HubSuggestionRow) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(items.prefix(5))) { item in
+                Button {
+                    onPick(item)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: symbol)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(AppTheme.blue, in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title)
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.text)
+                                .lineLimit(1)
+                            if item.subtitle.isEmpty == false {
+                                Text(item.subtitle)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 3)
+        )
+        .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
+    }
+}
+
 struct HubConfirm: ViewModifier {
     @Binding var isPresented: Bool
     let title: String

@@ -585,25 +585,38 @@ private struct EatOutPicker: View {
                 HubStickyHeader(lead: headerLead, tail: headerTail) {
                     HubHeaderPill(title: "Back") { onClose() }
                 }
-                hubSearchField(text: $areaQuery, placeholder: "Restaurant, city, or zip") {
+                HubSearchBar(text: $areaQuery, placeholder: "Restaurant, city, or zip", isLoading: places.isLoading) {
                     runSearch(areaQuery)
                 }
                 .onChange(of: areaQuery) { _, value in
                     completer.update(value)
                     let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard trimmed.isEmpty == false else { return }
+                    if trimmed.isEmpty {
+                        completer.clear()
+                        Task { await places.useHere() }
+                        return
+                    }
                     Task {
                         try? await Task.sleep(for: .milliseconds(350))
                         guard areaQuery == value else { return }
                         await places.searchMaps(value, completions: completer.suggestions)
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+                .layoutPriority(1)
+                if completer.suggestions.isEmpty == false, areaQuery.count >= 2 {
+                    HubSuggestionList(items: completer.suggestions.map {
+                        HubSuggestionRow(id: $0.id, title: $0.title, subtitle: $0.subtitle)
+                    }) { row in
+                        if let item = completer.suggestions.first(where: { $0.id == row.id }) {
+                            areaQuery = item.query
+                            completer.clear()
+                            Task { await places.searchCompletion(item) }
+                        }
+                    }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
-                if completer.suggestions.isEmpty == false, areaQuery.count >= 2 {
-                    suggestionList
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 8)
                 }
                 chipRow
                     .padding(.horizontal, 20)
@@ -785,7 +798,7 @@ private struct FamilyRecipePicker: View {
                         .buttonStyle(.plain)
                     }
                 }
-                hubSearchField(text: $query, placeholder: "Search family recipes…")
+                HubSearchBar(text: $query, placeholder: "Search family recipes…")
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
                 ScrollView {
@@ -978,6 +991,13 @@ private struct CatalogRecipePicker: View {
                 HubHeaderPill(title: "Close") { onClose() }
             }
             searchBar
+                .onChange(of: catalog.query) { _, value in
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(250))
+                        guard catalog.query == value else { return }
+                        await catalog.search()
+                    }
+                }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 8)
             chips
@@ -1009,22 +1029,9 @@ private struct CatalogRecipePicker: View {
     }
 
     private var searchBar: some View {
-        HStack {
-            Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.blue)
-            TextField("Burger, chili, tacos…", text: $catalog.query)
-                .textFieldStyle(.plain)
-                .font(.headline)
-                .onSubmit { Task { await catalog.search() } }
-            if catalog.isLoading { ProgressView() }
+        HubSearchBar(text: $catalog.query, placeholder: "Burger, chili, tacos…", isLoading: catalog.isLoading) {
+            Task { await catalog.search() }
         }
-        .padding(14)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
     }
 
     private var chips: some View {
@@ -1142,8 +1149,15 @@ private struct SidePicker: View {
                         DispatchQueue.main.async { onDone() }
                     }
                 }
-                hubSearchField(text: $catalog.query, placeholder: "Mashed potatoes, slaw, fries…") {
+                HubSearchBar(text: $catalog.query, placeholder: "Mashed potatoes, slaw, fries…") {
                     Task { await catalog.search() }
+                }
+                .onChange(of: catalog.query) { _, value in
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(250))
+                        guard catalog.query == value else { return }
+                        await catalog.search()
+                    }
                 }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -1649,21 +1663,7 @@ private func placeTile(_ place: NearbyPlace) -> some View {
 }
 
 private func hubSearchField(text: Binding<String>, placeholder: String, onSubmit: @escaping () -> Void = {}) -> some View {
-    HStack {
-        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.blue)
-        TextField(placeholder, text: text)
-            .textFieldStyle(.plain)
-            .font(.headline)
-            .onSubmit(onSubmit)
-    }
-    .padding(14)
-    .background(Color.white)
-    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    .overlay(
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .stroke(Color.black.opacity(0.05), lineWidth: 1)
-    )
-    .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
+    HubSearchBar(text: text, placeholder: placeholder, onSubmit: onSubmit)
 }
 
 private func hubFoodTile(name: String, category: String, url: URL? = nil) -> some View {

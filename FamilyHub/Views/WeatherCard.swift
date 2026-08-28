@@ -962,47 +962,61 @@ struct WeatherPlacePicker: View {
     @State private var locateError: String?
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    Button {
-                        Task { await useLocation() }
-                    } label: {
-                        HStack {
-                            Image(systemName: "location.fill").foregroundStyle(AppTheme.blue)
-                            Text(locating ? "Finding you…" : "Use current location")
-                            Spacer()
-                            if locating { ProgressView() }
-                        }
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "Weather", tail: "Location") {
+                HubHeaderPill(title: "Close") { dismiss() }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                Button {
+                    Task { await useLocation() }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "location.fill")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(AppTheme.blue, in: Circle())
+                        Text(locating ? "Finding you…" : "Use current location")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Spacer()
+                        if locating { ProgressView() }
                     }
-                    if let locateError {
-                        Text(locateError).foregroundStyle(AppTheme.chore)
-                    }
+                    .padding(14)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(AppTheme.blue, lineWidth: 3)
+                    )
                 }
-                Section("City or ZIP") {
-                    TextField("Chicago or 60614", text: $query)
-                        .textInputAutocapitalization(.words)
-                        .onChange(of: query) { _, value in
-                            Task { await weather.search(query: value) }
-                        }
-                    ForEach(weather.searchResults) { place in
-                        Button {
+                .buttonStyle(.plain)
+                if let locateError {
+                    Text(locateError).foregroundStyle(AppTheme.chore)
+                }
+                HubSearchBar(text: $query, placeholder: "Chicago or 60614") {
+                    Task { await weather.search(query: query) }
+                }
+                .onChange(of: query) { _, value in
+                    Task { await weather.search(query: value) }
+                }
+                if weather.searchResults.isEmpty == false {
+                    HubSuggestionList(items: weather.searchResults.map {
+                        HubSuggestionRow(id: $0.id, title: $0.label, subtitle: "Weather")
+                    }, symbol: "location.fill") { row in
+                        if let place = weather.searchResults.first(where: { $0.id == row.id }) {
                             store.setWeatherPlace(place, followMe: false)
                             Task { await weather.load(place: place, units: store.units) }
                             dismiss()
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(place.label).foregroundStyle(AppTheme.text)
-                            }
                         }
                     }
                 }
             }
-            .navigationTitle("Weather location")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
-            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            Spacer(minLength: 0)
         }
+        .background(AppTheme.bg.ignoresSafeArea())
         .presentationDetents([.medium, .large])
     }
 

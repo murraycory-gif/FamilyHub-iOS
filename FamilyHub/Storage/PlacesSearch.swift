@@ -70,7 +70,7 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
 
     override init() {
         super.init()
-        completer.resultTypes = [.pointOfInterest, .address]
+        completer.resultTypes = .pointOfInterest
         completer.region = Self.nationwide
         if #available(iOS 16.0, *) {
             completer.pointOfInterestFilter = MKPointOfInterestFilter(including: [
@@ -101,13 +101,30 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
     }
 
     func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        let mapped = completer.results.prefix(12).map {
-            AreaSuggestion(title: $0.title, subtitle: $0.subtitle, completion: $0)
+        let mapped = completer.results.compactMap { item -> AreaSuggestion? in
+            guard Self.isRestaurant(item) else { return nil }
+            return AreaSuggestion(title: item.title, subtitle: item.subtitle, completion: item)
         }
-        DispatchQueue.main.async { self.suggestions = mapped }
+        DispatchQueue.main.async { self.suggestions = Array(mapped.prefix(6)) }
     }
 
     func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {}
+
+    private static func isRestaurant(_ item: MKLocalSearchCompletion) -> Bool {
+        let title = item.title
+        let sub = item.subtitle
+        let blob = "\(title) \(sub)".lowercased()
+        let roads = [" rd", " road", " trail", " street", " ave", " avenue", " blvd", " lane", " drive", " hwy", " highway", " pkwy", " parkway", " court"]
+        if roads.contains(where: { blob.contains($0) }) { return false }
+        if sub.lowercased() == "united states" || sub.lowercased().hasSuffix("united states") {
+            let parts = title.split(separator: ",")
+            if parts.count == 2 {
+                let state = parts[1].trimmingCharacters(in: .whitespaces)
+                if state.count == 2 { return false }
+            }
+        }
+        return true
+    }
 }
 
 @MainActor
