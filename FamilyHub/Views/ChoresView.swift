@@ -18,14 +18,15 @@ struct ChoresView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        allowancePanel
+                        peopleRow
                             .coachSpot("chorePay")
-                        assignedPanel
-                            .coachSpot("choreBoard")
-                        catalogPanel
-                            .coachSpot("choreCatalog")
-                        if !store.ledger.isEmpty {
-                            activityPanel
+                        HStack(alignment: .top, spacing: 16) {
+                            assignedPanel
+                                .frame(maxWidth: .infinity)
+                                .coachSpot("choreBoard")
+                            catalogPanel
+                                .frame(maxWidth: .infinity)
+                                .coachSpot("choreCatalog")
                         }
                     }
                     .padding(.horizontal, 20)
@@ -74,64 +75,127 @@ struct ChoresView: View {
 
     private var kids: [FamilyMember] { store.kids() }
 
-    private var allowancePanel: some View {
-        HubPanel(symbol: "banknote.fill", title: "Allowance") {
+    private var totalCents: Int {
+        kids.reduce(0) { $0 + $1.allowanceBalanceCents }
+    }
+
+    private var peopleRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Kids")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
             if kids.isEmpty {
                 Text("Add a kid in Profiles to track chores and allowance.")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                    ForEach(kids) { kid in
-                        HStack(spacing: 12) {
-                            MemberAvatar(member: kid, size: 48)
-                                .overlay(Circle().stroke(Color(hex: kid.colorHex), lineWidth: 3))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(kid.name)
-                                    .font(.headline.weight(.bold))
-                                    .foregroundStyle(AppTheme.text)
-                                Text(Money.cents(kid.allowanceBalanceCents))
-                                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                                    .foregroundStyle(AppTheme.blue)
-                                    .monospacedDigit()
-                            }
-                            Spacer(minLength: 0)
-                            Button("Pay") {
-                                payMember = kid
-                                payAmount = ""
-                                payReason = "Paid out"
-                            }
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(AppTheme.blue, in: Capsule())
-                        }
-                        .padding(12)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        kidCard(
+                            name: "Everyone",
+                            cents: totalCents,
+                            color: AppTheme.blue,
+                            avatar: nil,
+                            selected: selectedKid == nil,
+                            openCount: store.openAssignments(for: nil).count,
+                            onSelect: { selectedKid = nil },
+                            onPay: nil
                         )
-                        .shadow(color: Color(hex: kid.colorHex).opacity(0.18), radius: 6, y: 3)
+                        ForEach(kids) { kid in
+                            kidCard(
+                                name: kid.name,
+                                cents: kid.allowanceBalanceCents,
+                                color: Color(hex: kid.colorHex),
+                                avatar: kid,
+                                selected: selectedKid == kid.id,
+                                openCount: store.openAssignments(for: kid.id).count,
+                                onSelect: { selectedKid = kid.id },
+                                onPay: {
+                                    payMember = kid
+                                    payAmount = ""
+                                    payReason = "Paid out"
+                                }
+                            )
+                        }
                     }
+                    .padding(.vertical, 4)
                 }
+                .scrollClipDisabled()
             }
         }
     }
 
+    private func kidCard(
+        name: String,
+        cents: Int,
+        color: Color,
+        avatar: FamilyMember?,
+        selected: Bool,
+        openCount: Int,
+        onSelect: @escaping () -> Void,
+        onPay: (() -> Void)?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button(action: onSelect) {
+                HStack(spacing: 10) {
+                    if let avatar {
+                        MemberAvatar(member: avatar, size: 44)
+                            .overlay(Circle().stroke(color, lineWidth: 3))
+                    } else {
+                        ZStack {
+                            Circle().fill(AppTheme.blueSoft)
+                            Image(systemName: "person.3.fill")
+                                .foregroundStyle(AppTheme.blue)
+                        }
+                        .frame(width: 44, height: 44)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(name)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                            .lineLimit(1)
+                        Text(Money.cents(cents))
+                            .font(.title3.weight(.bold).monospacedDigit())
+                            .foregroundStyle(AppTheme.blue)
+                        Text(openCount == 0 ? "Clear" : "\(openCount) open")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(openCount == 0 ? AppTheme.todo : AppTheme.reminder)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if let onPay {
+                Button("Pay", action: onPay)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(AppTheme.blue, in: Capsule())
+            }
+        }
+        .padding(14)
+        .frame(width: 210, alignment: .leading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(selected ? color : Color.black.opacity(0.05), lineWidth: selected ? 2.5 : 1)
+        )
+        .shadow(color: .black.opacity(selected ? 0.12 : 0.08), radius: selected ? 10 : 6, y: selected ? 5 : 3)
+    }
+
     private var assignedPanel: some View {
-        HubPanel(symbol: "checkmark.circle.fill", title: "Assigned") {
-            VStack(alignment: .leading, spacing: 12) {
-                kidFilter
-                let items = store.openAssignments(for: selectedKid)
-                if items.isEmpty {
-                    Text(selectedKid == nil ? "Nothing assigned. Pick a chore below." : "This kid is clear.")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .padding(.vertical, 8)
-                } else {
+        HubPanel(symbol: "checkmark.circle.fill", title: assignedTitle) {
+            let items = store.openAssignments(for: selectedKid)
+            if items.isEmpty {
+                Text(selectedKid == nil ? "Nothing assigned yet." : "This kid is clear.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 10) {
                     ForEach(items) { assignment in
                         if let chore = store.chore(id: assignment.choreID),
                            let kid = store.member(id: assignment.memberID) {
@@ -143,84 +207,49 @@ struct ChoresView: View {
         }
     }
 
-    private var kidFilter: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                filterPill("All", on: selectedKid == nil, color: AppTheme.blue) {
-                    selectedKid = nil
-                }
-                ForEach(kids) { kid in
-                    filterPill(kid.name, on: selectedKid == kid.id, color: Color(hex: kid.colorHex)) {
-                        selectedKid = kid.id
-                    }
-                }
-            }
+    private var assignedTitle: String {
+        if let id = selectedKid, let kid = store.member(id: id) {
+            return "\(kid.name)’s chores"
         }
-    }
-
-    private func filterPill(_ title: String, on: Bool, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(on ? .white : color)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(on ? color : Color.white, in: Capsule())
-                .overlay(Capsule().stroke(color.opacity(on ? 0 : 0.35), lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
+        return "Assigned"
     }
 
     private var catalogPanel: some View {
-        HubPanel(symbol: "list.bullet", title: "Chore catalog") {
+        HubPanel(symbol: "list.bullet", title: "Jobs") {
             if store.chores.isEmpty {
-                Text("Add dishes, trash, lawn — whatever you pay for.")
+                Text("Add a chore to hand out work.")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     ForEach(store.chores) { chore in
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(chore.title)
                                     .font(.headline.weight(.bold))
                                     .foregroundStyle(AppTheme.text)
+                                    .lineLimit(1)
                                 Text("\(chore.cadence.label) · \(Money.cents(chore.rewardCents))")
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(.caption.weight(.bold))
                                     .foregroundStyle(AppTheme.blue)
-                                if !chore.details.isEmpty {
-                                    Text(chore.details)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(AppTheme.textSecondary)
-                                }
                             }
                             Spacer(minLength: 0)
                             Button("Assign") { assignChore = chore }
-                                .font(.headline.weight(.bold))
+                                .font(.subheadline.weight(.bold))
                                 .foregroundStyle(.white)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
                                 .background(AppTheme.blue, in: Capsule())
                         }
-                        .padding(14)
+                        .padding(12)
                         .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .stroke(Color.black.opacity(0.05), lineWidth: 1)
                         )
-                        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
+                        .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
                     }
-                }
-            }
-        }
-    }
-
-    private var activityPanel: some View {
-        HubPanel(symbol: "clock.arrow.circlepath", title: "Payouts") {
-            VStack(spacing: 10) {
-                ForEach(Array(store.ledger.prefix(8))) { entry in
-                    AllowanceActivityCard(entry: entry)
                 }
             }
         }
