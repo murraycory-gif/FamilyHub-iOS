@@ -12,7 +12,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     }
 
     static var sectionItems: [HubSection] {
-        [.today, .calendar, .lists, .shopping, .meals]
+        [.today, .calendar, .chores, .lists, .shopping, .meals]
     }
 
     static var settingsItems: [HubSection] {
