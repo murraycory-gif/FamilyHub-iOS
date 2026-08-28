@@ -16,7 +16,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     }
 
     static var settingsItems: [HubSection] {
-        [.profiles, .device, .invite, .calendars, .bills, .allowance, .weather, .widgets, .notify]
+        [.profiles, .device, .invite, .calendars, .bills, .weather, .widgets, .notify]
     }
 
     var title: String {
@@ -227,7 +227,7 @@ struct MainHubView: View {
         switch section {
         case .today: TodayView().hubChrome()
         case .calendar: CalendarHubView().hubChrome(showBack: true)
-        case .chores: ChoresView().hubChrome(showBack: true)
+        case .allowance, .chores: ChoresView().hubChrome(showBack: true)
         case .lists: ListsView().hubChrome(showBack: true)
         case .shopping: ShoppingListView().hubChrome(showBack: true)
         case .meals: MealsView().hubChrome(showBack: true)
@@ -237,7 +237,6 @@ struct MainHubView: View {
         case .invite: InviteSettingsView().hubChrome(showBack: true)
         case .calendars: CalendarSourcesView().hubChrome(showBack: true)
         case .bills: BillsSettingsView().hubChrome(showBack: true)
-        case .allowance: AllowanceSettingsPage().hubChrome(showBack: true)
         case .weather: WeatherSettingsView().hubChrome(showBack: true)
         case .widgets: HubWidgetPicker().hubChrome(showBack: true)
         case .notify: NotifySettingsView().hubChrome(showBack: true)

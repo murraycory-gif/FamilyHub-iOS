@@ -271,7 +271,7 @@ struct AllowanceSettingsView: View {
     }
 }
 
-private struct AllowanceActivityCard: View {
+struct AllowanceActivityCard: View {
     @EnvironmentObject private var store: HubStore
     let entry: LedgerEntry
 

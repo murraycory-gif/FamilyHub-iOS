@@ -273,7 +273,7 @@ enum HubTours {
     ]
 
     static let chores: [CoachStep] = [
-        .init(id: "chorePay", symbol: "dollarsign.circle", title: "Allowance", detail: "Each kid’s balance lives here. Approved chores add to it."),
+        .init(id: "chorePay", symbol: "banknote.fill", title: "Allowance", detail: "Balances live on Chores. Pay out here. Approved chores add to the balance."),
         .init(id: "choreBoard", symbol: "checkmark.circle.fill", title: "Assigned", detail: "Kids check work off. You approve it, then it can hit their allowance."),
         .init(id: "choreCatalog", symbol: "list.bullet", title: "Chore catalog", detail: "Build the list of jobs and tap Assign to hand one out.")
     ]
@@ -297,7 +297,7 @@ enum HubTours {
         .init(id: "setProfiles", symbol: "person.3.fill", title: "Profiles", detail: "Everyone in the house. Add, edit, or delete a person here."),
         .init(id: "setCalendars", symbol: "calendar.badge.plus", title: "Calendars", detail: "Connect iCloud, Google, or Outlook. Bills calendars live in Bills Due."),
         .init(id: "setBills", symbol: "dollarsign.circle.fill", title: "Bills Due", detail: "Pick your bills calendar here. Those dates become Bills Due reminders."),
-        .init(id: "setAllow", symbol: "banknote.fill", title: "Allowance", detail: "Kid balances and payouts live here, not on HUB Profiles."),
+        .init(id: "setAllow", symbol: "banknote.fill", title: "Allowance", detail: "Kid balances and payouts live on the Chores page."),
         .init(id: "setWeather", symbol: "cloud.sun.fill", title: "Weather", detail: "Set the city and every measurement HUB should use."),
         .init(id: "setNotify", symbol: "bell.fill", title: "Notifications", detail: "This iPad gets lock-screen pings. To have HUB text your phone, add HUB’s sender once, then tap Text me.")
     ]
