@@ -1013,14 +1013,13 @@ private struct CatalogRecipePicker: View {
             }
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 14) {
-                    ForEach(Array(catalog.recipes.prefix(60).enumerated()), id: \.offset) { _, recipe in
+                    ForEach(Array(catalog.recipes.prefix(80))) { recipe in
                         Button {
-                            let picked = recipe
-                            DispatchQueue.main.async { opened = picked }
+                            opened = recipe
                         } label: {
                             recipeTile(recipe)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HubPressStyle())
                     }
                 }
                 .padding(.horizontal, 20)
@@ -1029,20 +1028,35 @@ private struct CatalogRecipePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .onAppear {
-            Task { await catalog.load() }
+            Task {
+                await catalog.load()
+                RecipeImages.prefetch(Array(catalog.recipes.prefix(24)))
+            }
         }
     }
 
     private var searchBar: some View {
         HStack {
-            Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textTertiary)
+            Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.blue)
             TextField("Burger, chili, tacos…", text: $catalog.query)
                 .textFieldStyle(.plain)
-                .onSubmit { Task { await catalog.search() } }
+                .font(.headline)
+                .onSubmit {
+                    Task {
+                        await catalog.search()
+                        RecipeImages.prefetch(Array(catalog.recipes.prefix(24)))
+                    }
+                }
             if catalog.isLoading { ProgressView() }
         }
         .padding(14)
-        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
     }
 
     private var chips: some View {
@@ -1051,7 +1065,10 @@ private struct CatalogRecipePicker: View {
                 ForEach(catalog.categories, id: \.self) { item in
                     FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
                         catalog.category = item
-                        Task { await catalog.search() }
+                        Task {
+                            await catalog.search()
+                            RecipeImages.prefetch(Array(catalog.recipes.prefix(24)))
+                        }
                     }
                 }
             }
@@ -1675,24 +1692,34 @@ private func recipeTile(_ recipe: CatalogRecipe) -> some View {
 struct RecipePhoto: View {
     let url: URL?
     var searchName: String = ""
+    @State private var image: UIImage?
 
     var body: some View {
-        Group {
-            if let ui = UIImage(named: "DinnerRecipes") {
-                Image(uiImage: ui)
+        ZStack {
+            AppTheme.blueSoft
+            if let image {
+                Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
             } else {
-                ZStack {
-                    AppTheme.blueSoft
-                    Image(systemName: "fork.knife")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(AppTheme.blue.opacity(0.45))
-                }
+                Image(systemName: "fork.knife")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(AppTheme.blue.opacity(0.4))
             }
         }
         .clipped()
         .contentShape(Rectangle())
+        .onAppear {
+            image = RecipeImages.cachedImage(url: url, name: searchName)
+        }
+        .task(id: searchName) {
+            if image == nil {
+                image = RecipeImages.cachedImage(url: url, name: searchName)
+            }
+            if let found = await RecipeImages.photo(url: url, name: searchName) {
+                image = found
+            }
+        }
     }
 }
 

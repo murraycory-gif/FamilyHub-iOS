@@ -4,8 +4,8 @@ import UIKit
 enum RecipeImages {
     private static var memory: [String: UIImage] = [:]
     private static let lock = NSLock()
-    private static let version = "v6"
-    private static let gate = Gate(limit: 6)
+    private static let version = "v7"
+    private static let gate = Gate(limit: 4)
 
     static func cachedImage(url: URL?, name: String) -> UIImage? {
         cached(cacheKey(name))
@@ -14,7 +14,7 @@ enum RecipeImages {
     static func prefetch(_ recipes: [CatalogRecipe]) {
         let unique = Dictionary(grouping: recipes, by: \.name).compactMap(\.value.first)
         Task {
-            for recipe in unique.prefix(12) {
+            for recipe in unique.prefix(24) {
                 _ = await photo(url: recipe.thumb, name: recipe.name)
             }
         }
@@ -26,7 +26,7 @@ enum RecipeImages {
         if let cached = cached(key) { return cached }
         return await gate.run {
             if let cached = cached(key) { return cached }
-            if let url, isMealDB(url), let image = await download(url.absoluteString, timeout: 5) {
+            if let url, isTrusted(url), let image = await download(url.absoluteString, timeout: 5) {
                 store(image, key: key)
                 return image
             }
@@ -39,6 +39,12 @@ enum RecipeImages {
             }
             for term in searchTerms(dish) {
                 if let image = await wikipediaFood(term) {
+                    store(image, key: key)
+                    return image
+                }
+            }
+            for term in searchTerms(dish) {
+                if let image = await wikiSearch(term) {
                     store(image, key: key)
                     return image
                 }
@@ -74,8 +80,11 @@ enum RecipeImages {
         return "\(version)-\(compact.isEmpty ? "dish" : compact)"
     }
 
-    private static func isMealDB(_ url: URL) -> Bool {
-        (url.host ?? "").contains("themealdb.com")
+    private static func isTrusted(_ url: URL) -> Bool {
+        let host = (url.host ?? "").lowercased()
+        return host.contains("themealdb.com")
+            || host.contains("wikipedia.org")
+            || host.contains("wikimedia.org")
     }
 
     private static func mealDB(_ name: String) async -> UIImage? {
@@ -118,6 +127,35 @@ enum RecipeImages {
                    image.size.width > 160 {
                     return image
                 }
+            }
+        }
+        return nil
+    }
+
+    private static func wikiSearch(_ title: String) async -> UIImage? {
+        var parts = URLComponents(string: "https://en.wikipedia.org/w/api.php")
+        parts?.queryItems = [
+            URLQueryItem(name: "action", value: "query"),
+            URLQueryItem(name: "generator", value: "search"),
+            URLQueryItem(name: "gsrsearch", value: "\(title) food"),
+            URLQueryItem(name: "gsrlimit", value: "5"),
+            URLQueryItem(name: "prop", value: "pageimages"),
+            URLQueryItem(name: "pithumbsize", value: "800"),
+            URLQueryItem(name: "format", value: "json"),
+        ]
+        guard let url = parts?.url, let json = await json(url, agent: true),
+              let query = json["query"] as? [String: Any],
+              let pages = query["pages"] as? [String: [String: Any]]
+        else { return nil }
+        for page in pages.values {
+            let pageTitle = ((page["title"] as? String) ?? "").lowercased()
+            if junk(pageTitle) { continue }
+            if let thumb = page["thumbnail"] as? [String: Any],
+               let source = thumb["source"] as? String,
+               !source.lowercased().contains(".svg"),
+               let image = await download(source, timeout: 5),
+               image.size.width > 160 {
+                return image
             }
         }
         return nil
@@ -384,7 +422,7 @@ enum RecipeImages {
 
     private static var folder: URL {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RecipePhotosV6", isDirectory: true)
+            .appendingPathComponent("RecipePhotosV7", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
