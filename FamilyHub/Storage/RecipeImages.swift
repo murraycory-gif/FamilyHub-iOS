@@ -1,468 +1,293 @@
 import Foundation
 import UIKit
 
-enum RecipeImages {
-    private static var memory: [String: UIImage] = [:]
-    private static let lock = NSLock()
-    private static let version = "v7"
-    private static let gate = Gate(limit: 4)
-
-    static func cachedImage(url: URL?, name: String) -> UIImage? {
-        cached(cacheKey(name))
+enum RecipeThumbs {
+    static func url(for name: String) -> URL? {
+        guard let raw = table[name] else { return nil }
+        return URL(string: raw)
     }
 
-    static func prefetch(_ recipes: [CatalogRecipe]) {
-        let unique = Dictionary(grouping: recipes, by: \.name).compactMap(\.value.first)
-        Task {
-            for recipe in unique.prefix(24) {
-                _ = await photo(url: recipe.thumb, name: recipe.name)
-            }
+    static func smallURL(for name: String) -> URL? {
+        guard let url = url(for: name) else { return nil }
+        if url.host?.contains("themealdb.com") == true {
+            return url.appendingPathComponent("small")
         }
+        return url
     }
 
-    static func photo(url: URL?, name: String) async -> UIImage? {
-        let dish = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let key = cacheKey(dish)
-        if let cached = cached(key) { return cached }
-        return await gate.run {
-            if let cached = cached(key) { return cached }
-            if let url, isTrusted(url), let image = await download(url.absoluteString, timeout: 5) {
-                store(image, key: key)
-                return image
-            }
-            guard !dish.isEmpty else { return nil }
-            for term in searchTerms(dish) {
-                if let image = await mealDB(term) {
-                    store(image, key: key)
-                    return image
-                }
-            }
-            for term in searchTerms(dish) {
-                if let image = await wikipediaFood(term) {
-                    store(image, key: key)
-                    return image
-                }
-            }
-            for term in searchTerms(dish) {
-                if let image = await wikiSearch(term) {
-                    store(image, key: key)
-                    return image
-                }
-            }
-            return nil
-        }
-    }
-
-    private static func searchTerms(_ name: String) -> [String] {
-        var terms: [String] = []
-        let mapped = alias(name)
-        terms.append(mapped)
-        if mapped != name { terms.append(name) }
-        let short = mapped
-            .split(separator: " ")
-            .map(String.init)
-            .filter { !dropWords.contains($0.lowercased()) }
-            .joined(separator: " ")
-        if short.count >= 4, !terms.contains(short) { terms.append(short) }
-        return terms
-    }
-
-    private static let dropWords: Set<String> = [
-        "classic", "homemade", "with", "and", "the", "for", "dinner", "night",
-        "american", "table", "style", "skillet", "bake", "two", "ways", "at", "home"
+    private static let table: [String: String] = [
+        "Buttermilk Fried Chicken": "https://www.themealdb.com/images/media/meals/sypxpx1515365095.jpg",
+        "Classic Cheeseburgers": "https://www.themealdb.com/images/media/meals/44bzep1761848278.jpg",
+        "BBQ Baby Back Ribs": "https://www.themealdb.com/images/media/meals/om5hsl1764364721.jpg",
+        "Pulled Pork Sandwiches": "https://www.themealdb.com/images/media/meals/tzsy461763769901.jpg",
+        "Texas Brisket": "https://www.themealdb.com/images/media/meals/ursuup1487348423.jpg",
+        "Buffalo Chicken Wings": "https://www.themealdb.com/images/media/meals/feh9k21784665694.jpg",
+        "Meatloaf with Ketchup Glaze": "https://www.themealdb.com/images/media/meals/ypuxtw1511297463.jpg",
+        "Chicken Pot Pie": "https://www.themealdb.com/images/media/meals/sytuqu1511553755.jpg",
+        "Tuna Noodle Casserole": "https://www.themealdb.com/images/media/meals/yypwwq1511304979.jpg",
+        "Green Bean Casserole": "https://www.themealdb.com/images/media/meals/vptwyt1511450962.jpg",
+        "Macaroni and Cheese": "https://www.themealdb.com/images/media/meals/kpiu4t1782242131.jpg",
+        "Chili con Carne": "https://www.themealdb.com/images/media/meals/uwxqwy1483389553.jpg",
+        "Sloppy Joes": "https://www.themealdb.com/images/media/meals/atd5sh1583188467.jpg",
+        "Cheesesteaks": "https://www.themealdb.com/images/media/meals/vussxq1511882648.jpg",
+        "Club Sandwich": "https://www.themealdb.com/images/media/meals/djdg8l1784578885.jpg",
+        "BLT": "https://www.themealdb.com/images/media/meals/dxs5t71782678369.jpg",
+        "Grilled Cheese and Tomato Soup": "https://www.themealdb.com/images/media/meals/tvvxpv1511191952.jpg",
+        "Chicken and Dumplings": "https://www.themealdb.com/images/media/meals/wyxwsp1486979827.jpg",
+        "Shrimp and Grits": "https://www.themealdb.com/images/media/meals/bx07m71764792853.jpg",
+        "Jambalaya": "https://www.themealdb.com/images/media/meals/iuws3q1783801530.jpg",
+        "Gumbo": "https://www.themealdb.com/images/media/meals/04axct1763793018.jpg",
+        "Red Beans and Rice": "https://www.themealdb.com/images/media/meals/9tddhg1764443699.jpg",
+        "Po' Boy": "https://www.themealdb.com/images/media/meals/grhn401765687086.jpg",
+        "Clam Chowder": "https://www.themealdb.com/images/media/meals/rvtvuw1511190488.jpg",
+        "Lobster Rolls": "https://www.themealdb.com/images/media/meals/3m8yae1763257951.jpg",
+        "Crab Cakes": "https://www.themealdb.com/images/media/meals/jyvy8u1783800448.jpg",
+        "Fish Fry": "https://www.themealdb.com/images/media/meals/5jdtie1763289302.jpg",
+        "Beef Stew": "https://www.themealdb.com/images/media/meals/a4kgf21763075288.jpg",
+        "Pot Roast": "https://www.themealdb.com/images/media/meals/ssrrrs1503664277.jpg",
+        "Roast Chicken": "https://www.themealdb.com/images/media/meals/cj56fs1762340001.jpg",
+        "Sheet Pan Fajitas": "https://www.themealdb.com/images/media/meals/tvtxpq1511464705.jpg",
+        "Beef Tacos": "https://www.themealdb.com/images/media/meals/ypxvwv1505333929.jpg",
+        "Chicken Enchiladas": "https://www.themealdb.com/images/media/meals/qtuwxu1468233098.jpg",
+        "Chicken Quesadillas": "https://www.themealdb.com/images/media/meals/se5vhk1764114880.jpg",
+        "Nachos Supreme": "https://www.themealdb.com/images/media/meals/o2cd4r1764113576.jpg",
+        "Burrito Bowls": "https://www.themealdb.com/images/media/meals/tbj1bs1764118062.jpg",
+        "Pork Carnitas": "https://www.themealdb.com/images/media/meals/f0cdwk1782688162.jpg",
+        "Breakfast-for-Dinner Pancakes": "https://www.themealdb.com/images/media/meals/sywswr1511383814.jpg",
+        "French Toast": "https://www.themealdb.com/images/media/meals/8rfd4q1764112993.jpg",
+        "Biscuits and Sausage Gravy": "https://www.themealdb.com/images/media/meals/st1ifa1583267248.jpg",
+        "Chicken Fried Steak": "https://www.themealdb.com/images/media/meals/lmwaf61783805434.jpg",
+        "Pork Chops and Applesauce": "https://www.themealdb.com/images/media/meals/ymk7gt1783803106.jpg",
+        "Stuffed Peppers": "https://www.themealdb.com/images/media/meals/diuub11782687570.jpg",
+        "Shepherd's Pie American": "https://www.themealdb.com/images/media/meals/wrssvt1511556563.jpg",
+        "Lasagna": "https://www.themealdb.com/images/media/meals/wtsvxx1511296896.jpg",
+        "Spaghetti and Meatballs": "https://www.themealdb.com/images/media/meals/sutysw1468247559.jpg",
+        "Baked Ziti": "https://www.themealdb.com/images/media/meals/jvjnoh1780086318.jpg",
+        "Chicken Alfredo": "https://www.themealdb.com/images/media/meals/0jv5gx1661040802.jpg",
+        "Pesto Pasta with Chicken": "https://www.themealdb.com/images/media/meals/q47rkb1762324620.jpg",
+        "BBQ Chicken Pizza": "https://www.themealdb.com/images/media/meals/x0lk931587671540.jpg",
+        "Pepperoni Pizza Night": "https://www.themealdb.com/images/media/meals/adxcbq1619787919.jpg",
+        "Cornbread Chili Bake": "https://www.themealdb.com/images/media/meals/xvsurr1511719182.jpg",
+        "Hamburgers Helper Style Skillet": "https://www.themealdb.com/images/media/meals/k420tj1585565244.jpg",
+        "Teriyaki Chicken Bowls": "https://www.themealdb.com/images/media/meals/xxyupu1468262513.jpg",
+        "Honey Garlic Salmon": "https://www.themealdb.com/images/media/meals/1548772327.jpg",
+        "Cajun Salmon": "https://www.themealdb.com/images/media/meals/c0gmo31766594751.jpg",
+        "Fish Tacos": "https://www.themealdb.com/images/media/meals/uvuyxu1503067369.jpg",
+        "Shrimp Scampi": "https://www.themealdb.com/images/media/meals/wxywrq1468235067.jpg",
+        "Beef Stir Fry": "https://www.themealdb.com/images/media/meals/stnxzp1784835840.jpg",
+        "Orange Chicken": "https://www.themealdb.com/images/media/meals/s73ytv1765567838.jpg",
+        "General Tso's at Home": "https://www.themealdb.com/images/media/meals/ax643t1784731109.jpg",
+        "Loaded Baked Potatoes": "https://www.themealdb.com/images/media/meals/1550441882.jpg",
+        "Veggie Chili": "https://www.themealdb.com/images/media/meals/pa03n41777540582.jpg",
+        "Black Bean Burgers": "https://www.themealdb.com/images/media/meals/p277uc1764109195.jpg",
+        "Caesar Salad with Grilled Chicken": "https://www.themealdb.com/images/media/meals/1549542994.jpg",
+        "Cobb Salad": "https://www.themealdb.com/images/media/meals/ejht7k1780092390.jpg",
+        "BBQ Pulled Chicken": "https://www.themealdb.com/images/media/meals/13fg4j1764441982.jpg",
+        "Smoked Sausage and Peppers": "https://www.themealdb.com/images/media/meals/jgl9qq1764437635.jpg",
+        "Bratwurst and Sauerkraut": "https://www.themealdb.com/images/media/meals/y4t9zg1777628842.jpg",
+        "Chicago Dogs": "https://www.themealdb.com/images/media/meals/dokbyt1779645030.jpg",
+        "Coney Dogs": "https://www.themealdb.com/images/media/meals/qt4i0n1763256454.jpg",
+        "Philly Roast Pork Sandwich": "https://www.themealdb.com/images/media/meals/sbx7n71587673021.jpg",
+        "Italian Beef": "https://www.themealdb.com/images/media/meals/jc6oub1763196663.jpg",
+        "Pork Tenderloin Sandwich": "https://www.themealdb.com/images/media/meals/jp09191782856005.jpg",
+        "Open Face Hot Turkey Sandwich": "https://www.themealdb.com/images/media/meals/kgfh3q1763075438.jpg",
+        "Chicken and Rice Casserole": "https://www.themealdb.com/images/media/meals/wvpsxx1468256321.jpg",
+        "Hashbrown Casserole": "https://www.themealdb.com/images/media/meals/zub3s91764110535.jpg",
+        "Funeral Potatoes": "https://www.themealdb.com/images/media/meals/02s6gc1763799560.jpg",
+        "Corn Casserole": "https://www.themealdb.com/images/media/meals/5pmn0g1779813285.jpg",
+        "Thanksgiving Turkey": "https://www.themealdb.com/images/media/meals/yk78uc1763075719.jpg",
+        "Sausage Stuffing": "https://www.themealdb.com/images/media/meals/flrajf1762341295.jpg",
+        "Sweet Potato Casserole": "https://www.themealdb.com/images/media/meals/020z181619788503.jpg",
+        "Ham with Pineapple": "https://www.themealdb.com/images/media/meals/dlmh401760524897.jpg",
+        "Corned Beef and Cabbage": "https://www.themealdb.com/images/media/meals/bjtjyl1779552068.jpg",
+        "Prime Rib": "https://www.themealdb.com/images/media/meals/e2kcut1782591669.jpg",
+        "Cedar Plank Salmon": "https://www.themealdb.com/images/media/meals/urtpqw1487341253.jpg",
+        "Surf and Turf": "https://www.themealdb.com/images/media/meals/sr7chd1780264758.jpg",
+        "Meatball Subs": "https://www.themealdb.com/images/media/meals/bnhfa71784662834.jpg",
+        "Chicken Parmesan": "https://www.themealdb.com/images/media/meals/5vhbzt1782239221.jpg",
+        "Eggplant Parmesan": "https://www.themealdb.com/images/media/meals/fg7d641784666908.jpg",
+        "Stuffed Shells": "https://www.themealdb.com/images/media/meals/j223gc1784579841.jpg",
+        "Baked Chicken Tenders": "https://www.themealdb.com/images/media/meals/wyrqqq1468233628.jpg",
+        "BBQ Meatloaf": "https://www.themealdb.com/images/media/meals/ytme8t1764111401.jpg",
+        "Dr Pepper Pulled Pork": "https://www.themealdb.com/images/media/meals/qqwhw51780093126.jpg",
+        "Smash Burgers": "https://www.themealdb.com/images/media/meals/lgmnff1763789847.jpg",
+        "Turkey Burgers": "https://www.themealdb.com/images/media/meals/6v583k1780093743.jpg",
+        "Blackened Catfish": "https://www.themealdb.com/images/media/meals/4xcfai1763765676.jpg",
+        "Hush Puppies and Fried Fish": "https://www.themealdb.com/images/media/meals/r7mcjm1780261264.jpg",
+        "Collard Greens with Ham": "https://www.themealdb.com/images/media/meals/5tf8j11782236249.jpg",
+        "Baked Beans": "https://www.themealdb.com/images/media/meals/4o4wh11761848573.jpg",
+        "Coleslaw": "https://www.themealdb.com/images/media/meals/ywwrsp1511720277.jpg",
+        "Potato Salad": "https://www.themealdb.com/images/media/meals/vxuyrx1511302687.jpg",
+        "Macaroni Salad": "https://www.themealdb.com/images/media/meals/ryppsv1511815505.jpg",
+        "Corn on the Cob": "https://www.themealdb.com/images/media/meals/m0p0j81765568742.jpg",
+        "Garlic Mashed Potatoes": "https://www.themealdb.com/images/media/meals/pkopc31683207947.jpg",
+        "Brown Gravy Pork Chops": "https://www.themealdb.com/images/media/meals/z0ageb1583189517.jpg",
+        "Salisbury Steak": "https://www.themealdb.com/images/media/meals/vtqxtu1511784197.jpg",
+        "Chicken and Stuffing Bake": "https://www.themealdb.com/images/media/meals/41cxjh1683207682.jpg",
+        "Tater Tot Hotdish": "https://www.themealdb.com/images/media/meals/uyqrrv1511553350.jpg",
+        "Frito Pie": "https://www.themealdb.com/images/media/meals/dxpc7j1764370714.jpg",
+        "Walking Tacos": "https://www.themealdb.com/images/media/meals/1529444830.jpg",
+        "Seven Layer Dip Night": "https://www.themealdb.com/images/media/meals/t2b8bn1779737789.jpg",
+        "White Chicken Chili": "https://www.themealdb.com/images/media/meals/1nalo51765188375.jpg",
+        "Chicken Noodle Soup": "https://www.themealdb.com/images/media/meals/cgl60b1683206581.jpg",
+        "Tomato Basil Soup and Grilled Cheese": "https://www.themealdb.com/images/media/meals/pbzcrx1763765096.jpg",
+        "Broccoli Cheddar Soup": "https://www.themealdb.com/images/media/meals/k07k271782502861.jpg",
+        "French Onion Soup": "https://www.themealdb.com/images/media/meals/bc8v651619789840.jpg",
+        "Crockpot Chicken Tacos": "https://www.themealdb.com/images/media/meals/svprys1511176755.jpg",
+        "Crockpot Beef Tips": "https://www.themealdb.com/images/media/meals/vvpprx1487325699.jpg",
+        "Weeknight Tacos Two Ways": "https://www.themealdb.com/images/media/meals/ra2k8a1764365055.jpg",
+        "Hawaiian Haystacks": "https://www.themealdb.com/images/media/meals/qwicc91764368097.jpg",
+        "Chicken Divan": "https://www.themealdb.com/images/media/meals/xlqqhw1764369924.jpg",
+        "King Ranch Chicken": "https://www.themealdb.com/images/media/meals/zadvgb1699012544.jpg",
+        "Chicken Tetrazzini": "https://www.themealdb.com/images/media/meals/gjjlzc1782496055.jpg",
+        "Beef Stroganoff American": "https://www.themealdb.com/images/media/meals/byolko1782500400.jpg",
+        "Swedish Meatballs American Table": "https://www.themealdb.com/images/media/meals/nmxec11782498644.jpg",
+        "Pigs in a Blanket Dinner": "https://www.themealdb.com/images/media/meals/9ya6o71780262651.jpg",
+        "Breakfast Burritos": "https://www.themealdb.com/images/media/meals/urzj1d1587670726.jpg",
+        "Huevos Rancheros": "https://www.themealdb.com/images/media/meals/md8w601593348504.jpg",
+        "Chicken and Waffles": "https://www.themealdb.com/images/media/meals/0wmns51784837949.jpg",
+        "Steak and Potatoes": "https://www.themealdb.com/images/media/meals/fl4brj1764361323.jpg",
+        "Pork Ribs Oven": "https://www.themealdb.com/images/media/meals/4pqimk1683207418.jpg",
+        "Beer Can Chicken": "https://www.themealdb.com/images/media/meals/lhqev81565090111.jpg",
+        "Grilled BBQ Chicken": "https://www.themealdb.com/images/media/meals/xrxz7h1782592711.jpg",
+        "Cedar BBQ Salmon Burgers": "https://www.themealdb.com/images/media/meals/x0mreq1784577446.jpg",
+        "Turkey Club Wrap": "https://www.themealdb.com/images/media/meals/81ahfr1784394567.jpg",
+        "Chicken Caesar Wrap": "https://www.themealdb.com/images/media/meals/rpvptu1511641092.jpg",
+        "Buffalo Chicken Sandwiches": "https://www.themealdb.com/images/media/meals/0206h11699013358.jpg",
+        "Crispy Chicken Sandwich": "https://www.themealdb.com/images/media/meals/e756bf1761848342.jpg",
+        "BBQ Pulled Jackfruit": "https://www.themealdb.com/images/media/meals/de0sns1779555283.jpg",
+        "Mushroom Cheesesteaks": "https://www.themealdb.com/images/media/meals/skzd0x1780091674.jpg",
+        "Baked Ziti Sausage": "https://www.themealdb.com/images/media/meals/804v1j1764367088.jpg",
+        "Sausage, Peppers, and Onions": "https://www.themealdb.com/images/media/meals/tkwxmv1777540463.jpg",
+        "Weeknight Roast Salmon and Veg": "https://www.themealdb.com/images/media/meals/qywups1511796761.jpg",
+        "Honey Mustard Chicken Thighs": "https://www.themealdb.com/images/media/meals/naqyel1608588563.jpg",
+        "Lemon Pepper Chicken": "https://www.themealdb.com/images/media/meals/uuqvwu1504629254.jpg",
+        "Garlic Butter Steak Bites": "https://www.themealdb.com/images/media/meals/z267f71764364072.jpg",
+        "Cheeseburger Pasta Skillet": "https://www.themealdb.com/images/media/meals/h68o161782679437.jpg",
+        "Taco Pasta": "https://www.themealdb.com/images/media/meals/sl7cr91782588539.jpg",
+        "Pizza Pasta Bake": "https://www.themealdb.com/images/media/meals/dg7tad1782588053.jpg",
+        "Ranch Chicken Bacon Bake": "https://www.themealdb.com/images/media/meals/xqwwpy1483908697.jpg",
+        "Mississippi Pot Roast": "https://www.themealdb.com/images/media/meals/hqaejl1695738653.jpg",
+        "Mississippi Chicken": "https://www.themealdb.com/images/media/meals/6utn1w1782237402.jpg",
+        "Coke Ham": "https://www.themealdb.com/images/media/meals/z672jx1780263633.jpg",
+        "Root Beer Pulled Pork": "https://www.themealdb.com/images/media/meals/dk70uv1784670127.jpg",
+        "Sunday Gravy with Sausage and Meatballs": "https://www.themealdb.com/images/media/meals/qqpwsy1511796276.jpg",
+        "Baked Mostaccioli": "https://www.themealdb.com/images/media/meals/6vi2cv1763075785.jpg",
+        "Chicken Cordon Bleu Bake": "https://www.themealdb.com/images/media/meals/g33c901763365484.jpg",
+        "Reuben Skillet": "https://www.themealdb.com/images/media/meals/1549542877.jpg",
+        "Patty Melt": "https://www.themealdb.com/images/media/meals/6awyvm1782685205.jpg",
+        "Tuna Melts": "https://www.themealdb.com/images/media/meals/y75q5j1782685779.jpg",
+        "Salmon Patties": "https://www.themealdb.com/images/media/meals/tkxquw1628771028.jpg",
+        "Chicken Bog": "https://www.themealdb.com/images/media/meals/60oc3k1699009846.jpg",
+        "Hoppin' John": "https://www.themealdb.com/images/media/meals/brmxra1782681940.jpg",
+        "Chicken Bog Bowl": "https://www.themealdb.com/images/media/meals/16zbeu1763789342.jpg",
+        "Mashed Potatoes": "https://www.themealdb.com/images/media/meals/9kecho1784575366.jpg",
+        "Roasted Potatoes": "https://www.themealdb.com/images/media/meals/73o3vq1765317873.jpg",
+        "French Fries": "https://www.themealdb.com/images/media/meals/ussyxw1515364536.jpg",
+        "Sweet Potato Fries": "https://www.themealdb.com/images/media/meals/jg4r991779916649.jpg",
+        "Scalloped Potatoes": "https://www.themealdb.com/images/media/meals/wympxc1779734808.jpg",
+        "Creamed Corn": "https://www.themealdb.com/images/media/meals/h7zrys1779736460.jpg",
+        "Roasted Broccoli": "https://www.themealdb.com/images/media/meals/wpputp1511812960.jpg",
+        "Roasted Carrots": "https://www.themealdb.com/images/media/meals/8b2msz1763074897.jpg",
+        "Asparagus": "https://www.themealdb.com/images/media/meals/z1hz7z1765316430.jpg",
+        "Sauteed Green Beans": "https://www.themealdb.com/images/media/meals/xjii2g1784836867.jpg",
+        "Cornbread": "https://www.themealdb.com/images/media/meals/vrspxv1511722107.jpg",
+        "Garlic Bread": "https://www.themealdb.com/images/media/meals/t3r3ka1560461972.jpg",
+        "Dinner Rolls": "https://www.themealdb.com/images/media/meals/fnfnhi1784671116.jpg",
+        "Biscuits": "https://www.themealdb.com/images/media/meals/2mrghf1782773422.jpg",
+        "House Salad": "https://www.themealdb.com/images/media/meals/lrfdwz1764438393.jpg",
+        "Caesar Salad": "https://www.themealdb.com/images/media/meals/q21suk1782772956.jpg",
+        "Wedge Salad": "https://www.themealdb.com/images/media/meals/wkhwqr1782774765.jpg",
+        "Fruit Salad": "https://www.themealdb.com/images/media/meals/vc08jn1628769553.jpg",
+        "Onion Rings": "https://www.themealdb.com/images/media/meals/gpz67p1560458984.jpg",
+        "Tater Tots": "https://www.themealdb.com/images/media/meals/fm01ky1764366365.jpg",
+        "Rice Pilaf": "https://www.themealdb.com/images/media/meals/oal8x31764119345.jpg",
+        "White Rice": "https://www.themealdb.com/images/media/meals/7i6csk1780094394.jpg",
+        "Stuffing": "https://www.themealdb.com/images/media/meals/vqpwrv1511723001.jpg",
+        "Cranberry Sauce": "https://www.themealdb.com/images/media/meals/fk80jp1763280767.jpg",
+        "Applesauce": "https://www.themealdb.com/images/media/meals/uuuspp1511297945.jpg",
+        "Gravy": "https://www.themealdb.com/images/media/meals/syqypv1486981727.jpg",
+        "Collard Greens": "https://www.themealdb.com/images/media/meals/mp9z0i1782238092.jpg",
+        "Fried Okra": "https://www.themealdb.com/images/media/meals/wruvqv1511880994.jpg",
+        "Hush Puppies": "https://www.themealdb.com/images/media/meals/1529446352.jpg",
+        "Deviled Eggs": "https://www.themealdb.com/images/media/meals/qxytrx1511304021.jpg",
+        "Pickles": "https://www.themealdb.com/images/media/meals/qrqywr1503066605.jpg",
+        "Baked Macaroni": "https://www.themealdb.com/images/media/meals/wuyd2h1765655837.jpg",
+        "Creamed Spinach": "https://www.themealdb.com/images/media/meals/xrrtss1511555269.jpg",
+        "Brussels Sprouts": "https://www.themealdb.com/images/media/meals/uuns781783804024.jpg",
+        "Cucumber Salad": "https://www.themealdb.com/images/media/meals/tyywsw1505930373.jpg",
+        "Three Bean Salad": "https://www.themealdb.com/images/media/meals/hob03q1780264260.jpg",
+        "Corn Salad": "https://www.themealdb.com/images/media/meals/nz0lg71784671684.jpg",
+        "Texas Toast": "https://www.themealdb.com/images/media/meals/er4d081765186828.jpg",
+        "Cheddar Biscuits": "https://www.themealdb.com/images/media/meals/qpxvuq1511798906.jpg",
+        "Slaw Mix": "https://www.themealdb.com/images/media/meals/uwvxpv1511557015.jpg",
+        "Potato Wedges": "https://www.themealdb.com/images/media/meals/k29viq1585565980.jpg",
+        "Elote": "https://www.themealdb.com/images/media/meals/t5rgav1784659936.jpg",
+        "Refried Beans": "https://www.themealdb.com/images/media/meals/hcg6l91763596970.jpg",
+        "Spanish Rice": "https://www.themealdb.com/images/media/meals/4hzyvq1763792564.jpg",
     ]
+}
 
-    private static func cacheKey(_ name: String) -> String {
-        let slug = name.lowercased().map { $0.isLetter || $0.isNumber ? $0 : Character("-") }
-        var compact = String(slug)
-        while compact.contains("--") { compact = compact.replacingOccurrences(of: "--", with: "-") }
-        compact = compact.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-        return "\(version)-\(compact.isEmpty ? "dish" : compact)"
-    }
-
-    private static func isTrusted(_ url: URL) -> Bool {
-        let host = (url.host ?? "").lowercased()
-        return host.contains("themealdb.com")
-            || host.contains("wikipedia.org")
-            || host.contains("wikimedia.org")
-    }
-
-    private static func mealDB(_ name: String) async -> UIImage? {
-        let query = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name
-        guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(query)"),
-              let json = await json(url),
-              let meals = json["meals"] as? [[String: Any]]
-        else { return nil }
-        for meal in meals.prefix(8) {
-            let title = meal["strMeal"] as? String ?? ""
-            guard fits(title, dish: name) || meals.count == 1 else { continue }
-            if let thumb = meal["strMealThumb"] as? String, let image = await download(thumb, timeout: 5) {
-                return image
-            }
-        }
-        if name.split(separator: " ").count >= 2,
-           let thumb = meals.first?["strMealThumb"] as? String {
-            return await download(thumb, timeout: 5)
-        }
-        return nil
-    }
-
-    private static func wikipediaFood(_ title: String) async -> UIImage? {
-        let candidates = ["\(title) (food)", "\(title) dish", title]
-        for raw in candidates {
-            let slug = raw.replacingOccurrences(of: " ", with: "_")
-                .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? raw
-            guard let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(slug)"),
-                  let json = await json(url, agent: true)
-            else { continue }
-            if json["type"] as? String == "disambiguation" { continue }
-            let page = ((json["title"] as? String) ?? "").lowercased()
-            let desc = ((json["description"] as? String) ?? "").lowercased()
-            if junk(page) || junk(desc) { continue }
-            for key in ["originalimage", "thumbnail"] {
-                if let thumb = json[key] as? [String: Any],
-                   let source = thumb["source"] as? String,
-                   !source.lowercased().contains(".svg"),
-                   let image = await download(source, timeout: 5),
-                   image.size.width > 160 {
-                    return image
-                }
-            }
-        }
-        return nil
-    }
-
-    private static func wikiSearch(_ title: String) async -> UIImage? {
-        var parts = URLComponents(string: "https://en.wikipedia.org/w/api.php")
-        parts?.queryItems = [
-            URLQueryItem(name: "action", value: "query"),
-            URLQueryItem(name: "generator", value: "search"),
-            URLQueryItem(name: "gsrsearch", value: "\(title) food"),
-            URLQueryItem(name: "gsrlimit", value: "5"),
-            URLQueryItem(name: "prop", value: "pageimages"),
-            URLQueryItem(name: "pithumbsize", value: "800"),
-            URLQueryItem(name: "format", value: "json"),
-        ]
-        guard let url = parts?.url, let json = await json(url, agent: true),
-              let query = json["query"] as? [String: Any],
-              let pages = query["pages"] as? [String: [String: Any]]
-        else { return nil }
-        for page in pages.values {
-            let pageTitle = ((page["title"] as? String) ?? "").lowercased()
-            if junk(pageTitle) { continue }
-            if let thumb = page["thumbnail"] as? [String: Any],
-               let source = thumb["source"] as? String,
-               !source.lowercased().contains(".svg"),
-               let image = await download(source, timeout: 5),
-               image.size.width > 160 {
-                return image
-            }
-        }
-        return nil
-    }
-
-    private static func junk(_ text: String) -> Bool {
-        ["logo", "diagram", "chart", "map of", "flag", "cut of", "family tree",
-         "album", "film", "tv series", "stadium", "baseball", "nfl", "mlb"].contains { text.contains($0) }
-    }
-
-    private static func alias(_ name: String) -> String {
-        let map = [
-            "Classic Cheeseburgers": "Cheeseburger",
-            "Buttermilk Fried Chicken": "Fried chicken",
-            "BBQ Baby Back Ribs": "Pork ribs",
-            "Pulled Pork Sandwiches": "Pulled pork sandwich",
-            "Texas Brisket": "Brisket",
-            "Buffalo Chicken Wings": "Buffalo wing",
-            "Meatloaf with Ketchup Glaze": "Meatloaf",
-            "Chicken Pot Pie": "Chicken pot pie",
-            "Macaroni and Cheese": "Macaroni and cheese",
-            "Chili con Carne": "Chili con carne",
-            "Cajun Salmon": "Blackened salmon",
-            "Chicago Dogs": "Chicago-style hot dog",
-            "Coney Dogs": "Coney Island hot dog",
-            "Thanksgiving Turkey": "Roast turkey",
-            "Prime Rib": "Prime rib",
-            "Beer Can Chicken": "Roast chicken",
-            "Funeral Potatoes": "Cheesy potato casserole",
-            "Hashbrown Casserole": "Hash brown casserole",
-            "Corn Casserole": "Corn pudding",
-            "Sweet Potato Casserole": "Sweet potato casserole",
-            "Sausage Stuffing": "Stuffing",
-            "Ham with Pineapple": "Ham",
-            "Open Face Hot Turkey Sandwich": "Hot brown",
-            "Philly Roast Pork Sandwich": "Roast pork sandwich",
-            "Pork Tenderloin Sandwich": "Pork tenderloin sandwich",
-            "Italian Beef": "Italian beef",
-            "Veggie Chili": "Vegetarian chili",
-            "Black Bean Burgers": "Veggie burger",
-            "Caesar Salad with Grilled Chicken": "Caesar salad",
-            "BBQ Pulled Chicken": "Pulled chicken",
-            "Smoked Sausage and Peppers": "Sausage and peppers",
-            "Bratwurst and Sauerkraut": "Bratwurst",
-            "Chicken and Rice Casserole": "Chicken rice casserole",
-            "Cedar Plank Salmon": "Grilled salmon",
-            "Surf and Turf": "Surf and turf",
-            "Meatball Subs": "Meatball sandwich",
-            "Chicken Parmesan": "Chicken parmesan",
-            "Eggplant Parmesan": "Eggplant parmesan",
-            "Stuffed Shells": "Stuffed shells",
-            "Baked Chicken Tenders": "Chicken nugget",
-            "BBQ Meatloaf": "Meatloaf",
-            "Dr Pepper Pulled Pork": "Pulled pork",
-            "Smash Burgers": "Hamburger",
-            "Turkey Burgers": "Turkey burger",
-            "Blackened Catfish": "Catfish",
-            "Hush Puppies and Fried Fish": "Fried catfish",
-            "Collard Greens with Ham": "Collard greens",
-            "Brown Gravy Pork Chops": "Pork chop",
-            "Salisbury Steak": "Salisbury steak",
-            "Chicken and Stuffing Bake": "Chicken stuffing",
-            "Tater Tot Hotdish": "Tater tot casserole",
-            "Frito Pie": "Frito pie",
-            "Walking Tacos": "Taco",
-            "Seven Layer Dip Night": "Seven-layer dip",
-            "White Chicken Chili": "Chicken chili",
-            "Chicken Noodle Soup": "Chicken noodle soup",
-            "Tomato Basil Soup and Grilled Cheese": "Tomato soup",
-            "Broccoli Cheddar Soup": "Broccoli soup",
-            "French Onion Soup": "French onion soup",
-            "Crockpot Chicken Tacos": "Chicken taco",
-            "Crockpot Beef Tips": "Beef stew",
-            "Weeknight Tacos Two Ways": "Taco",
-            "Hawaiian Haystacks": "Chicken gravy",
-            "Chicken Divan": "Chicken divan",
-            "King Ranch Chicken": "King Ranch chicken",
-            "Chicken Tetrazzini": "Chicken tetrazzini",
-            "Beef Stroganoff American": "Beef Stroganoff",
-            "Swedish Meatballs American Table": "Swedish meatball",
-            "Pigs in a Blanket Dinner": "Pigs in a blanket",
-            "Breakfast Burritos": "Breakfast burrito",
-            "Huevos Rancheros": "Huevos rancheros",
-            "Chicken and Waffles": "Chicken and waffles",
-            "Steak and Potatoes": "Steak",
-            "Pork Ribs Oven": "Pork ribs",
-            "Grilled BBQ Chicken": "Barbecue chicken",
-            "Cedar BBQ Salmon Burgers": "Salmon burger",
-            "Turkey Club Wrap": "Club sandwich",
-            "Chicken Caesar Wrap": "Caesar salad",
-            "Buffalo Chicken Sandwiches": "Buffalo wing",
-            "Crispy Chicken Sandwich": "Fried chicken sandwich",
-            "BBQ Pulled Jackfruit": "Pulled pork",
-            "Mushroom Cheesesteaks": "Cheesesteak",
-            "Baked Ziti Sausage": "Baked ziti",
-            "Sausage, Peppers, and Onions": "Sausage and peppers",
-            "Weeknight Roast Salmon and Veg": "Baked salmon",
-            "Honey Mustard Chicken Thighs": "Roast chicken",
-            "Lemon Pepper Chicken": "Lemon chicken",
-            "Garlic Butter Steak Bites": "Steak",
-            "Cheeseburger Pasta Skillet": "Cheeseburger",
-            "Taco Pasta": "Taco",
-            "Pizza Pasta Bake": "Pizza",
-            "Ranch Chicken Bacon Bake": "Chicken bacon",
-            "Mississippi Pot Roast": "Pot roast",
-            "Mississippi Chicken": "Roast chicken",
-            "Coke Ham": "Ham",
-            "Root Beer Pulled Pork": "Pulled pork",
-            "Sunday Gravy with Sausage and Meatballs": "Spaghetti and meatballs",
-            "Baked Mostaccioli": "Baked ziti",
-            "Chicken Cordon Bleu Bake": "Chicken Cordon Bleu",
-            "Reuben Skillet": "Reuben sandwich",
-            "Patty Melt": "Patty melt",
-            "Tuna Melts": "Tuna melt",
-            "Salmon Patties": "Salmon cake",
-            "Chicken Bog": "Chicken rice",
-            "Hoppin' John": "Hoppin' John",
-            "Chicken Bog Bowl": "Chicken rice",
-            "French Fries": "French fries",
-            "Sweet Potato Fries": "Sweet potato fry",
-            "Mashed Potatoes": "Mashed potato",
-            "Garlic Mashed Potatoes": "Mashed potato",
-            "Loaded Baked Potatoes": "Baked potato",
-            "Roasted Potatoes": "Roast potato",
-            "Potato Salad": "Potato salad",
-            "Coleslaw": "Coleslaw",
-            "Corn on the Cob": "Corn on the cob",
-            "Green Bean Casserole": "Green bean casserole",
-            "Tater Tots": "Tater tots",
-            "Onion Rings": "Onion ring",
-            "Dinner Rolls": "Dinner roll",
-            "Garlic Bread": "Garlic bread",
-            "Deviled Eggs": "Deviled egg",
-            "Sloppy Joes": "Sloppy joe",
-            "Cheesesteaks": "Cheesesteak",
-            "Lobster Rolls": "Lobster roll",
-            "Club Sandwich": "Club sandwich",
-            "Grilled Cheese and Tomato Soup": "Grilled cheese",
-            "Shrimp and Grits": "Shrimp and grits",
-            "Red Beans and Rice": "Red beans and rice",
-            "Clam Chowder": "Clam chowder",
-            "Beef Tacos": "Taco",
-            "Chicken Enchiladas": "Enchilada",
-            "Chicken Quesadillas": "Quesadilla",
-            "Pork Carnitas": "Carnitas",
-            "Breakfast-for-Dinner Pancakes": "Pancake",
-            "French Toast": "French toast",
-            "Biscuits and Sausage Gravy": "Biscuits and gravy",
-            "Chicken Fried Steak": "Chicken fried steak",
-            "Shepherd's Pie American": "Shepherd's pie",
-            "Spaghetti and Meatballs": "Spaghetti",
-            "Pepperoni Pizza Night": "Pepperoni pizza",
-            "BBQ Chicken Pizza": "Pizza",
-            "Honey Garlic Salmon": "Salmon",
-            "Fish Tacos": "Fish taco",
-            "Orange Chicken": "Orange chicken",
-            "Cornbread": "Cornbread",
-            "Caesar Salad": "Caesar salad",
-            "Wedge Salad": "Wedge salad",
-            "Fruit Salad": "Fruit salad",
-            "Macaroni Salad": "Macaroni salad",
-            "Baked Beans": "Baked beans",
-            "Creamed Corn": "Creamed corn",
-            "Roasted Broccoli": "Broccoli",
-            "Roasted Carrots": "Roasted carrot",
-            "Asparagus": "Asparagus",
-            "Hush Puppies": "Hushpuppy",
-            "Cranberry Sauce": "Cranberry sauce",
-            "Collard Greens": "Collard greens",
-            "Fried Okra": "Fried okra",
-            "Brussels Sprouts": "Brussels sprout",
-            "Elote": "Elote",
-            "Refried Beans": "Refried beans",
-            "Spanish Rice": "Spanish rice",
-            "Cobb Salad": "Cobb salad",
-            "Scalloped Potatoes": "Potato gratin",
-            "Potato Wedges": "Potato wedge",
-            "White Rice": "Rice",
-            "Rice Pilaf": "Pilaf",
-            "Stuffing": "Stuffing",
-            "Applesauce": "Apple sauce",
-            "Texas Toast": "Garlic bread",
-            "Cheddar Biscuits": "Biscuit",
-            "Biscuits": "Biscuit",
-            "Sauteed Green Beans": "Green beans",
-            "Creamed Spinach": "Creamed spinach",
-            "Cucumber Salad": "Cucumber salad",
-            "Three Bean Salad": "Bean salad",
-            "Corn Salad": "Corn salad",
-            "Baked Macaroni": "Macaroni",
-            "Sheet Pan Fajitas": "Fajita",
-            "Nachos Supreme": "Nachos",
-            "Burrito Bowls": "Burrito",
-            "Po' Boy": "Po boy",
-            "Jambalaya": "Jambalaya",
-            "Gumbo": "Gumbo",
-            "Crab Cakes": "Crab cake",
-            "Fish Fry": "Fried fish",
-            "Beef Stew": "Beef stew",
-            "Pot Roast": "Pot roast",
-            "Roast Chicken": "Roast chicken",
-            "Tuna Noodle Casserole": "Tuna casserole",
-            "Chicken and Dumplings": "Chicken and dumplings",
-            "BLT": "BLT",
-            "Pork Chops and Applesauce": "Pork chop",
-            "Stuffed Peppers": "Stuffed pepper",
-            "Lasagna": "Lasagne",
-            "Baked Ziti": "Baked ziti",
-            "Chicken Alfredo": "Fettuccine Alfredo",
-            "Teriyaki Chicken Bowls": "Teriyaki chicken",
-            "Shrimp Scampi": "Shrimp scampi",
-            "Beef Stir Fry": "Beef stir fry",
-            "General Tso's at Home": "General Tso's chicken",
-            "Hamburgers Helper Style Skillet": "Hamburger",
-            "Cornbread Chili Bake": "Chili",
-            "Pesto Pasta with Chicken": "Pesto pasta",
-            "Tuna Noodle Casserole": "Tuna casserole"
-        ]
-        return map[name] ?? name
-    }
-
-    private static func fits(_ candidate: String, dish: String) -> Bool {
-        let a = tokens(dish)
-        let b = tokens(candidate)
-        if a.isEmpty { return candidate.lowercased().contains(dish.lowercased()) }
-        return !a.isDisjoint(with: b)
-    }
-
-    private static func tokens(_ name: String) -> Set<String> {
-        let stop: Set<String> = [
-            "classic", "homemade", "buttermilk", "loaded", "sauteed", "roasted", "baked",
-            "grilled", "southern", "texas", "house", "with", "and", "the", "for", "dinner",
-            "style", "american", "night", "supreme", "helper", "skillet", "easy", "quick"
-        ]
-        return Set(
-            name.lowercased()
-                .split { !$0.isLetter }
-                .map(String.init)
-                .filter { $0.count >= 3 && !stop.contains($0) }
-        )
-    }
-
-    private static func cached(_ key: String) -> UIImage? {
-        lock.lock()
-        let memoryHit = memory[key]
-        lock.unlock()
-        if let memoryHit { return memoryHit }
-        let file = folder.appendingPathComponent("\(key).jpg")
-        guard let data = try? Data(contentsOf: file), let image = UIImage(data: data) else { return nil }
-        lock.lock()
-        memory[key] = image
-        lock.unlock()
-        return image
-    }
-
-    private static func store(_ image: UIImage, key: String) {
-        lock.lock()
-        memory[key] = image
-        lock.unlock()
-        if let data = image.jpegData(compressionQuality: 0.82) {
-            try? data.write(to: folder.appendingPathComponent("\(key).jpg"), options: .atomic)
-        }
-    }
-
-    private static var folder: URL {
+enum RecipePhotoLoader {
+    private static let memory: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 80
+        cache.totalCostLimit = 20 * 1024 * 1024
+        return cache
+    }()
+    private static let gate = PhotoGate(limit: 2)
+    private static let folder: URL = {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RecipePhotosV7", isDirectory: true)
+            .appendingPathComponent("RecipeThumbsV1", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
-    }
+    }()
 
-    private static func json(_ url: URL, agent: Bool = false) async -> [String: Any]? {
-        guard let data = await data(url, agent: agent) else { return nil }
-        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-    }
-
-    private static func download(_ raw: String, timeout: TimeInterval = 8) async -> UIImage? {
-        guard let url = URL(string: raw) else { return nil }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = timeout
-        request.setValue("HUB/1.0", forHTTPHeaderField: "User-Agent")
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode ?? 200 < 400,
-              let image = UIImage(data: data),
-              image.size.width > 80
-        else { return nil }
+    static func cached(name: String) -> UIImage? {
+        let key = name as NSString
+        if let hit = memory.object(forKey: key) { return hit }
+        let file = folder.appendingPathComponent(slug(name) + ".jpg")
+        guard let data = try? Data(contentsOf: file), let image = UIImage(data: data) else { return nil }
+        memory.setObject(image, forKey: key)
         return image
     }
 
-    private static func data(_ url: URL, agent: Bool = false) async -> Data? {
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 8
-        if agent {
-            request.setValue("FamilyHub/1.0 (recipe photos; ios family hub)", forHTTPHeaderField: "User-Agent")
+    static func image(name: String) async -> UIImage? {
+        if let hit = cached(name: name) { return hit }
+        guard let url = RecipeThumbs.smallURL(for: name) ?? RecipeThumbs.url(for: name) else { return nil }
+        return await gate.run {
+            if let hit = cached(name: name) { return hit }
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 8
+            request.setValue("HUB/1.0", forHTTPHeaderField: "User-Agent")
+            guard let (data, response) = try? await URLSession.shared.data(for: request),
+                  (response as? HTTPURLResponse)?.statusCode ?? 200 < 400,
+                  let image = UIImage(data: data),
+                  image.size.width > 40
+            else { return nil }
+            memory.setObject(image, forKey: name as NSString)
+            if let jpeg = image.jpegData(compressionQuality: 0.82) {
+                try? jpeg.write(to: folder.appendingPathComponent(slug(name) + ".jpg"), options: .atomic)
+            }
+            return image
         }
-        return try? await URLSession.shared.data(for: request).0
+    }
+
+    private static func slug(_ name: String) -> String {
+        let raw = name.lowercased().map { $0.isLetter || $0.isNumber ? $0 : Character("-") }
+        var compact = String(raw)
+        while compact.contains("--") { compact = compact.replacingOccurrences(of: "--", with: "-") }
+        return compact.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 }
 
-private actor Gate {
+private actor PhotoGate {
     private var running = 0
     private let limit: Int
     init(limit: Int) { self.limit = limit }
-
     func run<T>(_ work: () async -> T) async -> T {
         while running >= limit {
-            await Task.yield()
+            try? await Task.sleep(nanoseconds: 20_000_000)
         }
         running += 1
         defer { running -= 1 }

@@ -1012,7 +1012,7 @@ private struct CatalogRecipePicker: View {
                     .padding(.horizontal, 20)
             }
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
                     ForEach(Array(catalog.recipes.prefix(80))) { recipe in
                         Button {
                             opened = recipe
@@ -1087,19 +1087,17 @@ private struct CatalogRecipeDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 14) {
-                    RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category)
-                        .frame(width: 72, height: 72)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(recipe.name)
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundStyle(AppTheme.text)
-                        Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.blue)
-                    }
-                    Spacer(minLength: 0)
+                RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(recipe.name)
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundStyle(AppTheme.text)
+                    Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.blue)
                 }
                 .padding(14)
                 .background(Color.white)
@@ -1671,10 +1669,11 @@ private func placeTile(_ place: NearbyPlace) -> some View {
 }
 
 private func recipeTile(_ recipe: CatalogRecipe) -> some View {
-    HStack(spacing: 14) {
+    VStack(alignment: .leading, spacing: 0) {
         RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category)
-            .frame(width: 64, height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(maxWidth: .infinity)
+            .frame(height: 148)
+            .clipped()
         VStack(alignment: .leading, spacing: 4) {
             Text(recipe.category.uppercased())
                 .font(.caption.weight(.bold))
@@ -1685,36 +1684,46 @@ private func recipeTile(_ recipe: CatalogRecipe) -> some View {
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
         }
-        Spacer(minLength: 0)
-        Image(systemName: "chevron.right")
-            .font(.caption.weight(.bold))
-            .foregroundStyle(AppTheme.textTertiary)
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
+        .background(Color.white)
     }
-    .padding(14)
-    .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-    .background(Color.white)
     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     .overlay(
         RoundedRectangle(cornerRadius: 18, style: .continuous)
             .stroke(Color.black.opacity(0.05), lineWidth: 1)
     )
-    .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+    .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
 }
 
 struct RecipePhoto: View {
     let url: URL?
     var searchName: String = ""
     var category: String = ""
+    @State private var image: UIImage?
 
     var body: some View {
-        let symbol = RecipeLook.symbol(searchName, category: category)
         ZStack {
             AppTheme.blueSoft
-            Image(systemName: symbol)
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(AppTheme.blue)
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: RecipeLook.symbol(searchName, category: category))
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(AppTheme.blue.opacity(0.7))
+            }
         }
+        .clipped()
         .contentShape(Rectangle())
+        .onAppear { image = RecipePhotoLoader.cached(name: searchName) }
+        .task(id: searchName) {
+            if image == nil { image = RecipePhotoLoader.cached(name: searchName) }
+            if let found = await RecipePhotoLoader.image(name: searchName) {
+                image = found
+            }
+        }
     }
 }
 
