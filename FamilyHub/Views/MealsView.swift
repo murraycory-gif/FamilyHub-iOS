@@ -1019,7 +1019,7 @@ private struct CatalogRecipePicker: View {
                         } label: {
                             recipeTile(recipe)
                         }
-                        .buttonStyle(HubPressStyle())
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -1028,10 +1028,7 @@ private struct CatalogRecipePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .onAppear {
-            Task {
-                await catalog.load()
-                RecipeImages.prefetch(Array(catalog.recipes.prefix(24)))
-            }
+            Task { await catalog.load() }
         }
     }
 
@@ -1041,12 +1038,7 @@ private struct CatalogRecipePicker: View {
             TextField("Burger, chili, tacos…", text: $catalog.query)
                 .textFieldStyle(.plain)
                 .font(.headline)
-                .onSubmit {
-                    Task {
-                        await catalog.search()
-                        RecipeImages.prefetch(Array(catalog.recipes.prefix(24)))
-                    }
-                }
+                .onSubmit { Task { await catalog.search() } }
             if catalog.isLoading { ProgressView() }
         }
         .padding(14)
@@ -1065,10 +1057,7 @@ private struct CatalogRecipePicker: View {
                 ForEach(catalog.categories, id: \.self) { item in
                     FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
                         catalog.category = item
-                        Task {
-                            await catalog.search()
-                            RecipeImages.prefetch(Array(catalog.recipes.prefix(24)))
-                        }
+                        Task { await catalog.search() }
                     }
                 }
             }
@@ -1692,34 +1681,83 @@ private func recipeTile(_ recipe: CatalogRecipe) -> some View {
 struct RecipePhoto: View {
     let url: URL?
     var searchName: String = ""
-    @State private var image: UIImage?
+    var category: String = ""
 
     var body: some View {
+        RecipeArt(name: searchName, category: category)
+    }
+}
+
+private struct RecipeArt: View {
+    let name: String
+    var category: String = ""
+
+    var body: some View {
+        let look = RecipeLook.match(name, category: category)
         ZStack {
-            AppTheme.blueSoft
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: "fork.knife")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(AppTheme.blue.opacity(0.4))
-            }
+            LinearGradient(
+                colors: [look.top, look.bottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Circle()
+                .fill(.white.opacity(0.14))
+                .frame(width: 200, height: 200)
+                .offset(x: 56, y: -36)
+            Circle()
+                .fill(.black.opacity(0.08))
+                .frame(width: 120, height: 120)
+                .offset(x: -70, y: 50)
+            Text(look.glyph)
+                .font(.system(size: 88))
+                .shadow(color: .black.opacity(0.28), radius: 10, y: 5)
         }
         .clipped()
         .contentShape(Rectangle())
-        .onAppear {
-            image = RecipeImages.cachedImage(url: url, name: searchName)
-        }
-        .task(id: searchName) {
-            if image == nil {
-                image = RecipeImages.cachedImage(url: url, name: searchName)
-            }
-            if let found = await RecipeImages.photo(url: url, name: searchName) {
-                image = found
-            }
-        }
+    }
+}
+
+private enum RecipeLook {
+    static func match(_ name: String, category: String) -> (glyph: String, top: Color, bottom: Color) {
+        let blob = "\(name) \(category)".lowercased()
+        let glyph = glyph(in: blob)
+        var hasher = Hasher()
+        hasher.combine(name.lowercased())
+        let hue = Double(abs(hasher.finalize() % 1000)) / 1000.0
+        let top = Color(hue: 0.60, saturation: 0.55, brightness: 0.55)
+        let bottom = Color(hue: hue * 0.08 + 0.58, saturation: 0.70, brightness: 0.28)
+        return (glyph, top, bottom)
+    }
+
+    private static func glyph(in blob: String) -> String {
+        let rules: [(String, String)] = [
+            ("cheeseburger", "🍔"), ("smash burger", "🍔"), ("hamburger", "🍔"), ("burger", "🍔"),
+            ("rib", "🍖"), ("brisket", "🍖"), ("pulled pork", "🍖"), ("pork chop", "🥩"),
+            ("wing", "🍗"), ("fried chicken", "🍗"), ("chicken and waffle", "🍗"), ("tender", "🍗"),
+            ("turkey", "🦃"), ("pot pie", "🥧"), ("pie", "🥧"), ("casserole", "🥘"),
+            ("pizza", "🍕"), ("taco", "🌮"), ("enchilada", "🌮"), ("quesadilla", "🌮"),
+            ("burrito", "🌯"), ("nacho", "🌮"), ("fajita", "🌮"), ("carnitas", "🌮"),
+            ("macaroni", "🧀"), ("mac and cheese", "🧀"), ("grilled cheese", "🧀"),
+            ("lasagna", "🍝"), ("spaghetti", "🍝"), ("ziti", "🍝"), ("alfredo", "🍝"), ("pasta", "🍝"),
+            ("chili", "🌶️"), ("soup", "🍲"), ("chowder", "🍲"), ("stew", "🍲"), ("gumbo", "🍲"),
+            ("salad", "🥗"), ("sandwich", "🥪"), ("club", "🥪"), ("blt", "🥪"), ("melt", "🥪"),
+            ("cheesesteak", "🥪"), ("po' boy", "🥪"), ("sub", "🥪"), ("wrap", "🌯"),
+            ("salmon", "🐟"), ("fish", "🐟"), ("catfish", "🐟"), ("crab", "🦀"), ("lobster", "🦞"),
+            ("shrimp", "🦐"), ("scampi", "🦐"),
+            ("steak", "🥩"), ("roast", "🥩"), ("meatloaf", "🥩"), ("meatball", "🍝"),
+            ("hot dog", "🌭"), ("coney", "🌭"), ("brat", "🌭"),
+            ("pancake", "🥞"), ("french toast", "🥞"), ("waffle", "🧇"), ("biscuit", "🥐"),
+            ("egg", "🍳"), ("huevos", "🍳"), ("burrito breakfast", "🌯"),
+            ("rice", "🍚"), ("bowl", "🍚"), ("stir fry", "🍜"), ("teriyaki", "🍜"),
+            ("orange chicken", "🥡"), ("general tso", "🥡"),
+            ("potato", "🥔"), ("tater", "🥔"), ("fries", "🍟"), ("tot", "🥔"),
+            ("corn", "🌽"), ("green bean", "🥦"), ("broccoli", "🥦"), ("carrot", "🥕"),
+            ("roll", "🍞"), ("bread", "🍞"), ("cornbread", "🍞"),
+            ("bean", "🫘"), ("chili con", "🌶️"),
+            ("sloppy", "🍔"),
+        ]
+        for (key, glyph) in rules where blob.contains(key) { return glyph }
+        return "🍽️"
     }
 }
 

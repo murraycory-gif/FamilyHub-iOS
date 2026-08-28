@@ -38,23 +38,17 @@ final class RecipeCatalog: ObservableObject {
 
     func load() async {
         applyFilter()
-        if category == "All" {
-            Task { await streamWorld() }
-        }
     }
 
-    func loadMore() async {
-        await streamWorld()
-    }
+    func loadMore() async {}
 
     func search() async {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             applyFilter()
-            if category == "All" { await streamWorld() }
             return
         }
-        isLoading = true
+        isLoading = false
         message = nil
         let needle = trimmed.lowercased()
         var seen = Set<String>()
@@ -63,13 +57,6 @@ final class RecipeCatalog: ObservableObject {
             if seen.insert(item.id).inserted { result.append(item) }
         }
         recipes = result
-        isLoading = false
-        if let remote = try? await MealDB.search(trimmed) {
-            for item in remote where seen.insert(item.id).inserted {
-                result.append(item)
-            }
-            recipes = result
-        }
         if recipes.isEmpty { message = "No recipes for that search." }
     }
 
@@ -91,27 +78,20 @@ final class RecipeCatalog: ObservableObject {
         switch category {
         case "All":
             recipes = local
-            Task { await streamWorld() }
         case "American":
             recipes = local.filter { $0.area == "American" }
         case "World":
             recipes = local.filter { $0.area != "American" }
-            Task { await streamWorld() }
         case "Easy":
             recipes = local.filter { MealEase.tags(name: $0.name, category: $0.category).contains("Easy") }
         case "Quick":
             recipes = local.filter { MealEase.tags(name: $0.name, category: $0.category).contains("Quick") }
         case "Asian":
             recipes = local.filter { Self.asian.contains($0.category) || Self.asian.contains($0.area) }
-            Task { await streamAreas(Self.asian) }
         case "Mediterranean":
             recipes = local.filter { Self.med.contains($0.category) || Self.med.contains($0.area) }
-            Task { await streamAreas(["Greek", "French", "Spanish", "Moroccan"]) }
         default:
             recipes = local.filter { $0.category == category || $0.area == category }
-            if ["Italian", "Mexican", "Indian", "Thai", "Japanese", "Chinese", "French", "Greek"].contains(category) {
-                Task { await streamAreas([category]) }
-            }
         }
         recipes = uniqued(recipes)
         if recipes.isEmpty { message = "No recipes in that category yet." }
