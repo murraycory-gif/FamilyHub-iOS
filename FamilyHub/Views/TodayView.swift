@@ -839,13 +839,14 @@ struct TodayView: View {
     @ViewBuilder
     private func dinnerPhoto(plan: DinnerPlan?, recipe: Recipe?) -> some View {
         if let recipe {
-            ZStack {
-                AppTheme.blueSoft
-                Image(systemName: "fork.knife")
-                    .font(.system(size: 44, weight: .bold))
-                    .foregroundStyle(accent)
-            }
-        } else if let plan, plan.placeName != nil {
+            RecipePhoto(
+                url: URL(string: recipe.imageURL),
+                searchName: recipe.name,
+                category: recipe.notes,
+                quality: .hero,
+                crop: true
+            )
+        } else if let plan, let name = plan.placeName, !name.isEmpty {
             ZStack {
                 AppTheme.blueSoft
                 Image(systemName: "fork.knife.circle.fill")
