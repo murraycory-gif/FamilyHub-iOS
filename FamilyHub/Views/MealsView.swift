@@ -585,7 +585,7 @@ private struct EatOutPicker: View {
                 HubStickyHeader(lead: headerLead, tail: headerTail) {
                     HubHeaderPill(title: "Back") { onClose() }
                 }
-                hubSearchField(text: $areaQuery, placeholder: "McDonald’s, pizza, tacos…") {
+                hubSearchField(text: $areaQuery, placeholder: "Restaurant, city, or zip") {
                     runSearch(areaQuery)
                 }
                 .onChange(of: areaQuery) { _, value in
@@ -595,11 +595,16 @@ private struct EatOutPicker: View {
                     Task {
                         try? await Task.sleep(for: .milliseconds(350))
                         guard areaQuery == value else { return }
-                        await places.searchMaps(value)
+                        await places.searchMaps(value, completions: completer.suggestions)
                     }
                 }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
+                if completer.suggestions.isEmpty == false, areaQuery.count >= 2 {
+                    suggestionList
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+                }
                 chipRow
                     .padding(.horizontal, 20)
                 if places.isLoading { ProgressView().padding(.horizontal, 20) }
@@ -608,7 +613,7 @@ private struct EatOutPicker: View {
                 }
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
-                        ForEach(Array(places.places.prefix(40).enumerated()), id: \.offset) { _, place in
+                        ForEach(Array(places.places.prefix(80).enumerated()), id: \.offset) { _, place in
                             Button {
                                 let picked = place
                                 DispatchQueue.main.async { opened = picked }
@@ -680,9 +685,9 @@ private struct EatOutPicker: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(completer.suggestions) { item in
                 Button {
-                    areaQuery = item.title
+                    areaQuery = item.query
                     completer.clear()
-                    Task { await places.searchMaps(item.query) }
+                    Task { await places.searchCompletion(item) }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "mappin.and.ellipse")
@@ -720,7 +725,7 @@ private struct EatOutPicker: View {
             if trimmed.isEmpty {
                 await places.useHere()
             } else {
-                await places.searchMaps(trimmed)
+                await places.searchMaps(trimmed, completions: completer.suggestions)
             }
         }
     }

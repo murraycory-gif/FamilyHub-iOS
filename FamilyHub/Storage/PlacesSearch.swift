@@ -54,10 +54,11 @@ struct NearbyPlace: Identifiable, Hashable, Codable {
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
-struct AreaSuggestion: Identifiable, Hashable {
-    var id: String { title + subtitle }
+struct AreaSuggestion: Identifiable {
+    var id: String { title + "|" + subtitle }
     var title: String
     var subtitle: String
+    var completion: MKLocalSearchCompletion
     var query: String {
         [title, subtitle].filter { !$0.isEmpty }.joined(separator: ", ")
     }
@@ -69,9 +70,20 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
 
     override init() {
         super.init()
-        completer.resultTypes = .pointOfInterest
+        completer.resultTypes = [.pointOfInterest, .address]
+        completer.region = Self.nationwide
+        if #available(iOS 16.0, *) {
+            completer.pointOfInterestFilter = MKPointOfInterestFilter(including: [
+                .restaurant, .cafe, .bakery, .brewery, .foodMarket
+            ])
+        }
         completer.delegate = self
     }
+
+    static let nationwide = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 39.8283, longitude: -98.5795),
+        span: MKCoordinateSpan(latitudeDelta: 48, longitudeDelta: 62)
+    )
 
     func update(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -85,16 +97,12 @@ final class AreaCompleter: NSObject, ObservableObject, MKLocalSearchCompleterDel
     func clear() { suggestions = [] }
 
     func setRegion(_ location: CLLocation) {
-        completer.region = MKCoordinateRegion(
-            center: location.coordinate,
-            latitudinalMeters: 32000,
-            longitudinalMeters: 32000
-        )
+        completer.region = Self.nationwide
     }
 
     func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        let mapped = completer.results.prefix(8).map {
-            AreaSuggestion(title: $0.title, subtitle: $0.subtitle)
+        let mapped = completer.results.prefix(12).map {
+            AreaSuggestion(title: $0.title, subtitle: $0.subtitle, completion: $0)
         }
         DispatchQueue.main.async { self.suggestions = mapped }
     }
@@ -195,38 +203,108 @@ final class PlacesSearch: ObservableObject {
         }
     }
 
-    func searchMaps(_ text: String) async {
+    func searchMaps(_ text: String, completions: [AreaSuggestion] = []) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let location = searchCenter ?? userLocation else {
-            if trimmed.isEmpty { await useHere() }
-            return
-        }
         if trimmed.isEmpty {
-            await reloadAll(around: location)
+            await useHere()
             return
         }
         isLoading = true
         message = nil
         defer { isLoading = false }
-        do {
-            let request = MKLocalSearch.Request()
-            request.naturalLanguageQuery = trimmed
-            request.region = MKCoordinateRegion(
-                center: location.coordinate,
-                latitudinalMeters: 32000,
-                longitudinalMeters: 32000
-            )
-            let response = try await MKLocalSearch(request: request).start()
-            let mapped = response.mapItems.compactMap { item in
-                self.place(from: item, around: location, requireFood: false)
-            }
-            places = sortedPlaces(mapped)
-            if places.isEmpty {
-                message = "No places matching \(trimmed) near \(areaName)."
-            }
-        } catch {
-            message = "Could not search Maps right now."
+
+        let zip = trimmed.count == 5 && trimmed.allSatisfy(\.isNumber)
+        if zip {
+            await searchArea(trimmed)
+            return
         }
+
+        var collected: [NearbyPlace] = []
+        var seen = Set<String>()
+        let named = await searchNamedAnywhere(trimmed)
+        merge(named, into: &collected, seen: &seen)
+
+        if completions.isEmpty == false {
+            await withTaskGroup(of: NearbyPlace?.self) { group in
+                for item in completions.prefix(10) {
+                    group.addTask { await self.resolve(item) }
+                }
+                for await one in group {
+                    if let one {
+                        self.merge([one], into: &collected, seen: &seen)
+                    }
+                }
+            }
+        }
+
+        if collected.count < 4, looksLikeCity(trimmed) {
+            let aroundCity = await restaurants(in: trimmed)
+            merge(aroundCity, into: &collected, seen: &seen)
+        }
+
+        places = sortedPlaces(collected)
+        if places.isEmpty {
+            message = "No places matching \(trimmed)."
+        }
+    }
+
+    func searchCompletion(_ suggestion: AreaSuggestion) async {
+        isLoading = true
+        message = nil
+        defer { isLoading = false }
+        var collected: [NearbyPlace] = []
+        var seen = Set<String>()
+        if let one = await resolve(suggestion) {
+            merge([one], into: &collected, seen: &seen)
+        }
+        let named = await searchNamedAnywhere(suggestion.title)
+        merge(named, into: &collected, seen: &seen)
+        places = sortedPlaces(collected)
+        if places.isEmpty {
+            message = "No places matching \(suggestion.title)."
+        }
+    }
+
+    private func looksLikeCity(_ text: String) -> Bool {
+        let words = text.split(separator: " ")
+        if text.contains(",") { return true }
+        if words.count <= 2, takeoutNames.contains(where: { text.lowercased().contains($0) }) == false {
+            let food = ["pizza", "taco", "burger", "chicken", "coffee", "sushi", "thai", "chinese", "mexican", "italian"]
+            if food.contains(where: { text.lowercased().contains($0) }) { return false }
+            return true
+        }
+        return false
+    }
+
+    private func restaurants(in city: String) async -> [NearbyPlace] {
+        do {
+            let query = city.count == 5 && city.allSatisfy(\.isNumber) ? city + ", USA" : city
+            let marks = try await CLGeocoder().geocodeAddressString(query)
+            guard let location = marks.first?.location else { return [] }
+            return (try? await searchNamed("restaurants", around: location, requireFood: false)) ?? []
+        } catch {
+            return []
+        }
+    }
+
+    private func searchNamedAnywhere(_ query: String) async -> [NearbyPlace] {
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.resultTypes = .pointOfInterest
+        request.region = AreaCompleter.nationwide
+        guard let response = try? await MKLocalSearch(request: request).start() else { return [] }
+        let origin = userLocation ?? searchCenter
+        return response.mapItems.compactMap { item in
+            self.place(from: item, around: origin, requireFood: false, maxDistance: nil)
+        }
+    }
+
+    private func resolve(_ suggestion: AreaSuggestion) async -> NearbyPlace? {
+        let request = MKLocalSearch.Request(completion: suggestion.completion)
+        guard let response = try? await MKLocalSearch(request: request).start(),
+              let item = response.mapItems.first else { return nil }
+        let origin = userLocation ?? searchCenter
+        return place(from: item, around: origin, requireFood: false, maxDistance: nil)
     }
 
     private func reloadAll(around location: CLLocation) async {
@@ -374,7 +452,7 @@ final class PlacesSearch: ObservableObject {
         }
     }
 
-    private func place(from item: MKMapItem, around location: CLLocation, requireFood: Bool) -> NearbyPlace? {
+    private func place(from item: MKMapItem, around location: CLLocation?, requireFood: Bool, maxDistance: CLLocationDistance? = 24140) -> NearbyPlace? {
         guard let name = item.name, name.isEmpty == false else { return nil }
         let lower = name.lowercased()
         if requireFood {
@@ -389,16 +467,18 @@ final class PlacesSearch: ObservableObject {
         }
         let coord = item.placemark.coordinate
         if CLLocationCoordinate2DIsValid(coord) == false { return nil }
-        let distance = location.distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
-        if distance > maxMeters { return nil }
+        let pin = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+        let distance = location.map { $0.distance(from: pin) }
+        if let cap = maxDistance, let distance, distance > cap { return nil }
         let takeout = takeoutNames.contains(where: { lower.contains($0) })
             || item.pointOfInterestCategory == .cafe
             || item.pointOfInterestCategory == .bakery
-        let address = [
-            item.placemark.subThoroughfare,
-            item.placemark.thoroughfare,
-            item.placemark.locality
-        ].compactMap { $0 }.joined(separator: " ")
+        let street = [item.placemark.subThoroughfare, item.placemark.thoroughfare]
+            .compactMap { $0 }
+            .joined(separator: " ")
+        let address = [street, item.placemark.locality, item.placemark.administrativeArea]
+            .filter { $0.isEmpty == false }
+            .joined(separator: ", ")
         return NearbyPlace(
             id: "\(lower)-\(String(format: "%.4f", coord.latitude))-\(String(format: "%.4f", coord.longitude))",
             name: name,
