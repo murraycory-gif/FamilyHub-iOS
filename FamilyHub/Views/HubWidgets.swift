@@ -1,3 +1,4 @@
+import MapKit
 import SwiftUI
 
 struct HubWidgetPicker: View {
@@ -129,7 +130,8 @@ struct FlightWidget: View {
     let day: Date
     var onAdd: () -> Void
     @Environment(\.hubAccent) private var accent
-    @Environment(\.openURL) private var openURL
+    @State private var opened: TrackedFlight?
+    @State private var ping: FlightPing?
 
     private var flights: [TrackedFlight] {
         FlightParse.flights(on: day, events: store.events, extra: store.flights)
@@ -154,64 +156,29 @@ struct FlightWidget: View {
             }
             Group {
                 if let flight = flights.first {
-                    Button {
-                        if let url = FlightParse.trackURL(flight) { openURL(url) }
-                    } label: {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(FlightParse.phase(flight))
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(accent, in: Capsule())
-                                Spacer()
-                                Text(FlightParse.countdown(flight))
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(accent)
-                            }
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text(flight.origin.isEmpty ? "—" : flight.origin)
-                                Image(systemName: "airplane")
-                                    .font(.caption.weight(.bold))
-                                Text(flight.destination.isEmpty ? "—" : flight.destination)
-                            }
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(AppTheme.text)
-                            .minimumScaleFactor(0.6)
-                            .lineLimit(1)
-                            Text("\(FlightParse.airlineName(flight.airline)) \(flight.code)")
-                                .font(.headline.weight(.bold))
-                                .foregroundStyle(accent)
-                            Text(timeLine(flight))
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.textSecondary)
-                            if flights.count > 1 {
-                                Text("+\(flights.count - 1) more today")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(AppTheme.textTertiary)
-                            }
+                    TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                        Button { opened = flight } label: {
+                            widgetBody(flight, now: timeline.date)
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 } else {
                     Button(action: onAdd) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("No flights this day")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(AppTheme.text)
-                        Text("HUB reads flights from the calendar. Tap to add one.")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.textSecondary)
-                        Text("Add flight")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(accent, in: Capsule())
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("No flights this day")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.text)
+                            Text("HUB reads flights from the calendar. Tap to add one.")
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Text("Add flight")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(accent, in: Capsule())
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
                     .buttonStyle(.plain)
                 }
@@ -223,6 +190,65 @@ struct FlightWidget: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
         .hubLift(accent: accent)
+        .sheet(item: $opened) { flight in
+            FlightDetailSheet(flight: flight, others: flights)
+                .environmentObject(store)
+        }
+        .task(id: flights.first?.code) {
+            guard let flight = flights.first else { ping = nil; return }
+            while !Task.isCancelled {
+                ping = await FlightLive.ping(flight)
+                try? await Task.sleep(for: .seconds(20))
+            }
+        }
+    }
+
+    private func widgetBody(_ flight: TrackedFlight, now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(FlightParse.phase(flight, now: now))
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(accent, in: Capsule())
+                Spacer()
+                Text(FlightParse.countdown(flight, now: now))
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(accent)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(flight.origin.isEmpty ? "—" : flight.origin)
+                Image(systemName: "airplane")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(accent)
+                    .rotationEffect(.degrees(-10 + 20 * FlightParse.progress(flight, now: now)))
+                Text(flight.destination.isEmpty ? "—" : flight.destination)
+            }
+            .font(.system(size: 28, weight: .bold))
+            .foregroundStyle(AppTheme.text)
+            .minimumScaleFactor(0.6)
+            .lineLimit(1)
+            ProgressView(value: FlightParse.progress(flight, now: now))
+                .tint(accent)
+            Text("\(FlightParse.airlineName(flight.airline)) \(flight.code)")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(accent)
+            Text(timeLine(flight))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            if let ping {
+                Text(liveLine(ping))
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+            }
+            if flights.count > 1 {
+                Text("+\(flights.count - 1) more today")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func timeLine(_ flight: TrackedFlight) -> String {
@@ -231,6 +257,202 @@ struct FlightWidget: View {
             return "\(leave) → \(Date.hubClock(land))"
         }
         return "Departs \(leave)"
+    }
+
+    private func liveLine(_ ping: FlightPing) -> String {
+        var bits: [String] = []
+        if ping.onGround { bits.append("On the ground") }
+        if let alt = ping.altitudeFt, alt > 0 { bits.append("\(alt.formatted()) ft") }
+        if let speed = ping.speedKts, speed > 0 { bits.append("\(speed) kts") }
+        return bits.isEmpty ? "Live position" : bits.joined(separator: " · ")
+    }
+}
+
+struct FlightDetailSheet: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    let flight: TrackedFlight
+    var others: [TrackedFlight] = []
+    @State private var ping: FlightPing?
+    @State private var watching: TrackedFlight
+
+    init(flight: TrackedFlight, others: [TrackedFlight] = []) {
+        self.flight = flight
+        self.others = others
+        _watching = State(initialValue: flight)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "HUB", tail: "Flight") {
+                HubHeaderPill(title: "Close") { dismiss() }
+            }
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HubPanel(symbol: "airplane", title: "\(FlightParse.airlineName(watching.airline)) \(watching.code)") {
+                            detailBody(now: timeline.date)
+                        }
+                        if let ping {
+                            HubPanel(symbol: "location.fill", title: "Live position") {
+                                liveMap(ping)
+                                Text(liveFacts(ping))
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(AppTheme.text)
+                                    .padding(.top, 8)
+                            }
+                        }
+                        HubPanel(symbol: "info.circle.fill", title: "Track") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                if !watching.notes.isEmpty {
+                                    Text(watching.notes)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(AppTheme.textSecondary)
+                                }
+                                Button {
+                                    if let url = FlightParse.trackURL(watching) { openURL(url) }
+                                } label: {
+                                    Text("Open live map")
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(AppTheme.blue, in: Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        if others.count > 1 {
+                            HubPanel(symbol: "list.bullet", title: "Today’s flights") {
+                                VStack(spacing: 8) {
+                                    ForEach(others) { item in
+                                        Button { watching = item } label: {
+                                            HStack {
+                                                Text("\(item.code)  \(item.origin) → \(item.destination)")
+                                                    .font(.headline.weight(.bold))
+                                                    .foregroundStyle(AppTheme.text)
+                                                Spacer()
+                                                if item.id == watching.id {
+                                                    Image(systemName: "checkmark.circle.fill")
+                                                        .foregroundStyle(AppTheme.blue)
+                                                }
+                                            }
+                                            .padding(12)
+                                            .background(Color.white)
+                                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .task(id: watching.code) {
+            ping = nil
+            while !Task.isCancelled {
+                ping = await FlightLive.ping(watching)
+                try? await Task.sleep(for: .seconds(15))
+            }
+        }
+    }
+
+    private func detailBody(now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(FlightParse.phase(watching, now: now))
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(AppTheme.blue, in: Capsule())
+                Spacer()
+                Text(FlightParse.countdown(watching, now: now))
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+            HStack {
+                airport(watching.origin.isEmpty ? "—" : watching.origin, label: "From")
+                VStack {
+                    Image(systemName: "airplane")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                    ProgressView(value: FlightParse.progress(watching, now: now))
+                        .tint(AppTheme.blue)
+                }
+                airport(watching.destination.isEmpty ? "—" : watching.destination, label: "To")
+            }
+            HStack {
+                fact("Departs", Date.hubClock(watching.departAt))
+                fact("Arrives", watching.arriveAt.map(Date.hubClock) ?? "—")
+                fact("Time in air", FlightParse.duration(watching))
+            }
+        }
+    }
+
+    private func airport(_ code: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Text(label)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.textSecondary)
+            Text(code)
+                .font(.system(size: 32, weight: .bold))
+                .foregroundStyle(AppTheme.text)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func fact(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.textSecondary)
+            Text(value)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func liveMap(_ ping: FlightPing) -> some View {
+        let coord = CLLocationCoordinate2D(latitude: ping.latitude, longitude: ping.longitude)
+        Map(position: .constant(.region(MKCoordinateRegion(
+            center: coord,
+            span: MKCoordinateSpan(latitudeDelta: 4, longitudeDelta: 4)
+        )))) {
+            Annotation(watching.code, coordinate: coord) {
+                Image(systemName: "airplane")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(8)
+                    .background(AppTheme.blue, in: Circle())
+                    .rotationEffect(.degrees((ping.heading ?? 0) - 90))
+            }
+        }
+        .frame(height: 220)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .allowsHitTesting(false)
+    }
+
+    private func liveFacts(_ ping: FlightPing) -> String {
+        var bits: [String] = []
+        if ping.onGround {
+            bits.append("On the ground")
+        } else if let alt = ping.altitudeFt {
+            bits.append("\(alt.formatted()) ft")
+        }
+        if let speed = ping.speedKts, speed > 0 { bits.append("\(speed) kts") }
+        if let heading = ping.heading { bits.append("HDG \(Int(heading))°") }
+        return bits.isEmpty ? "Live from ADS-B" : bits.joined(separator: "  ·  ")
     }
 }
 
