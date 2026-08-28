@@ -853,13 +853,8 @@ struct TodayView: View {
                 quality: .hero,
                 crop: true
             )
-        } else if let plan, let name = plan.placeName, !name.isEmpty {
-            ZStack {
-                AppTheme.blueSoft
-                Image(systemName: "fork.knife.circle.fill")
-                    .font(.system(size: 52, weight: .bold))
-                    .foregroundStyle(accent)
-            }
+        } else if let plan, let place = NearbyPlace(plan: plan) {
+            PlacePhoto(place: place)
         } else {
             ZStack {
                 AppTheme.blueSoft

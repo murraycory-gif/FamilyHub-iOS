@@ -52,6 +52,29 @@ struct NearbyPlace: Identifiable, Hashable, Codable {
 
     static func == (lhs: NearbyPlace, rhs: NearbyPlace) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
+    var hasCoordinate: Bool {
+        latitude != 0 || longitude != 0
+    }
+}
+
+extension NearbyPlace {
+    init?(plan: DinnerPlan) {
+        guard let name = plan.placeName, name.isEmpty == false else { return nil }
+        let mode = PlaceMode(rawValue: plan.placeKind ?? "") ?? .sitdown
+        self.init(
+            id: "dinner-\(plan.id.uuidString)",
+            name: name,
+            category: mode.title,
+            address: plan.placeAddress ?? "",
+            phone: plan.placePhone ?? "",
+            url: plan.placeURL.flatMap(URL.init(string:)),
+            latitude: plan.placeLatitude ?? 0,
+            longitude: plan.placeLongitude ?? 0,
+            distance: nil,
+            mode: mode
+        )
+    }
 }
 
 struct AreaSuggestion: Identifiable {

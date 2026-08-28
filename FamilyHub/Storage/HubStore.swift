@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import UIKit
 
@@ -143,6 +144,19 @@ final class HubStore: ObservableObject {
             placeLatitude: latitude,
             placeLongitude: longitude
         )
+        Task {
+            _ = await PlaceImages.photo(
+                name: name,
+                address: address,
+                coordinate: {
+                    if let latitude, let longitude, latitude != 0 || longitude != 0 {
+                        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                    }
+                    return nil
+                }(),
+                website: URL(string: url)
+            )
+        }
     }
 
     private func upsertDinner(

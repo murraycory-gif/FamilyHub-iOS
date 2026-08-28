@@ -1908,10 +1908,11 @@ struct PlacePhoto: View {
             }
             .clipped()
             .task(id: place.id) {
+                let pin = place.hasCoordinate ? place.coordinate : nil
                 if let found = await PlaceImages.photo(
                     name: place.name,
                     address: place.address,
-                    coordinate: place.coordinate,
+                    coordinate: pin,
                     website: place.url
                 ) {
                     image = found
