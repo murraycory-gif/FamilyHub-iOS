@@ -1087,9 +1087,10 @@ private struct CatalogRecipeDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category)
+                RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category, quality: .hero, crop: false)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 220)
+                    .frame(height: 280)
+                    .background(AppTheme.blueSoft)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(recipe.name)
@@ -1700,15 +1701,25 @@ struct RecipePhoto: View {
     let url: URL?
     var searchName: String = ""
     var category: String = ""
+    var quality: RecipePhotoLoader.Quality = .card
+    var crop: Bool = true
     @State private var image: UIImage?
 
     var body: some View {
         ZStack {
             AppTheme.blueSoft
             if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
+                if crop {
+                    Color.clear.overlay {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    }
+                } else {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                }
             } else {
                 Image(systemName: RecipeLook.symbol(searchName, category: category))
                     .font(.system(size: 28, weight: .bold))
@@ -1717,10 +1728,10 @@ struct RecipePhoto: View {
         }
         .clipped()
         .contentShape(Rectangle())
-        .onAppear { image = RecipePhotoLoader.cached(name: searchName) }
-        .task(id: searchName) {
-            if image == nil { image = RecipePhotoLoader.cached(name: searchName) }
-            if let found = await RecipePhotoLoader.image(name: searchName) {
+        .onAppear { image = RecipePhotoLoader.cached(name: searchName, quality: quality) }
+        .task(id: searchName + String(describing: quality)) {
+            if image == nil { image = RecipePhotoLoader.cached(name: searchName, quality: quality) }
+            if let found = await RecipePhotoLoader.image(name: searchName, quality: quality) {
                 image = found
             }
         }

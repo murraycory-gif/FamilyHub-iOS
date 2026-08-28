@@ -8,9 +8,17 @@ enum RecipeThumbs {
     }
 
     static func smallURL(for name: String) -> URL? {
+        sizedURL(for: name, size: "medium")
+    }
+
+    static func heroURL(for name: String) -> URL? {
+        url(for: name)
+    }
+
+    private static func sizedURL(for name: String, size: String) -> URL? {
         guard let url = url(for: name) else { return nil }
         if url.host?.contains("themealdb.com") == true {
-            return url.appendingPathComponent("small")
+            return url.appendingPathComponent(size)
         }
         return url
     }
@@ -229,48 +237,56 @@ enum RecipeThumbs {
 }
 
 enum RecipePhotoLoader {
+    enum Quality { case card, hero }
+
     private static let memory: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
         cache.countLimit = 80
-        cache.totalCostLimit = 20 * 1024 * 1024
+        cache.totalCostLimit = 24 * 1024 * 1024
         return cache
     }()
     private static let gate = PhotoGate(limit: 2)
     private static let folder: URL = {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RecipeThumbsV1", isDirectory: true)
+            .appendingPathComponent("RecipeThumbsV2", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }()
 
-    static func cached(name: String) -> UIImage? {
-        let key = name as NSString
+    static func cached(name: String, quality: Quality = .card) -> UIImage? {
+        let key = cacheKey(name, quality) as NSString
         if let hit = memory.object(forKey: key) { return hit }
-        let file = folder.appendingPathComponent(slug(name) + ".jpg")
+        let file = folder.appendingPathComponent(slug(cacheKey(name, quality)) + ".jpg")
         guard let data = try? Data(contentsOf: file), let image = UIImage(data: data) else { return nil }
         memory.setObject(image, forKey: key)
         return image
     }
 
-    static func image(name: String) async -> UIImage? {
-        if let hit = cached(name: name) { return hit }
-        guard let url = RecipeThumbs.smallURL(for: name) ?? RecipeThumbs.url(for: name) else { return nil }
+    static func image(name: String, quality: Quality = .card) async -> UIImage? {
+        if let hit = cached(name: name, quality: quality) { return hit }
+        let remote = quality == .hero ? RecipeThumbs.heroURL(for: name) : RecipeThumbs.smallURL(for: name)
+        guard let url = remote else { return nil }
         return await gate.run {
-            if let hit = cached(name: name) { return hit }
+            if let hit = cached(name: name, quality: quality) { return hit }
             var request = URLRequest(url: url)
-            request.timeoutInterval = 8
+            request.timeoutInterval = 10
             request.setValue("HUB/1.0", forHTTPHeaderField: "User-Agent")
             guard let (data, response) = try? await URLSession.shared.data(for: request),
                   (response as? HTTPURLResponse)?.statusCode ?? 200 < 400,
                   let image = UIImage(data: data),
-                  image.size.width > 40
+                  image.size.width > 80
             else { return nil }
-            memory.setObject(image, forKey: name as NSString)
-            if let jpeg = image.jpegData(compressionQuality: 0.82) {
-                try? jpeg.write(to: folder.appendingPathComponent(slug(name) + ".jpg"), options: .atomic)
+            let key = cacheKey(name, quality) as NSString
+            memory.setObject(image, forKey: key)
+            if let jpeg = image.jpegData(compressionQuality: 0.92) {
+                try? jpeg.write(to: folder.appendingPathComponent(slug(cacheKey(name, quality)) + ".jpg"), options: .atomic)
             }
             return image
         }
+    }
+
+    private static func cacheKey(_ name: String, _ quality: Quality) -> String {
+        quality == .hero ? name + "#hero" : name
     }
 
     private static func slug(_ name: String) -> String {
