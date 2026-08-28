@@ -838,31 +838,7 @@ struct TodayView: View {
 
     @ViewBuilder
     private func dinnerPhoto(plan: DinnerPlan?, recipe: Recipe?, title: String?) -> some View {
-        if let recipe {
-            RecipePhoto(
-                url: URL(string: recipe.imageURL),
-                searchName: recipe.name,
-                category: recipe.notes,
-                quality: .hero,
-                crop: true
-            )
-        } else if let title, !title.isEmpty, plan?.placeName == nil {
-            RecipePhoto(
-                url: RecipeThumbs.url(for: title),
-                searchName: title,
-                quality: .hero,
-                crop: true
-            )
-        } else if let plan, let place = NearbyPlace(plan: plan) {
-            PlacePhoto(place: place)
-        } else {
-            ZStack {
-                AppTheme.blueSoft
-                Image(systemName: "fork.knife")
-                    .font(.system(size: 44, weight: .bold))
-                    .foregroundStyle(accent)
-            }
-        }
+        DinnerDayPhoto(plan: plan, recipe: recipe, title: title, quality: .hero)
     }
 
     private func homeStatTile(title: String, value: String, detail: String = "", symbol: String, color: Color, soft: Color, action: @escaping () -> Void) -> some View {

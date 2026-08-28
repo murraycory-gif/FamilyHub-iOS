@@ -130,13 +130,9 @@ private struct MealDayCard: View {
     }
 
     private var thumb: some View {
-        ZStack {
-            AppTheme.blueSoft
-            Image(systemName: planned ? "fork.knife" : "plus")
-                .foregroundStyle(AppTheme.blue)
-        }
-        .frame(width: 88, height: 88)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        DinnerDayPhoto(plan: plan, recipe: recipe, title: title)
+            .frame(width: 88, height: 88)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var dayLabel: String {
@@ -1730,6 +1726,41 @@ private func placeTile(_ place: NearbyPlace, mode: PlaceMode) -> some View {
             .stroke(Color.black.opacity(0.05), lineWidth: 1)
     )
     .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
+}
+
+struct DinnerDayPhoto: View {
+    let plan: DinnerPlan?
+    var recipe: Recipe?
+    var title: String?
+    var quality: RecipePhotoLoader.Quality = .card
+
+    var body: some View {
+        if let recipe {
+            RecipePhoto(
+                url: URL(string: recipe.imageURL),
+                searchName: recipe.name,
+                category: recipe.notes,
+                quality: quality,
+                crop: true
+            )
+        } else if let title, title.isEmpty == false, plan?.placeName == nil {
+            RecipePhoto(
+                url: RecipeThumbs.url(for: title),
+                searchName: title,
+                quality: quality,
+                crop: true
+            )
+        } else if let plan, let place = NearbyPlace(plan: plan) {
+            PlacePhoto(place: place)
+        } else {
+            ZStack {
+                AppTheme.blueSoft
+                Image(systemName: plan == nil ? "plus" : "fork.knife")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+        }
+    }
 }
 
 struct RecipePhoto: View {
