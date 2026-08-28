@@ -31,6 +31,7 @@ enum FlightParse {
             departAt: event.startAt,
             arriveAt: arrive,
             eventID: event.id,
+            memberID: event.memberID,
             notes: event.location
         )
     }

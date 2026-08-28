@@ -1095,6 +1095,7 @@ struct TrackedFlight: Identifiable, Codable, Hashable {
     var departAt: Date
     var arriveAt: Date?
     var eventID: UUID?
+    var memberID: UUID?
     var notes: String
 
     var code: String { "\(airline)\(number)" }
@@ -1107,6 +1108,7 @@ struct TrackedFlight: Identifiable, Codable, Hashable {
         departAt: Date,
         arriveAt: Date? = nil,
         eventID: UUID? = nil,
+        memberID: UUID? = nil,
         notes: String = ""
     ) -> TrackedFlight {
         TrackedFlight(
@@ -1118,6 +1120,7 @@ struct TrackedFlight: Identifiable, Codable, Hashable {
             departAt: departAt,
             arriveAt: arriveAt,
             eventID: eventID,
+            memberID: memberID,
             notes: notes
         )
     }

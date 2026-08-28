@@ -213,10 +213,16 @@ struct FlightWidget: View {
                     .padding(.vertical, 4)
                     .background(accent, in: Capsule())
                 Spacer()
-                Text(FlightParse.countdown(flight, now: now))
+                Text(travelerName(flight))
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(accent)
+                    .foregroundStyle(travelerColor(flight))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(travelerColor(flight).opacity(0.16), in: Capsule())
             }
+            Text(FlightParse.countdown(flight, now: now))
+                .font(.caption.weight(.bold))
+                .foregroundStyle(accent)
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(flight.origin.isEmpty ? "—" : flight.origin)
                 Image(systemName: "airplane")
@@ -265,6 +271,25 @@ struct FlightWidget: View {
         if let alt = ping.altitudeFt, alt > 0 { bits.append("\(alt.formatted()) ft") }
         if let speed = ping.speedKts, speed > 0 { bits.append("\(speed) kts") }
         return bits.isEmpty ? "Live position" : bits.joined(separator: " · ")
+    }
+
+    private func traveler(for flight: TrackedFlight) -> FamilyMember? {
+        if let id = flight.memberID { return store.member(id: id) }
+        if let eventID = flight.eventID,
+           let event = store.events.first(where: { $0.id == eventID }),
+           let id = event.memberID {
+            return store.member(id: id)
+        }
+        return nil
+    }
+
+    private func travelerName(_ flight: TrackedFlight) -> String {
+        traveler(for: flight)?.name ?? "Family"
+    }
+
+    private func travelerColor(_ flight: TrackedFlight) -> Color {
+        if let member = traveler(for: flight) { return Color(hex: member.colorHex) }
+        return AppTheme.blue
     }
 }
 
@@ -333,6 +358,9 @@ struct FlightDetailSheet: View {
                                                     .font(.headline.weight(.bold))
                                                     .foregroundStyle(AppTheme.text)
                                                 Spacer()
+                                                Text(travelerName(item))
+                                                    .font(.caption.weight(.bold))
+                                                    .foregroundStyle(travelerColor(item))
                                                 if item.id == watching.id {
                                                     Image(systemName: "checkmark.circle.fill")
                                                         .foregroundStyle(AppTheme.blue)
@@ -391,6 +419,10 @@ struct FlightDetailSheet: View {
                 fact("Departs", Date.hubClock(watching.departAt))
                 fact("Arrives", watching.arriveAt.map(Date.hubClock) ?? "—")
                 fact("Time in air", FlightParse.duration(watching))
+            }
+            HStack {
+                fact("Who", travelerName(watching))
+                fact("Airline", FlightParse.airlineName(watching.airline))
             }
         }
     }
@@ -453,6 +485,25 @@ struct FlightDetailSheet: View {
         if let speed = ping.speedKts, speed > 0 { bits.append("\(speed) kts") }
         if let heading = ping.heading { bits.append("HDG \(Int(heading))°") }
         return bits.isEmpty ? "Live from ADS-B" : bits.joined(separator: "  ·  ")
+    }
+
+    private func traveler(for flight: TrackedFlight) -> FamilyMember? {
+        if let id = flight.memberID { return store.member(id: id) }
+        if let eventID = flight.eventID,
+           let event = store.events.first(where: { $0.id == eventID }),
+           let id = event.memberID {
+            return store.member(id: id)
+        }
+        return nil
+    }
+
+    private func travelerName(_ flight: TrackedFlight) -> String {
+        traveler(for: flight)?.name ?? "Family"
+    }
+
+    private func travelerColor(_ flight: TrackedFlight) -> Color {
+        if let member = traveler(for: flight) { return Color(hex: member.colorHex) }
+        return AppTheme.blue
     }
 }
 
@@ -546,6 +597,7 @@ struct AddFlightSheet: View {
     @State private var destination = ""
     @State private var depart = Date()
     @State private var arrive = Date().addingTimeInterval(4 * 3600)
+    @State private var memberID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -558,6 +610,17 @@ struct AddFlightSheet: View {
                     field("To (SJC)", text: $destination)
                     DatePicker("Departs", selection: $depart)
                     DatePicker("Arrives", selection: $arrive)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Who").font(.caption.weight(.bold)).foregroundStyle(AppTheme.textTertiary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                whoChip("Family", on: memberID == nil) { memberID = nil }
+                                ForEach(store.members) { member in
+                                    whoChip(member.name, on: memberID == member.id) { memberID = member.id }
+                                }
+                            }
+                        }
+                    }
                     Button {
                         store.addFlight(.make(
                             airline: airline,
@@ -565,7 +628,8 @@ struct AddFlightSheet: View {
                             origin: origin,
                             destination: destination,
                             departAt: depart,
-                            arriveAt: arrive
+                            arriveAt: arrive,
+                            memberID: memberID
                         ))
                         dismiss()
                     } label: {
@@ -594,6 +658,18 @@ struct AddFlightSheet: View {
                 .padding(14)
                 .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
+    }
+
+    private func whoChip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(on ? .white : AppTheme.blue)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(on ? AppTheme.blue : AppTheme.blueSoft, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 
