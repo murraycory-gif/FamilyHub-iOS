@@ -1012,7 +1012,7 @@ private struct CatalogRecipePicker: View {
                     .padding(.horizontal, 20)
             }
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 14) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 12)], spacing: 12) {
                     ForEach(Array(catalog.recipes.prefix(80))) { recipe in
                         Button {
                             opened = recipe
@@ -1055,12 +1055,23 @@ private struct CatalogRecipePicker: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(catalog.categories, id: \.self) { item in
-                    FilterChip(title: item, color: AppTheme.blue, selected: catalog.category == item) {
+                    let on = catalog.category == item
+                    Button {
                         catalog.category = item
                         Task { await catalog.search() }
+                    } label: {
+                        Text(item)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(on ? .white : AppTheme.blue)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(on ? AppTheme.blue : Color.white, in: Capsule())
+                            .overlay(Capsule().stroke(AppTheme.blue.opacity(on ? 0 : 0.25), lineWidth: 1.5))
                     }
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(.vertical, 4)
         }
     }
 }
@@ -1076,15 +1087,27 @@ private struct CatalogRecipeDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                RecipePhoto(url: recipe.thumb, searchName: recipe.name)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 240)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                Text(recipe.name)
-                    .font(.system(size: 32, weight: .bold))
-                Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.blue)
+                HStack(spacing: 14) {
+                    RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category)
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recipe.name)
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.blue)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(14)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(AppTheme.blue, lineWidth: 3)
+                )
                 ServingsStepper(servings: $servings)
                 if !scaled.isEmpty {
                     Text("Ingredients for \(servings) \(servings == 1 ? "person" : "people")")
@@ -1648,34 +1671,34 @@ private func placeTile(_ place: NearbyPlace) -> some View {
 }
 
 private func recipeTile(_ recipe: CatalogRecipe) -> some View {
-    ZStack(alignment: .bottomLeading) {
-        RecipePhoto(url: recipe.thumb, searchName: recipe.name)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
-        LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
-        VStack(alignment: .leading, spacing: 6) {
+    HStack(spacing: 14) {
+        RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category)
+            .frame(width: 64, height: 64)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        VStack(alignment: .leading, spacing: 4) {
             Text(recipe.category.uppercased())
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(AppTheme.blue, in: Capsule())
+                .foregroundStyle(AppTheme.blue)
             Text(recipe.name)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
                 .lineLimit(2)
-                .minimumScaleFactor(0.85)
+                .multilineTextAlignment(.leading)
         }
-        .padding(12)
+        Spacer(minLength: 0)
+        Image(systemName: "chevron.right")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(AppTheme.textTertiary)
     }
-    .frame(maxWidth: .infinity)
-    .frame(height: 210)
-    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    .padding(14)
+    .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+    .background(Color.white)
+    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     .overlay(
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .stroke(AppTheme.blue, lineWidth: 3)
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .stroke(Color.black.opacity(0.05), lineWidth: 1)
     )
-    .shadow(color: .black.opacity(0.16), radius: 12, y: 6)
+    .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
 }
 
 struct RecipePhoto: View {
@@ -1684,80 +1707,122 @@ struct RecipePhoto: View {
     var category: String = ""
 
     var body: some View {
-        RecipeArt(name: searchName, category: category)
-    }
-}
-
-private struct RecipeArt: View {
-    let name: String
-    var category: String = ""
-
-    var body: some View {
-        let look = RecipeLook.match(name, category: category)
+        let symbol = RecipeLook.symbol(searchName, category: category)
         ZStack {
-            LinearGradient(
-                colors: [look.top, look.bottom],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            Circle()
-                .fill(.white.opacity(0.14))
-                .frame(width: 200, height: 200)
-                .offset(x: 56, y: -36)
-            Circle()
-                .fill(.black.opacity(0.08))
-                .frame(width: 120, height: 120)
-                .offset(x: -70, y: 50)
-            Text(look.glyph)
-                .font(.system(size: 88))
-                .shadow(color: .black.opacity(0.28), radius: 10, y: 5)
+            AppTheme.blueSoft
+            Image(systemName: symbol)
+                .font(.system(size: 26, weight: .bold))
+                .foregroundStyle(AppTheme.blue)
         }
-        .clipped()
         .contentShape(Rectangle())
     }
 }
 
 private enum RecipeLook {
-    static func match(_ name: String, category: String) -> (glyph: String, top: Color, bottom: Color) {
+    static func symbol(_ name: String, category: String = "") -> String {
         let blob = "\(name) \(category)".lowercased()
-        let glyph = glyph(in: blob)
-        var hasher = Hasher()
-        hasher.combine(name.lowercased())
-        let hue = Double(abs(hasher.finalize() % 1000)) / 1000.0
-        let top = Color(hue: 0.60, saturation: 0.55, brightness: 0.55)
-        let bottom = Color(hue: hue * 0.08 + 0.58, saturation: 0.70, brightness: 0.28)
-        return (glyph, top, bottom)
-    }
-
-    private static func glyph(in blob: String) -> String {
         let rules: [(String, String)] = [
-            ("cheeseburger", "🍔"), ("smash burger", "🍔"), ("hamburger", "🍔"), ("burger", "🍔"),
-            ("rib", "🍖"), ("brisket", "🍖"), ("pulled pork", "🍖"), ("pork chop", "🥩"),
-            ("wing", "🍗"), ("fried chicken", "🍗"), ("chicken and waffle", "🍗"), ("tender", "🍗"),
-            ("turkey", "🦃"), ("pot pie", "🥧"), ("pie", "🥧"), ("casserole", "🥘"),
-            ("pizza", "🍕"), ("taco", "🌮"), ("enchilada", "🌮"), ("quesadilla", "🌮"),
-            ("burrito", "🌯"), ("nacho", "🌮"), ("fajita", "🌮"), ("carnitas", "🌮"),
-            ("macaroni", "🧀"), ("mac and cheese", "🧀"), ("grilled cheese", "🧀"),
-            ("lasagna", "🍝"), ("spaghetti", "🍝"), ("ziti", "🍝"), ("alfredo", "🍝"), ("pasta", "🍝"),
-            ("chili", "🌶️"), ("soup", "🍲"), ("chowder", "🍲"), ("stew", "🍲"), ("gumbo", "🍲"),
-            ("salad", "🥗"), ("sandwich", "🥪"), ("club", "🥪"), ("blt", "🥪"), ("melt", "🥪"),
-            ("cheesesteak", "🥪"), ("po' boy", "🥪"), ("sub", "🥪"), ("wrap", "🌯"),
-            ("salmon", "🐟"), ("fish", "🐟"), ("catfish", "🐟"), ("crab", "🦀"), ("lobster", "🦞"),
-            ("shrimp", "🦐"), ("scampi", "🦐"),
-            ("steak", "🥩"), ("roast", "🥩"), ("meatloaf", "🥩"), ("meatball", "🍝"),
-            ("hot dog", "🌭"), ("coney", "🌭"), ("brat", "🌭"),
-            ("pancake", "🥞"), ("french toast", "🥞"), ("waffle", "🧇"), ("biscuit", "🥐"),
-            ("egg", "🍳"), ("huevos", "🍳"), ("burrito breakfast", "🌯"),
-            ("rice", "🍚"), ("bowl", "🍚"), ("stir fry", "🍜"), ("teriyaki", "🍜"),
-            ("orange chicken", "🥡"), ("general tso", "🥡"),
-            ("potato", "🥔"), ("tater", "🥔"), ("fries", "🍟"), ("tot", "🥔"),
-            ("corn", "🌽"), ("green bean", "🥦"), ("broccoli", "🥦"), ("carrot", "🥕"),
-            ("roll", "🍞"), ("bread", "🍞"), ("cornbread", "🍞"),
-            ("bean", "🫘"), ("chili con", "🌶️"),
-            ("sloppy", "🍔"),
+            ("cheeseburger", "fork.knife.circle.fill"),
+            ("smash burger", "fork.knife.circle.fill"),
+            ("hamburger", "fork.knife.circle.fill"),
+            ("sloppy", "fork.knife.circle.fill"),
+            ("baby back", "flame.fill"),
+            ("rib", "flame.fill"),
+            ("brisket", "flame.fill"),
+            ("pulled pork", "flame.fill"),
+            ("pulled chicken", "flame.fill"),
+            ("bbq", "flame.fill"),
+            ("buffalo", "flame.fill"),
+            ("wing", "flame.fill"),
+            ("fried chicken", "flame.fill"),
+            ("chicken fried", "flame.fill"),
+            ("pot pie", "oven.fill"),
+            ("casserole", "oven.fill"),
+            ("meatloaf", "oven.fill"),
+            ("lasagna", "oven.fill"),
+            ("ziti", "oven.fill"),
+            ("pizza", "oven.fill"),
+            ("roast chicken", "oven.fill"),
+            ("pot roast", "oven.fill"),
+            ("macaroni", "fork.knife.circle.fill"),
+            ("grilled cheese", "fork.knife.circle.fill"),
+            ("cheesesteak", "fork.knife.circle.fill"),
+            ("club", "fork.knife.circle.fill"),
+            ("blt", "fork.knife.circle.fill"),
+            ("sandwich", "fork.knife.circle.fill"),
+            ("po' boy", "fork.knife.circle.fill"),
+            ("melt", "fork.knife.circle.fill"),
+            ("taco", "takeoutbag.and.cup.and.straw.fill"),
+            ("enchilada", "takeoutbag.and.cup.and.straw.fill"),
+            ("quesadilla", "takeoutbag.and.cup.and.straw.fill"),
+            ("burrito", "takeoutbag.and.cup.and.straw.fill"),
+            ("nacho", "takeoutbag.and.cup.and.straw.fill"),
+            ("fajita", "takeoutbag.and.cup.and.straw.fill"),
+            ("carnitas", "takeoutbag.and.cup.and.straw.fill"),
+            ("orange chicken", "takeoutbag.and.cup.and.straw.fill"),
+            ("general tso", "takeoutbag.and.cup.and.straw.fill"),
+            ("stir fry", "takeoutbag.and.cup.and.straw.fill"),
+            ("teriyaki", "takeoutbag.and.cup.and.straw.fill"),
+            ("spaghetti", "fork.knife.circle.fill"),
+            ("alfredo", "fork.knife.circle.fill"),
+            ("pasta", "fork.knife.circle.fill"),
+            ("meatball", "fork.knife.circle.fill"),
+            ("chili", "cup.and.saucer.fill"),
+            ("soup", "cup.and.saucer.fill"),
+            ("chowder", "cup.and.saucer.fill"),
+            ("stew", "cup.and.saucer.fill"),
+            ("gumbo", "cup.and.saucer.fill"),
+            ("jambalaya", "cup.and.saucer.fill"),
+            ("grits", "cup.and.saucer.fill"),
+            ("dumplings", "cup.and.saucer.fill"),
+            ("red beans", "cup.and.saucer.fill"),
+            ("salad", "leaf.fill"),
+            ("green bean", "leaf.fill"),
+            ("broccoli", "leaf.fill"),
+            ("asparagus", "leaf.fill"),
+            ("collard", "leaf.fill"),
+            ("salmon", "fish.fill"),
+            ("tuna", "fish.fill"),
+            ("fish", "fish.fill"),
+            ("catfish", "fish.fill"),
+            ("crab", "fish.fill"),
+            ("lobster", "fish.fill"),
+            ("shrimp", "fish.fill"),
+            ("scampi", "fish.fill"),
+            ("steak", "flame.fill"),
+            ("grill", "flame.fill"),
+            ("hot dog", "fork.knife.circle.fill"),
+            ("coney", "fork.knife.circle.fill"),
+            ("brat", "fork.knife.circle.fill"),
+            ("pancake", "birthday.cake.fill"),
+            ("french toast", "birthday.cake.fill"),
+            ("waffle", "birthday.cake.fill"),
+            ("biscuit", "birthday.cake.fill"),
+            ("egg", "fork.knife.circle.fill"),
+            ("huevos", "fork.knife.circle.fill"),
+            ("rice", "takeoutbag.and.cup.and.straw.fill"),
+            ("bowl", "takeoutbag.and.cup.and.straw.fill"),
+            ("potato", "oven.fill"),
+            ("tater", "oven.fill"),
+            ("fries", "fork.knife.circle.fill"),
+            ("corn", "leaf.fill"),
+            ("bread", "oven.fill"),
+            ("roll", "oven.fill"),
+            ("bean", "leaf.fill"),
         ]
-        for (key, glyph) in rules where blob.contains(key) { return glyph }
-        return "🍽️"
+        for (key, symbol) in rules where blob.contains(key) { return symbol }
+        switch category.lowercased() {
+        case "bbq": return "flame.fill"
+        case "diner": return "fork.knife.circle.fill"
+        case "southern": return "oven.fill"
+        case "comfort": return "oven.fill"
+        case "tex-mex", "mexican": return "takeoutbag.and.cup.and.straw.fill"
+        case "italian": return "fork.knife.circle.fill"
+        case "asian", "chinese", "japanese", "thai": return "takeoutbag.and.cup.and.straw.fill"
+        case "holiday": return "oven.fill"
+        case "weeknight": return "fork.knife.circle.fill"
+        default: return "fork.knife.circle.fill"
+        }
     }
 }
 
