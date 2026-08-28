@@ -476,7 +476,7 @@ final class PlacesSearch: ObservableObject {
         let street = [item.placemark.subThoroughfare, item.placemark.thoroughfare]
             .compactMap { $0 }
             .joined(separator: " ")
-        let address = [street, item.placemark.locality, item.placemark.administrativeArea]
+        let address = [street, item.placemark.locality ?? "", item.placemark.administrativeArea ?? ""]
             .filter { $0.isEmpty == false }
             .joined(separator: ", ")
         return NearbyPlace(
