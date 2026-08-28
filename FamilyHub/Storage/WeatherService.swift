@@ -34,6 +34,14 @@ final class WeatherLoader: ObservableObject {
         return ofDay
     }
 
+    func hoursForTile(on date: Date, count: Int = 5) -> [WeatherHour] {
+        if Calendar.current.isDateInToday(date) {
+            let start = Date().addingTimeInterval(-20 * 60)
+            return Array(hours.filter { $0.at >= start }.prefix(count))
+        }
+        return Array(hoursOn(date).prefix(count))
+    }
+
     func load(place: WeatherPlace, units: HubUnits = .us) async {
         isLoading = true
         errorMessage = nil

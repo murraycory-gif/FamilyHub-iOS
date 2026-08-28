@@ -493,34 +493,50 @@ struct HubWeatherTile: View {
                     if isLoading && now == nil && day == nil {
                         ProgressView().tint(.white)
                     } else {
-                        Text(condition)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.92))
-                        Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
-                            .font(.subheadline.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(.white.opacity(0.88))
-                        Text("\(temp)°")
-                            .font(.system(size: 48, weight: .thin))
-                            .monospacedDigit()
-                            .foregroundStyle(.white)
-                            .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
-                            .minimumScaleFactor(0.5)
-                            .lineLimit(1)
+                        HStack(alignment: .top, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(condition)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white.opacity(0.95))
+                                Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
+                                    .font(.caption.weight(.bold).monospacedDigit())
+                                    .foregroundStyle(.white.opacity(0.88))
+                                Text("\(temp)°")
+                                    .font(.system(size: 40, weight: .thin))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.white)
+                                    .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
+                                    .minimumScaleFactor(0.5)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 0)
+                            VStack(alignment: .trailing, spacing: 4) {
+                                if isToday, let now {
+                                    Text("Feels \(now.feelsLike)°")
+                                    Text("Wind \(now.windMph)")
+                                    Text("Rain \(day?.precip ?? now.precip)%")
+                                } else if let day {
+                                    Text("Wind \(day.windMph)")
+                                    Text("Rain \(day.precip)%")
+                                    Text("UV \(day.uv)")
+                                }
+                            }
+                            .font(.caption.weight(.bold).monospacedDigit())
+                            .foregroundStyle(.white.opacity(0.9))
+                        }
                     }
                     Spacer(minLength: 4)
                     HStack(spacing: 0) {
-                        ForEach(0..<5, id: \.self) { index in
-                            let hour = hours.indices.contains(index) ? hours[index] : nil
+                        ForEach(Array(hours.prefix(5).enumerated()), id: \.element.id) { index, hour in
                             VStack(spacing: 4) {
-                                Text(hour.map { index == 0 && isToday ? "Now" : hourLabel($0.at) } ?? "—")
+                                Text(index == 0 && isToday ? "Now" : hourLabel(hour.at))
                                     .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(.white.opacity(0.8))
-                                Image(systemName: hour?.symbolName ?? "circle")
+                                Image(systemName: hour.symbolName)
                                     .font(.body)
                                     .symbolRenderingMode(.multicolor)
-                                    .opacity(hour == nil ? 0 : 1)
                                     .frame(height: 18)
-                                Text(hour.map { "\($0.temp)°" } ?? " ")
+                                Text("\(hour.temp)°")
                                     .font(.subheadline.weight(.semibold).monospacedDigit())
                                     .foregroundStyle(.white)
                             }

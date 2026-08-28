@@ -200,13 +200,23 @@ struct TodayView: View {
     }
 
     private func visibleWidgets(for day: Date) -> [HubWidgetKind] {
-        let slot: HubWidgetKind = hasLiveFlight(on: day) ? .flights : .shopping
-        return [.weather, slot, .dinner]
-    }
-
-    private func hasLiveFlight(on day: Date) -> Bool {
-        FlightParse.flights(on: day, events: store.events, extra: store.flights)
-            .contains { FlightParse.isLive($0) }
+        var kinds = store.hubWidgets.map(\.kind)
+        if kinds.isEmpty {
+            kinds = [.weather, .shopping, .dinner]
+        }
+        let fill: [HubWidgetKind] = [.weather, .shopping, .dinner, .packages]
+        for extra in fill where kinds.count < 3 && !kinds.contains(extra) {
+            kinds.append(extra)
+        }
+        let dayHasFlight = !FlightParse.flights(on: day, events: store.events, extra: store.flights).isEmpty
+        if dayHasFlight, !kinds.contains(.flights) {
+            if let i = kinds.firstIndex(of: .shopping) {
+                kinds[i] = .flights
+            } else if kinds.indices.contains(1) {
+                kinds[1] = .flights
+            }
+        }
+        return Array(kinds.prefix(3))
     }
 
     @ViewBuilder
@@ -645,7 +655,7 @@ struct TodayView: View {
             placeLabel: store.weatherPlace?.label ?? "Chicago",
             now: weather.now,
             day: weather.forecastDay(on: day),
-            hours: Array(weather.hoursOn(day).prefix(5)),
+            hours: weather.hoursForTile(on: day, count: 5),
             isToday: Calendar.current.isDateInToday(day),
             isLoading: weather.isLoading,
             live: true,

@@ -102,7 +102,7 @@ struct HubWidgetPicker: View {
             slots[index] = option
         }
         commit()
-        if option == .flights, store.flights.isEmpty { setup = .flight }
+        if option == .flights { setup = .flight }
         if option == .packages, store.packages.filter({ !$0.isDelivered }).isEmpty { setup = .package }
     }
 
@@ -133,7 +133,12 @@ struct FlightWidget: View {
 
     private var flights: [TrackedFlight] {
         FlightParse.flights(on: day, events: store.events, extra: store.flights)
-            .filter { FlightParse.isLive($0) }
+            .sorted { a, b in
+                let liveA = FlightParse.isLive(a)
+                let liveB = FlightParse.isLive(b)
+                if liveA != liveB { return liveA && !liveB }
+                return a.departAt < b.departAt
+            }
     }
 
     var body: some View {
@@ -196,7 +201,7 @@ struct FlightWidget: View {
                         Text("No flights this day")
                             .font(.headline.weight(.bold))
                             .foregroundStyle(AppTheme.text)
-                        Text("HUB reads Flight UA1234 ORD to SFO from the calendar. Tap to add one yourself.")
+                        Text("HUB reads flights from the calendar. Tap to add one.")
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.textSecondary)
                         Text("Add flight")
