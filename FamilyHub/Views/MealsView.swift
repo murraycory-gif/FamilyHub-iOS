@@ -443,7 +443,7 @@ struct MealChoiceSheet: View {
     private func routeView(_ item: MealPath) -> some View {
         switch item {
         case .eatOut(let mode):
-            EatOutPicker(day: day, mode: mode) { finish() }
+            EatOutPicker(day: day, mode: mode, onClose: { DispatchQueue.main.async { route = nil } }, onDone: finish)
         case .family:
             FamilyRecipePicker(day: day) { go(.sides) }
         case .recipes:
@@ -547,6 +547,7 @@ private struct EatOutPicker: View {
     @StateObject private var places = PlacesSearch()
     let day: Date
     var mode: PlaceMode = .sitdown
+    var onClose: () -> Void = {}
     var onDone: () -> Void
     @State private var areaQuery = ""
     @State private var opened: NearbyPlace?
@@ -581,7 +582,9 @@ private struct EatOutPicker: View {
             .background(AppTheme.bg.ignoresSafeArea())
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                HubStickyHeader(lead: headerLead, tail: headerTail)
+                HubStickyHeader(lead: headerLead, tail: headerTail) {
+                    HubHeaderPill(title: "Back") { onClose() }
+                }
                 hubSearchField(text: $areaQuery, placeholder: "McDonald’s, pizza, tacos…") {
                     runSearch(areaQuery)
                 }
