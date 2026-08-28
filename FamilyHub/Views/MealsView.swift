@@ -445,11 +445,11 @@ struct MealChoiceSheet: View {
         case .eatOut(let mode):
             EatOutPicker(day: day, mode: mode) { finish() }
         case .family:
-            FamilyRecipePicker(day: day) { finish() }
+            FamilyRecipePicker(day: day) { go(.sides) }
         case .recipes:
-            CatalogRecipePicker(day: day, onClose: { DispatchQueue.main.async { route = nil } }, onDone: finish)
+            CatalogRecipePicker(day: day, onClose: { DispatchQueue.main.async { route = nil } }, onDone: { go(.sides) })
         case .manual:
-            ManualMealSheet(day: day) { finish() }
+            ManualMealSheet(day: day) { go(.sides) }
         case .sides:
             SidePicker(day: day) { go(.review) }
         case .review:
@@ -946,48 +946,23 @@ private struct CatalogRecipePicker: View {
     var onClose: () -> Void
     var onDone: () -> Void
     @State private var opened: CatalogRecipe?
-    @State private var addedName: String?
-    @State private var pendingServings = 4
-    @State private var pendingMethod = CookMethod.oven
-    @State private var didSave = false
 
     var body: some View {
-        if let name = addedName {
-            VStack(spacing: 18) {
-                HubStickyHeader(lead: "Dinner", tail: "Set") {
-                    HubHeaderPill(title: "Done") { onDone() }
-                }
-                Spacer()
-                Text(name)
-                    .font(.system(size: 34, weight: .bold))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                Text("Added for dinner")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.blue)
-                Button("Done") { onDone() }
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: 280)
-                    .padding(.vertical, 16)
-                    .background(AppTheme.blue, in: Capsule())
-                Spacer()
-            }
-            .background(AppTheme.bg.ignoresSafeArea())
-            .onAppear {
-                guard !didSave else { return }
-                didSave = true
-                store.setDinner(on: day, recipeID: nil, note: name, servings: pendingServings, cookMethod: pendingMethod)
-            }
-        } else if let recipe = opened {
+        if let recipe = opened {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: "Recipe", tail: "") {
                     HubHeaderPill(title: "Back") { opened = nil }
                 }
                 CatalogRecipeDetail(recipe: recipe) { servings, method in
-                    pendingServings = servings
-                    pendingMethod = method
-                    DispatchQueue.main.async { addedName = recipe.name }
+                    let saved: Recipe
+                    if let existing = store.recipes.first(where: { $0.catalogID == recipe.id && $0.kind != .side }) {
+                        saved = existing
+                    } else {
+                        saved = recipe.asHubRecipe()
+                        store.addRecipe(saved)
+                    }
+                    store.setDinner(on: day, recipeID: saved.id, servings: servings, cookMethod: method)
+                    DispatchQueue.main.async { onDone() }
                 }
             }
             .background(AppTheme.bg.ignoresSafeArea())
@@ -1174,14 +1149,9 @@ private struct SidePicker: View {
                                 DispatchQueue.main.async { opened = picked }
                             } label: {
                                 HStack(spacing: 14) {
-                                    ZStack {
-                                        AppTheme.blueSoft
-                                        Image(systemName: "leaf.fill")
-                                            .font(.headline.weight(.bold))
-                                            .foregroundStyle(AppTheme.blue)
-                                    }
-                                    .frame(width: 64, height: 64)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category)
+                                        .frame(width: 72, height: 72)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(recipe.name)
                                             .font(.headline.weight(.bold))
@@ -1221,15 +1191,11 @@ private struct SideDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                ZStack {
-                    AppTheme.blueSoft
-                    Image(systemName: "leaf.fill")
-                        .font(.system(size: 44, weight: .bold))
-                        .foregroundStyle(AppTheme.blue)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 180)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category, quality: .hero, crop: false)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 220)
+                    .background(AppTheme.blueSoft)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 Text(recipe.name)
                     .font(.system(size: 32, weight: .bold))
                 Text("Side · \(recipe.category) · \(servings) \(servings == 1 ? "person" : "people")")

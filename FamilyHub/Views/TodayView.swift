@@ -800,7 +800,7 @@ struct TodayView: View {
             }
             Button { openDinner() } label: {
                 ZStack(alignment: .bottom) {
-                    dinnerPhoto(plan: plan, recipe: recipe)
+                    dinnerPhoto(plan: plan, recipe: recipe, title: title)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 4) {
@@ -837,12 +837,19 @@ struct TodayView: View {
     }
 
     @ViewBuilder
-    private func dinnerPhoto(plan: DinnerPlan?, recipe: Recipe?) -> some View {
+    private func dinnerPhoto(plan: DinnerPlan?, recipe: Recipe?, title: String?) -> some View {
         if let recipe {
             RecipePhoto(
                 url: URL(string: recipe.imageURL),
                 searchName: recipe.name,
                 category: recipe.notes,
+                quality: .hero,
+                crop: true
+            )
+        } else if let title, !title.isEmpty, plan?.placeName == nil {
+            RecipePhoto(
+                url: RecipeThumbs.url(for: title),
+                searchName: title,
                 quality: .hero,
                 crop: true
             )
