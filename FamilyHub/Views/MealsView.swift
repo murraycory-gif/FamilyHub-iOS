@@ -582,7 +582,19 @@ private struct EatOutPicker: View {
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: headerLead, tail: headerTail)
-                searchBar
+                hubSearchField(text: $areaQuery, placeholder: "McDonald’s, pizza, tacos…") {
+                    runSearch(areaQuery)
+                }
+                .onChange(of: areaQuery) { _, value in
+                    completer.update(value)
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard trimmed.isEmpty == false else { return }
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(350))
+                        guard areaQuery == value else { return }
+                        await places.searchMaps(value)
+                    }
+                }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
                 chipRow
@@ -592,37 +604,19 @@ private struct EatOutPicker: View {
                     Text(message).foregroundStyle(AppTheme.textSecondary).padding(.horizontal, 20)
                 }
                 ScrollView {
-                    LazyVStack(spacing: 8) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
                         ForEach(Array(places.places.prefix(40).enumerated()), id: \.offset) { _, place in
                             Button {
                                 let picked = place
                                 DispatchQueue.main.async { opened = picked }
                             } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: mode.symbol)
-                                        .font(.headline.weight(.bold))
-                                        .foregroundStyle(AppTheme.blue)
-                                        .frame(width: 44, height: 44)
-                                        .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(place.name)
-                                            .font(.headline.weight(.bold))
-                                            .foregroundStyle(AppTheme.text)
-                                            .lineLimit(2)
-                                        Text(place.address.isEmpty ? mode.title : place.address)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(AppTheme.textSecondary)
-                                            .lineLimit(1)
-                                    }
-                                    Spacer(minLength: 0)
-                                }
-                                .padding(12)
-                                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                placeTile(place, mode: mode)
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(20)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
             }
             .background(AppTheme.bg.ignoresSafeArea())
@@ -783,31 +777,30 @@ private struct FamilyRecipePicker: View {
                         .buttonStyle(.plain)
                     }
                 }
+                hubSearchField(text: $query, placeholder: "Search family recipes…")
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
                 ScrollView {
-                    LazyVStack(spacing: 8) {
-                        if familyRecipes.isEmpty {
-                            Text("Nothing saved yet.")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.textSecondary)
-                        }
-                        ForEach(familyRecipes) { recipe in
-                            Button {
-                                let picked = recipe
-                                DispatchQueue.main.async { opened = picked }
-                            } label: {
-                                HStack {
-                                    Text(recipe.name)
-                                        .font(.headline.weight(.bold))
-                                        .foregroundStyle(AppTheme.text)
-                                    Spacer()
+                    if familyRecipes.isEmpty {
+                        Text("Nothing saved yet.")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                            .padding(20)
+                    } else {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
+                            ForEach(familyRecipes) { recipe in
+                                Button {
+                                    let picked = recipe
+                                    DispatchQueue.main.async { opened = picked }
+                                } label: {
+                                    hubFoodTile(name: recipe.name, category: "Family", url: URL(string: recipe.imageURL))
                                 }
-                                .padding(16)
-                                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 20)
                     }
-                    .padding(20)
                 }
             }
             .background(AppTheme.bg.ignoresSafeArea())
@@ -1141,35 +1134,47 @@ private struct SidePicker: View {
                         DispatchQueue.main.async { onDone() }
                     }
                 }
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(Array(catalog.recipes.prefix(60).enumerated()), id: \.offset) { _, recipe in
+                hubSearchField(text: $catalog.query, placeholder: "Mashed potatoes, slaw, fries…") {
+                    Task { await catalog.search() }
+                }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(catalog.categories, id: \.self) { item in
+                            let on = catalog.category == item
                             Button {
-                                let picked = recipe
-                                DispatchQueue.main.async { opened = picked }
+                                catalog.category = item
+                                Task { await catalog.load() }
                             } label: {
-                                HStack(spacing: 14) {
-                                    RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category)
-                                        .frame(width: 72, height: 72)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(recipe.name)
-                                            .font(.headline.weight(.bold))
-                                            .foregroundStyle(AppTheme.text)
-                                            .lineLimit(2)
-                                        Text(recipe.category)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(AppTheme.blue)
-                                    }
-                                    Spacer(minLength: 0)
-                                }
-                                .padding(12)
-                                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                Text(item)
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(on ? .white : AppTheme.blue)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(on ? AppTheme.blue : Color.white, in: Capsule())
+                                    .overlay(Capsule().stroke(AppTheme.blue.opacity(on ? 0 : 0.25), lineWidth: 1.5))
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(20)
+                    .padding(.vertical, 4)
+                }
+                .padding(.horizontal, 20)
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
+                        ForEach(Array(catalog.recipes.prefix(80).enumerated()), id: \.offset) { _, recipe in
+                            Button {
+                                let picked = recipe
+                                DispatchQueue.main.async { opened = picked }
+                            } label: {
+                                recipeTile(recipe)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
             }
             .background(AppTheme.bg.ignoresSafeArea())
@@ -1635,21 +1640,77 @@ private func placeTile(_ place: NearbyPlace) -> some View {
     .shadow(color: .black.opacity(0.16), radius: 12, y: 6)
 }
 
-private func recipeTile(_ recipe: CatalogRecipe) -> some View {
+private func hubSearchField(text: Binding<String>, placeholder: String, onSubmit: @escaping () -> Void = {}) -> some View {
+    HStack {
+        Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.blue)
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(.headline)
+            .onSubmit(onSubmit)
+    }
+    .padding(14)
+    .background(Color.white)
+    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .overlay(
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+    )
+    .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
+}
+
+private func hubFoodTile(name: String, category: String, url: URL? = nil) -> some View {
     VStack(alignment: .leading, spacing: 0) {
-        RecipePhoto(url: recipe.thumb, searchName: recipe.name, category: recipe.category)
+        RecipePhoto(url: url, searchName: name, category: category)
             .frame(maxWidth: .infinity)
             .frame(height: 148)
             .clipped()
         VStack(alignment: .leading, spacing: 4) {
-            Text(recipe.category.uppercased())
+            Text(category.uppercased())
                 .font(.caption.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
-            Text(recipe.name)
+            Text(name)
                 .font(.headline.weight(.bold))
                 .foregroundStyle(AppTheme.text)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
+        .background(Color.white)
+    }
+    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    .overlay(
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+    )
+    .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
+}
+
+private func recipeTile(_ recipe: CatalogRecipe) -> some View {
+    hubFoodTile(name: recipe.name, category: recipe.category, url: recipe.thumb)
+}
+
+private func placeTile(_ place: NearbyPlace, mode: PlaceMode) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+        PlacePhoto(place: place)
+            .frame(maxWidth: .infinity)
+            .frame(height: 148)
+            .clipped()
+        VStack(alignment: .leading, spacing: 4) {
+            Text(mode.title.uppercased())
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
+            Text(place.name)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+            if !place.address.isEmpty {
+                Text(place.address)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .lineLimit(1)
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
