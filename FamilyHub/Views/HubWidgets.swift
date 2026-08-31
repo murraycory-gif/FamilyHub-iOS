@@ -172,7 +172,13 @@ struct BillsWidget: View {
                                 Button {
                                     router.open(.lists, list: .reminders)
                                 } label: {
-                                    billRow(item)
+                                    HubAgendaCallout(
+                                        rail: AppTheme.reminder,
+                                        eyebrow: item.dueAt.map(Date.hubClock) ?? "Due",
+                                        title: item.title,
+                                        badge: "Bills Due",
+                                        accent: accent
+                                    )
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -187,42 +193,6 @@ struct BillsWidget: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
         .hubLift(accent: accent)
-    }
-
-    private func billRow(_ item: ReminderItem) -> some View {
-        HStack(alignment: .center, spacing: 14) {
-            Capsule()
-                .fill(AppTheme.reminder)
-                .frame(width: 5)
-                .padding(.vertical, 8)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.dueAt.map(Date.hubClock) ?? "Due")
-                    .font(.headline.weight(.bold).monospacedDigit())
-                    .foregroundStyle(accent)
-                Text(item.title)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(AppTheme.text)
-                    .lineLimit(2)
-            }
-            Spacer(minLength: 8)
-            Text("Bills Due")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(AppTheme.reminder)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(AppTheme.reminder.opacity(0.16), in: Capsule())
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
-        .shadow(color: .black.opacity(0.03), radius: 1, y: 1)
     }
 }
 

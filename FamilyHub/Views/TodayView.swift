@@ -683,23 +683,33 @@ struct TodayView: View {
         let open = store.shoppingItems.filter { !$0.isChecked }
         return VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(symbol: "cart.fill", title: "Shopping List") {
-                Button {
-                    shoppingDraft = ""
-                    showAddShopping = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .background(.white, in: Circle())
+                HStack(spacing: 8) {
+                    if open.isEmpty == false {
+                        Text("\(open.count)")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.white, in: Capsule())
+                    }
+                    Button {
+                        shoppingDraft = ""
+                        showAddShopping = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(accent)
+                            .background(.white, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Add to shopping list")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Add to shopping list")
             }
-            Button {
-                router.open(.shopping)
-            } label: {
-                Group {
-                    if open.isEmpty {
+            Group {
+                if open.isEmpty {
+                    Button {
+                        router.open(.shopping)
+                    } label: {
                         VStack(spacing: 6) {
                             Spacer(minLength: 0)
                             Text("Nothing to get")
@@ -710,31 +720,34 @@ struct TodayView: View {
                                 .foregroundStyle(AppTheme.textTertiary)
                             Spacer(minLength: 0)
                         }
-                        .frame(maxWidth: .infinity)
-                    } else {
-                        ScrollView(showsIndicators: false) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(open.prefix(8)) { item in
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "circle")
-                                            .foregroundStyle(accent)
-                                        Text(item.name)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(AppTheme.text)
-                                            .lineLimit(1)
-                                        Spacer(minLength: 0)
-                                    }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(HubPressStyle())
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(open.prefix(8)) { item in
+                                Button {
+                                    router.open(.shopping)
+                                } label: {
+                                    HubAgendaCallout(
+                                        rail: accent,
+                                        eyebrow: "To get",
+                                        title: item.name,
+                                        badge: "Shopping",
+                                        accent: accent
+                                    )
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(AppTheme.tableFill)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(HubPressStyle())
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.tableFill)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
