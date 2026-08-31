@@ -1009,11 +1009,12 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
     case dinner
     case flights
     case packages
+    case bills
 
     var id: String { rawValue }
 
     static var choosable: [HubWidgetKind] {
-        [.weather, .shopping, .dinner, .flights, .packages]
+        [.weather, .shopping, .dinner, .flights, .packages, .bills]
     }
 
     var title: String {
@@ -1025,6 +1026,7 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
         case .dinner: return "What's For Dinner"
         case .flights: return "Flight Tracker"
         case .packages: return "Packages"
+        case .bills: return "Bills Due"
         }
     }
 
@@ -1037,6 +1039,7 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
         case .dinner: return "fork.knife"
         case .flights: return "airplane"
         case .packages: return "shippingbox.fill"
+        case .bills: return "dollarsign.circle.fill"
         }
     }
 
@@ -1049,6 +1052,7 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
         case .dinner: return "Tonight’s meal"
         case .flights: return "Pulls flights from the calendar, or add one"
         case .packages: return "Amazon and carrier tracking"
+        case .bills: return "Shows bills due that day from your bills calendar"
         }
     }
 }

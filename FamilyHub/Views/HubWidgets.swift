@@ -17,7 +17,7 @@ struct HubWidgetPicker: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Tap a tile to place it. Done saves it on the Hub. Flights and packages can be set up right after you pick them.")
+                    Text("Tap a tile to place it. Done saves it on the Hub. Bills Due shows on days a bill is due. Flights and packages can be set up after you pick them.")
                         .foregroundStyle(AppTheme.textSecondary)
                     ForEach(Array(slots.enumerated()), id: \.offset) { index, kind in
                         slotCard(index: index, kind: kind)
@@ -123,6 +123,84 @@ struct HubWidgetPicker: View {
 private enum WidgetSetup: String, Identifiable {
     case flight, package
     var id: String { rawValue }
+}
+
+struct BillsWidget: View {
+    @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
+    @Environment(\.hubAccent) private var accent
+    let day: Date
+
+    private var bills: [ReminderItem] { store.billsDue(on: day) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HubTileBanner(symbol: "dollarsign.circle.fill", title: "Bills Due") {
+                if bills.isEmpty == false {
+                    Text("\(bills.count)")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.white, in: Capsule())
+                }
+            }
+            Button {
+                router.open(.lists, list: .reminders)
+            } label: {
+                Group {
+                    if bills.isEmpty {
+                        VStack(spacing: 6) {
+                            Spacer(minLength: 0)
+                            Text("Nothing due today")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Text("Bills from your bills calendar show here")
+                                .font(.caption)
+                                .foregroundStyle(AppTheme.textTertiary)
+                                .multilineTextAlignment(.center)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        ScrollView(showsIndicators: false) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(bills.prefix(8)) { item in
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "dollarsign.circle.fill")
+                                            .foregroundStyle(AppTheme.reminder)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(item.title)
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(AppTheme.text)
+                                                .lineLimit(1)
+                                            if let due = item.dueAt {
+                                                let parts = Calendar.current.dateComponents([.hour, .minute], from: due)
+                                                if (parts.hour ?? 0) != 0 || (parts.minute ?? 0) != 0 {
+                                                    Text(due.formatted(date: .omitted, time: .shortened))
+                                                        .font(.caption.weight(.semibold))
+                                                        .foregroundStyle(AppTheme.textTertiary)
+                                                }
+                                            }
+                                        }
+                                        Spacer(minLength: 0)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(AppTheme.tableFill)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(HubPressStyle())
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
+    }
 }
 
 struct FlightWidget: View {

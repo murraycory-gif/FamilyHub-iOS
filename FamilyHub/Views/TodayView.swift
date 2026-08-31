@@ -216,6 +216,16 @@ struct TodayView: View {
                 kinds[1] = .flights
             }
         }
+        let dayHasBills = store.billsDue(on: day).isEmpty == false
+        if dayHasBills, !kinds.contains(.bills) {
+            if let i = kinds.firstIndex(of: .shopping) {
+                kinds[i] = .bills
+            } else if let i = kinds.firstIndex(of: .packages) {
+                kinds[i] = .bills
+            } else if kinds.indices.contains(1), kinds[1] != .flights {
+                kinds[1] = .bills
+            }
+        }
         return Array(kinds.prefix(3))
     }
 
@@ -235,6 +245,8 @@ struct TodayView: View {
             })
         case .packages:
             PackageWidget(onAdd: { showAddPackage = true })
+        case .bills:
+            BillsWidget(day: day)
         default:
             shoppingTile
         }

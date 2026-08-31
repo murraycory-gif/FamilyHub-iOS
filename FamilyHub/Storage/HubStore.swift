@@ -92,6 +92,14 @@ final class HubStore: ObservableObject {
         return dinners[idx]
     }
 
+    func billsDue(on day: Date) -> [ReminderItem] {
+        guard let range = CalendarMath.dayRange(day) else { return [] }
+        return reminders.filter {
+            $0.isBills && !$0.isCompleted && ($0.dueAt.map { CalendarMath.occurs($0, in: range) } ?? false)
+        }
+        .sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
+    }
+
     func dinnerTitle(on day: Date) -> String? {
         guard let plan = dinner(on: day) else { return nil }
         if let name = plan.placeName, !name.isEmpty { return name }
