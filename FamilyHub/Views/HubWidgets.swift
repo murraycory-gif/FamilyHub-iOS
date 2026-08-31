@@ -145,11 +145,11 @@ struct BillsWidget: View {
                         .background(.white, in: Capsule())
                 }
             }
-            Button {
-                router.open(.lists, list: .reminders)
-            } label: {
-                Group {
-                    if bills.isEmpty {
+            Group {
+                if bills.isEmpty {
+                    Button {
+                        router.open(.lists, list: .reminders)
+                    } label: {
                         VStack(spacing: 6) {
                             Spacer(minLength: 0)
                             Text("Nothing due today")
@@ -161,45 +161,68 @@ struct BillsWidget: View {
                                 .multilineTextAlignment(.center)
                             Spacer(minLength: 0)
                         }
-                        .frame(maxWidth: .infinity)
-                    } else {
-                        ScrollView(showsIndicators: false) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(bills.prefix(8)) { item in
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "dollarsign.circle.fill")
-                                            .foregroundStyle(AppTheme.reminder)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(item.title)
-                                                .font(.subheadline.weight(.semibold))
-                                                .foregroundStyle(AppTheme.text)
-                                                .lineLimit(1)
-                                            if let due = item.dueAt {
-                                                let parts = Calendar.current.dateComponents([.hour, .minute], from: due)
-                                                if (parts.hour ?? 0) != 0 || (parts.minute ?? 0) != 0 {
-                                                    Text(due.formatted(date: .omitted, time: .shortened))
-                                                        .font(.caption.weight(.semibold))
-                                                        .foregroundStyle(AppTheme.textTertiary)
-                                                }
-                                            }
-                                        }
-                                        Spacer(minLength: 0)
-                                    }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(HubPressStyle())
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(bills.prefix(8)) { item in
+                                Button {
+                                    router.open(.lists, list: .reminders)
+                                } label: {
+                                    billRow(item)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(AppTheme.tableFill)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(HubPressStyle())
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.tableFill)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
         .hubLift(accent: accent)
+    }
+
+    private func billRow(_ item: ReminderItem) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            Capsule()
+                .fill(AppTheme.reminder)
+                .frame(width: 5)
+                .padding(.vertical, 8)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.dueAt.map(Date.hubClock) ?? "Due")
+                    .font(.headline.weight(.bold).monospacedDigit())
+                    .foregroundStyle(accent)
+                Text(item.title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
+            Text("Bills Due")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(AppTheme.reminder)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(AppTheme.reminder.opacity(0.16), in: Capsule())
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
+        .shadow(color: .black.opacity(0.03), radius: 1, y: 1)
     }
 }
 
