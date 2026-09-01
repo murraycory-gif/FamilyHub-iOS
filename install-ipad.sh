@@ -47,6 +47,8 @@ wait_for_ipad() {
 import json, sys
 data = json.load(open(sys.argv[1]))
 devices = data.get("result", {}).get("devices", []) or data.get("devices", [])
+preferred = "676FA816-88AE-59D9-A89D-5C17BFC2DA96"
+picks = []
 for device in devices:
     hardware = device.get("hardwareProperties") or {}
     props = device.get("deviceProperties") or {}
@@ -57,14 +59,36 @@ for device in devices:
     tunnel = str(conn.get("tunnelState") or "").lower()
     transport = str(conn.get("transportType") or "").lower()
     pairing = str(conn.get("pairingState") or "").lower()
+    developer = str(props.get("developerModeStatus") or props.get("developerMode") or "").lower()
     is_ipad = "iPad" in name or "iPad" in marketing or str(hardware.get("deviceType") or "").startswith("iPad")
     if not is_ipad:
         continue
+    if "corp" in name.lower():
+        continue
+    if "disabled" in developer:
+        continue
     available = tunnel in ("connected", "ready") or transport in ("wired", "localnetwork", "wifi")
-    if available and pairing in ("paired", "pairable", ""):
-        print(ident)
-        print(f"Found {name} {ident}", file=sys.stderr)
-        sys.exit(0)
+    if not available:
+        continue
+    if pairing not in ("paired", "pairable", ""):
+        continue
+    score = 0
+    lower = name.lower()
+    if ident == preferred:
+        score += 100
+    if "corys ipad" in lower or "cory's ipad" in lower:
+        score += 50
+    if tunnel in ("connected", "ready"):
+        score += 10
+    if pairing == "paired":
+        score += 5
+    picks.append((score, ident, name))
+picks.sort(key=lambda row: row[0], reverse=True)
+if picks:
+    ident, name = picks[0][1], picks[0][2]
+    print(ident)
+    print(f"Found {name} {ident}", file=sys.stderr)
+    sys.exit(0)
 sys.exit(1)
 PY
 ) && { echo "$FOUND"; return 0; }
