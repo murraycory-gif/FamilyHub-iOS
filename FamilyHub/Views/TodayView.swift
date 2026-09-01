@@ -45,19 +45,28 @@ struct TodayView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.bottom, 10)
-            dayPager
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            familySection
-                .frame(height: 380)
-                .padding(.top, 12)
+        GeometryReader { geo in
+            let portrait = geo.size.height > geo.size.width
+            let familyH = familyStripHeight(portrait: portrait, screen: geo.size.height)
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                    .padding(.bottom, 10)
+                dayPager
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                familySection(
+                    width: max(0, geo.size.width - 48),
+                    portrait: portrait,
+                    stripHeight: familyH
+                )
+                .frame(height: familyH)
+                .padding(.top, 10)
+            }
+            .animation(nil, value: selectedDay)
+            .padding(.horizontal, 24)
+            .padding(.top, 4)
+            .padding(.bottom, 12)
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
-        .animation(nil, value: selectedDay)
-        .padding(.horizontal, 24)
-        .padding(.top, 4)
-        .padding(.bottom, 16)
         .background(AppTheme.bg.ignoresSafeArea())
         .environment(\.hubAccent, accent)
         .onAppear {
@@ -1159,8 +1168,23 @@ struct TodayView: View {
         .background(soft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private var familySection: some View {
-        VStack(alignment: .leading, spacing: 0) {
+    private func familyStripHeight(portrait: Bool, screen: CGFloat) -> CGFloat {
+        if sizeClass == .compact { return min(248, max(220, screen * 0.34)) }
+        if portrait { return min(286, max(250, screen * 0.28)) }
+        return min(318, max(268, screen * 0.34))
+    }
+
+    private func familySection(width: CGFloat, portrait: Bool, stripHeight: CGFloat) -> some View {
+        let count = max(1, 1 + store.members.count)
+        let target = sizeClass == .compact ? 2 : (portrait ? 3 : 5)
+        let visible = min(count, target)
+        let inset: CGFloat = 20
+        let gap: CGFloat = 10
+        let inner = max(160, width - inset)
+        let cardW = max(156, (inner - gap * CGFloat(max(0, visible - 1))) / CGFloat(visible))
+        let cardH = max(188, stripHeight - 52)
+        let photoH = min(118, max(72, cardH * 0.38))
+        return VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(symbol: "house.fill", title: "HUB") {
                 Button { showAddMember = true } label: {
                     HStack(spacing: 6) {
@@ -1177,30 +1201,33 @@ struct TodayView: View {
                 .accessibilityLabel("Add Hub Member")
             }
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .center, spacing: 14) {
-                    FamilyFocusCard(selected: profile == .family, day: selectedDay) {
+                HStack(alignment: .center, spacing: gap) {
+                    FamilyFocusCard(selected: profile == .family, day: selectedDay, photoHeight: photoH) {
                         profile = .family
                     } onEvent: { event in
                         router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                     }
-                    .frame(width: 252, height: 300)
+                    .frame(width: cardW, height: cardH)
 
                     ForEach(store.members) { member in
                         MemberHomeCard(
                             member: member,
                             selected: profile == .member(member.id),
                             day: selectedDay,
+                            photoHeight: photoH,
                             onSelect: { profile = .member(member.id) },
                             onEvent: { event in
                                 router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
                             }
                         )
-                        .frame(width: 252, height: 300)
+                        .frame(width: cardW, height: cardH)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
+                .scrollTargetLayout()
             }
+            .scrollTargetBehavior(.viewAligned)
             .scrollClipDisabled()
         }
         .background(AppTheme.tableFill)
@@ -1282,6 +1309,7 @@ private struct FamilyFocusCard: View {
     @Environment(\.hubAccent) private var accent
     let selected: Bool
     let day: Date
+    var photoHeight: CGFloat = 118
     var onSelect: () -> Void
     var onEvent: (CalendarEvent) -> Void
     @State private var showStudio = false
@@ -1306,6 +1334,7 @@ private struct FamilyFocusCard: View {
             eventCount: events.count,
             ring: accent,
             selected: selected,
+            photoHeight: photoHeight,
             onCamera: { showStudio = true },
             onSelect: onSelect
         ) {
@@ -1340,6 +1369,7 @@ private struct MemberHomeCard: View {
     let member: FamilyMember
     var selected = false
     let day: Date
+    var photoHeight: CGFloat = 118
     var onSelect: () -> Void
     var onEvent: (CalendarEvent) -> Void
     @State private var showStudio = false
@@ -1373,6 +1403,7 @@ private struct MemberHomeCard: View {
             eventCount: events.count,
             ring: accent,
             selected: selected,
+            photoHeight: photoHeight,
             onCamera: { showStudio = true },
             onSelect: onSelect
         ) {
@@ -1401,6 +1432,7 @@ private struct AmazonPersonCard<Content: View>: View {
     let eventCount: Int
     let ring: Color
     let selected: Bool
+    var photoHeight: CGFloat = 118
     var onCamera: () -> Void
     var onSelect: () -> Void
     @ViewBuilder var content: Content
@@ -1409,7 +1441,7 @@ private struct AmazonPersonCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             Color.clear
                 .frame(maxWidth: .infinity)
-                .frame(height: 118)
+                .frame(height: photoHeight)
                 .overlay {
                     ZStack {
                         ring
