@@ -16,11 +16,11 @@ enum AppTheme {
     static let forestSoft = blueSoft
     static let clay = blueDeep
 
-    static let bg = Color(hex: "F5F7FC")
+    static let bg = Color(hex: "F3F5F8")
     static let elevated = Color.white
     static let card = Color.white
-    static let tableFill = Color(hex: "EEF2FB")
-    static let cardBorder = Color.black.opacity(0.06)
+    static let tableFill = Color(hex: "F7F8FB")
+    static let cardBorder = Color(hex: "E4E7EE")
 
     static let text = Color(red: 0.08, green: 0.10, blue: 0.16)
     static let textSecondary = Color(red: 0.38, green: 0.42, blue: 0.50)

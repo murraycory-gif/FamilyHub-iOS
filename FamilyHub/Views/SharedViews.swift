@@ -812,14 +812,9 @@ struct HubPanel<Content: View, Trailing: View>: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(AppTheme.tableFill)
+        .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(accent, lineWidth: 2.5)
-        )
-        .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
-        .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+        .hubLift(accent: accent, radius: 20)
     }
 }
 
@@ -904,10 +899,8 @@ struct HubAgendaCallout: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
-        .shadow(color: .black.opacity(0.03), radius: 1, y: 1)
     }
 }
 
@@ -921,14 +914,9 @@ struct HubLift: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(accent, lineWidth: selected ? 2.5 : 2)
+                    .stroke(accent, lineWidth: selected ? 2 : 1.5)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(selected ? 0.12 : 0.10), radius: selected ? 12 : 10, y: selected ? 6 : 5)
-            .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+            .shadow(color: Color.black.opacity(selected ? 0.10 : 0.07), radius: selected ? 16 : 14, y: selected ? 6 : 5)
     }
 }
 

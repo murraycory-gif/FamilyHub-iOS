@@ -1038,14 +1038,13 @@ struct TodayView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(passed ? Color(white: 0.96) : Color.white)
+        .background(passed ? Color(hex: "F3F4F6") : Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.black.opacity(passed ? 0.04 : 0.05), lineWidth: 1)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(passed ? 0.03 : 0.08), radius: passed ? 3 : 6, y: passed ? 1 : 3)
-        .opacity(passed ? 0.62 : 1)
+        .opacity(passed ? 0.72 : 1)
     }
 
     private func assigneeName(for item: HubDayItem) -> String {
@@ -1537,8 +1536,6 @@ private struct AmazonPersonCard<Content: View>: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
         .hubLift(accent: ring, selected: selected)
-        .scaleEffect(selected ? 1.015 : 1)
-        .animation(.easeOut(duration: 0.16), value: selected)
     }
 }
 
@@ -1638,9 +1635,8 @@ private struct DayStatusRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(color.opacity(0.22), lineWidth: 1)
+                    .stroke(color.opacity(0.18), lineWidth: 1)
             )
-            .shadow(color: color.opacity(0.16), radius: 4, y: 2)
             .contentShape(Rectangle())
         }
         .buttonStyle(HubPressStyle())
@@ -1762,9 +1758,8 @@ private struct EventScroll: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                                    .stroke(AppTheme.cardBorder, lineWidth: 1)
                             )
-                            .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(HubPressStyle())
