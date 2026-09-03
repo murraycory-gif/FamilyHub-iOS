@@ -27,6 +27,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var signedInMemberID: UUID?
     @Published private(set) var notifyPrefs: HubNotifyPrefs
     @Published private(set) var whiteboardNote: String
+    @Published private(set) var hubWidgetLimit: Int
     @Published var errorMessage: String?
     @Published private(set) var familyPhotoData: Data?
     @Published private(set) var memberPhotos: [UUID: Data] = [:]
@@ -66,6 +67,7 @@ final class HubStore: ObservableObject {
         signedInMemberID = nil
         notifyPrefs = .off
         whiteboardNote = ""
+        hubWidgetLimit = 4
         familyPhotoData = nil
         loadOrSeed()
         familyPhotoData = try? Data(contentsOf: familyPhotoURL)
@@ -564,21 +566,27 @@ final class HubStore: ObservableObject {
     }
 
     func addWidgetUnderRight() {
+        hubWidgetLimit = 4
         var kinds = hubWidgets.map(\.kind)
         if kinds.isEmpty { kinds = HubWidget.defaultSet.map(\.kind) }
         while kinds.count < 3 {
             if let extra = unused(in: kinds).first { kinds.append(extra) } else { break }
         }
-        guard kinds.count < 4, let extra = unused(in: kinds).first else { return }
-        kinds.append(extra)
+        if kinds.count < 4, let extra = unused(in: kinds).first {
+            kinds.append(extra)
+        }
         setHubWidgets(kinds)
     }
 
     func makeRightWidgetBigger() {
+        hubWidgetLimit = 3
         var kinds = hubWidgets.map(\.kind)
-        guard kinds.count > 3 else { return }
-        kinds.removeLast()
-        setHubWidgets(kinds)
+        if kinds.count > 3 {
+            kinds = Array(kinds.prefix(3))
+            setHubWidgets(kinds)
+        } else {
+            persist()
+        }
     }
 
     private func unused(in kinds: [HubWidgetKind]) -> [HubWidgetKind] {
@@ -980,6 +988,7 @@ final class HubStore: ObservableObject {
         signedInMemberID = snapshot.signedInMemberID ?? ownerID
         notifyPrefs = snapshot.notifyPrefs ?? .off
         whiteboardNote = snapshot.whiteboardNote ?? ""
+        hubWidgetLimit = min(4, max(3, snapshot.hubWidgetLimit ?? 4))
         if snapshot.joinCode == nil {
             persist()
         }
@@ -1009,7 +1018,8 @@ final class HubStore: ObservableObject {
             joinCode: joinCode,
             signedInMemberID: signedInMemberID,
             notifyPrefs: notifyPrefs,
-            whiteboardNote: whiteboardNote
+            whiteboardNote: whiteboardNote,
+            hubWidgetLimit: hubWidgetLimit
         )
         do {
             let encoder = JSONEncoder()

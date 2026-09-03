@@ -536,6 +536,7 @@ struct HubSnapshot: Codable {
     var signedInMemberID: UUID?
     var notifyPrefs: HubNotifyPrefs?
     var whiteboardNote: String?
+    var hubWidgetLimit: Int?
 }
 
 struct ShoppingItem: Identifiable, Codable, Hashable {

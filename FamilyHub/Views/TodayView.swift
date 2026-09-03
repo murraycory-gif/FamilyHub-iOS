@@ -202,11 +202,14 @@ struct TodayView: View {
                         .frame(height: 168)
                     widgetSlot(low, day: day, index: 1)
                         .frame(height: 168)
-                    widgetSlot(tall, day: day, index: 2)
-                        .frame(height: 176)
                     if let extra {
+                        widgetSlot(tall, day: day, index: 2, offerExpand: true)
+                            .frame(height: 176)
                         widgetSlot(extra, day: day, index: 3)
                             .frame(height: 168)
+                    } else {
+                        widgetSlot(tall, day: day, index: 2, offerAddUnder: true)
+                            .frame(height: 176)
                     }
                 }
                 .padding(.bottom, 8)
@@ -224,7 +227,7 @@ struct TodayView: View {
                 }
                 if let extra {
                     HStack(spacing: gap) {
-                        widgetSlot(tall, day: day, index: 2)
+                        widgetSlot(tall, day: day, index: 2, offerExpand: true)
                         widgetSlot(extra, day: day, index: 3)
                     }
                     .frame(height: compact ? 132 : 176)
@@ -323,7 +326,7 @@ struct TodayView: View {
            kinds.contains(.whiteboard) == false, kinds.count < 4 {
             kinds.append(.whiteboard)
         }
-        return Array(kinds.prefix(4))
+        return Array(kinds.prefix(store.hubWidgetLimit))
     }
 
     @ViewBuilder
