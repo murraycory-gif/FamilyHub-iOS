@@ -50,19 +50,15 @@ struct TodayView: View {
             let portrait = geo.size.height > geo.size.width
             let padX: CGFloat = compact ? 14 : 22
             let familyH = familyStripHeight(portrait: portrait, compact: compact, screen: geo.size.height)
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: compact ? 10 : 14) {
                 header(compact: compact, portrait: portrait)
-                    .padding(.bottom, compact ? 8 : 10)
                 dayPager(portrait: portrait, compact: compact)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 familySection(
-                    width: max(0, geo.size.width - padX * 2),
                     portrait: portrait,
-                    compact: compact,
-                    stripHeight: familyH
+                    compact: compact
                 )
                 .frame(height: familyH)
-                .padding(.top, compact ? 10 : 16)
             }
             .animation(nil, value: selectedDay)
             .padding(.horizontal, padX)
@@ -1209,24 +1205,23 @@ struct TodayView: View {
 
     private func familyStripHeight(portrait: Bool, compact: Bool, screen: CGFloat) -> CGFloat {
         if compact {
-            return portrait ? min(318, max(248, screen * 0.38)) : min(176, max(148, screen * 0.46))
+            return portrait ? max(260, screen * 0.40) : max(150, screen * 0.48)
         }
         if portrait {
-            return min(448, max(372, screen * 0.36))
+            return max(400, screen * 0.40)
         }
-        return min(472, max(408, screen * 0.46))
+        return max(440, screen * 0.50)
     }
 
-    private func familySection(width: CGFloat, portrait: Bool, compact: Bool, stripHeight: CGFloat) -> some View {
-        let count = max(1, store.members.count)
+    private func familyVisibleCount(portrait: Bool, compact: Bool) -> Int {
+        let members = max(1, store.members.count)
         let target = compact ? (portrait ? 2 : 3) : (portrait ? 3 : 4)
-        let visible = min(count, target)
-        let inset: CGFloat = compact ? 16 : 20
+        return min(members, target)
+    }
+
+    private func familySection(portrait: Bool, compact: Bool) -> some View {
+        let visible = familyVisibleCount(portrait: portrait, compact: compact)
         let gap: CGFloat = compact ? 8 : 12
-        let inner = max(140, width - inset)
-        let cardW = max(140, (inner - gap * CGFloat(max(0, visible - 1))) / CGFloat(visible))
-        let cardH = max(compact ? 132 : 220, stripHeight - (compact ? 44 : 52))
-        let photoH = min(compact ? 72 : 148, max(compact ? 56 : 96, cardH * 0.42))
         return VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(symbol: "house.fill", title: "HUB") {
                 Button { showAddMember = true } label: {
@@ -1245,30 +1240,32 @@ struct TodayView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Add Hub Member")
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .center, spacing: gap) {
-                    ForEach(store.members) { member in
-                        MemberHomeCard(
-                            member: member,
-                            selected: profile == .member(member.id),
-                            day: selectedDay,
-                            photoHeight: photoH,
-                            onSelect: { profile = .member(member.id) },
-                            onEvent: { event in
-                                router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
-                            }
-                        )
-                        .frame(width: cardW, height: cardH)
+            GeometryReader { inner in
+                let pad: CGFloat = compact ? 8 : 12
+                let cardW = max(132, floor((inner.size.width - pad * 2 - gap * CGFloat(max(0, visible - 1))) / CGFloat(visible)))
+                let cardH = max(120, inner.size.height - pad * 2)
+                let photoH = min(cardH * 0.46, compact ? 78 : 168)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .center, spacing: gap) {
+                        ForEach(store.members) { member in
+                            MemberHomeCard(
+                                member: member,
+                                selected: profile == .member(member.id),
+                                day: selectedDay,
+                                photoHeight: photoH,
+                                onSelect: { profile = .member(member.id) },
+                                onEvent: { event in
+                                    router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
+                                }
+                            )
+                            .frame(width: cardW, height: cardH)
+                        }
                     }
+                    .padding(pad)
                 }
-                .padding(.horizontal, compact ? 8 : 10)
-                .padding(.vertical, compact ? 8 : 10)
-                .scrollTargetLayout()
             }
-            .scrollTargetBehavior(.viewAligned)
-            .scrollClipDisabled()
         }
-        .background(AppTheme.tableFill)
+        .background(AppTheme.card)
         .hubLift(accent: accent)
     }
 }
