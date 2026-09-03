@@ -46,25 +46,28 @@ struct TodayView: View {
 
     var body: some View {
         GeometryReader { geo in
+            let compact = sizeClass == .compact
             let portrait = geo.size.height > geo.size.width
-            let familyH = familyStripHeight(portrait: portrait, screen: geo.size.height)
+            let padX: CGFloat = compact ? 14 : 22
+            let familyH = familyStripHeight(portrait: portrait, compact: compact, screen: geo.size.height)
             VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.bottom, 10)
-                dayPager
+                header(compact: compact, portrait: portrait)
+                    .padding(.bottom, compact ? 8 : 10)
+                dayPager(portrait: portrait, compact: compact)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 familySection(
-                    width: max(0, geo.size.width - 48),
+                    width: max(0, geo.size.width - padX * 2),
                     portrait: portrait,
+                    compact: compact,
                     stripHeight: familyH
                 )
                 .frame(height: familyH)
-                .padding(.top, 22)
+                .padding(.top, compact ? 10 : 16)
             }
             .animation(nil, value: selectedDay)
-            .padding(.horizontal, 24)
-            .padding(.top, 4)
-            .padding(.bottom, 12)
+            .padding(.horizontal, padX)
+            .padding(.top, compact ? 2 : 4)
+            .padding(.bottom, compact ? 8 : 12)
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
         .background(AppTheme.bg.ignoresSafeArea())
@@ -169,17 +172,18 @@ struct TodayView: View {
     private var homeTileH: CGFloat { sizeClass == .regular ? 168 : 148 }
 
     @ViewBuilder
-    private func dashboard(for day: Date, portrait: Bool) -> some View {
+    private func dashboard(for day: Date, portrait: Bool, compact: Bool) -> some View {
         let tiles = visibleWidgets(for: day)
         let top = tiles[safe: 0] ?? .weather
         let low = tiles[safe: 1] ?? .shopping
         let large = tiles[safe: 2] ?? .dinner
+        let gap: CGFloat = compact ? 8 : 12
         if portrait {
-            VStack(spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: gap) {
+                HStack(alignment: .top, spacing: gap) {
                     agenda(for: day)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    VStack(spacing: 12) {
+                    VStack(spacing: gap) {
                         widgetTile(top, day: day, live: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         widgetTile(low, day: day, live: false)
@@ -189,22 +193,22 @@ struct TodayView: View {
                 }
                 widgetTile(large, day: day, live: false)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 176)
+                    .frame(height: compact ? 132 : 168)
             }
         } else {
-                HStack(alignment: .top, spacing: 12) {
-                    agenda(for: day)
+            HStack(alignment: .top, spacing: gap) {
+                agenda(for: day)
+                    .frame(maxWidth: compact ? 220 : .infinity, maxHeight: .infinity)
+                VStack(spacing: gap) {
+                    widgetTile(top, day: day, live: false)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    VStack(spacing: 12) {
-                        widgetTile(top, day: day, live: false)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        widgetTile(low, day: day, live: false)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                    .frame(maxWidth: .infinity)
-                    widgetTile(large, day: day, live: false)
+                    widgetTile(low, day: day, live: false)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .frame(maxWidth: .infinity)
+                widgetTile(large, day: day, live: false)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
     }
 
@@ -340,52 +344,83 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(greetingLead)
-                    .foregroundStyle(AppTheme.text)
-                Text(greetingTail)
-                    .foregroundStyle(accent)
+        header(compact: sizeClass == .compact, portrait: true)
+    }
+
+    private func header(compact: Bool, portrait: Bool) -> some View {
+        Group {
+            if compact && portrait {
+                VStack(alignment: .leading, spacing: 8) {
+                    greeting
+                    HStack(spacing: 8) {
+                        Button { showWidgetPicker = true } label: {
+                            filterBanner(symbol: "square.grid.2x2.fill", title: "Widgets", compact: true)
+                        }
+                        .buttonStyle(.plain)
+                        dateButton(compact: true)
+                        profileButton(compact: true)
+                    }
+                }
+            } else {
+                HStack(alignment: .center, spacing: compact ? 8 : 12) {
+                    greeting
+                    Spacer(minLength: 8)
+                    Button { showWidgetPicker = true } label: {
+                        filterBanner(symbol: "square.grid.2x2.fill", title: compact ? "Widgets" : "Widgets", compact: compact)
+                    }
+                    .buttonStyle(.plain)
+                    dateButton(compact: compact)
+                    profileButton(compact: compact)
+                }
             }
-            .font(.system(size: 34, weight: .bold))
-            Spacer(minLength: 12)
-            Button { showWidgetPicker = true } label: {
-                filterBanner(symbol: "square.grid.2x2.fill", title: "Widgets")
-            }
-            .buttonStyle(.plain)
-            dateButton
-            profileButton
         }
     }
 
-    private var dateButton: some View {
+    private var greeting: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(greetingLead)
+                .foregroundStyle(AppTheme.text)
+            Text(greetingTail)
+                .foregroundStyle(accent)
+        }
+        .font(.system(size: sizeClass == .compact ? 26 : 34, weight: .bold))
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+    }
+
+    private var dateButton: some View { dateButton(compact: false) }
+
+    private func dateButton(compact: Bool) -> some View {
         Button { showDayMenu = true } label: {
-            filterBanner(symbol: "calendar", title: shortDayName)
+            filterBanner(symbol: "calendar", title: shortDayName, compact: compact)
         }
         .buttonStyle(.plain)
     }
 
-    private var profileButton: some View {
+    private var profileButton: some View { profileButton(compact: false) }
+
+    private func profileButton(compact: Bool) -> some View {
         Button { showProfileMenu = true } label: {
-            filterBanner(symbol: "person.3.fill", title: shortProfileName)
+            filterBanner(symbol: "person.3.fill", title: shortProfileName, compact: compact)
         }
         .buttonStyle(.plain)
     }
 
-    private func filterBanner(symbol: String, title: String) -> some View {
-        HStack(spacing: 8) {
+    private func filterBanner(symbol: String, title: String, compact: Bool = false) -> some View {
+        HStack(spacing: compact ? 5 : 8) {
             Image(systemName: symbol)
-                .font(.body.weight(.bold))
+                .font((compact ? Font.subheadline : Font.body).weight(.bold))
             Text(title)
-                .font(.headline.weight(.bold))
+                .font((compact ? Font.subheadline : Font.headline).weight(.bold))
                 .lineLimit(1)
+                .minimumScaleFactor(0.75)
             Image(systemName: "chevron.down")
                 .font(.caption.weight(.bold))
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, compact ? 10 : 14)
+        .padding(.vertical, compact ? 8 : 12)
+        .background(accent, in: RoundedRectangle(cornerRadius: compact ? 12 : 14, style: .continuous))
     }
 
     private func filterChoiceRow(title: String, detail: String = "", selected: Bool, color: Color = AppTheme.blue) -> some View {
@@ -486,12 +521,11 @@ struct TodayView: View {
         Int(Calendar.current.startOfDay(for: date).timeIntervalSince1970)
     }
 
-    private var dayPager: some View {
-        let portrait = sizeClass != .regular
-        return ScrollView(.horizontal, showsIndicators: false) {
+    private func dayPager(portrait: Bool, compact: Bool) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
                 ForEach(0..<hubDayCount, id: \.self) { index in
-                    dashboard(for: dayAt(index), portrait: portrait)
+                    dashboard(for: dayAt(index), portrait: portrait, compact: compact)
                         .containerRelativeFrame(.horizontal)
                         .id(index)
                 }
@@ -1173,32 +1207,38 @@ struct TodayView: View {
         .background(soft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func familyStripHeight(portrait: Bool, screen: CGFloat) -> CGFloat {
-        if sizeClass == .compact { return min(248, max(220, screen * 0.34)) }
-        if portrait { return min(286, max(250, screen * 0.28)) }
-        return min(318, max(268, screen * 0.34))
+    private func familyStripHeight(portrait: Bool, compact: Bool, screen: CGFloat) -> CGFloat {
+        if compact {
+            return portrait ? min(318, max(248, screen * 0.38)) : min(176, max(148, screen * 0.46))
+        }
+        if portrait {
+            return min(448, max(372, screen * 0.36))
+        }
+        return min(472, max(408, screen * 0.46))
     }
 
-    private func familySection(width: CGFloat, portrait: Bool, stripHeight: CGFloat) -> some View {
+    private func familySection(width: CGFloat, portrait: Bool, compact: Bool, stripHeight: CGFloat) -> some View {
         let count = max(1, store.members.count)
-        let target = sizeClass == .compact ? 2 : (portrait ? 3 : 4)
+        let target = compact ? (portrait ? 2 : 3) : (portrait ? 3 : 4)
         let visible = min(count, target)
-        let inset: CGFloat = 20
-        let gap: CGFloat = 10
-        let inner = max(160, width - inset)
-        let cardW = max(156, (inner - gap * CGFloat(max(0, visible - 1))) / CGFloat(visible))
-        let cardH = max(188, stripHeight - 52)
-        let photoH = min(118, max(72, cardH * 0.38))
+        let inset: CGFloat = compact ? 16 : 20
+        let gap: CGFloat = compact ? 8 : 12
+        let inner = max(140, width - inset)
+        let cardW = max(140, (inner - gap * CGFloat(max(0, visible - 1))) / CGFloat(visible))
+        let cardH = max(compact ? 132 : 220, stripHeight - (compact ? 44 : 52))
+        let photoH = min(compact ? 72 : 148, max(compact ? 56 : 96, cardH * 0.42))
         return VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(symbol: "house.fill", title: "HUB") {
                 Button { showAddMember = true } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "person.badge.plus")
-                        Text("Add Hub Member")
+                        if compact == false {
+                            Text("Add Hub Member")
+                        }
                     }
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(accent)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, compact ? 8 : 10)
                     .padding(.vertical, 6)
                     .background(.white, in: Capsule())
                 }
@@ -1221,8 +1261,8 @@ struct TodayView: View {
                         .frame(width: cardW, height: cardH)
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 10)
+                .padding(.horizontal, compact ? 8 : 10)
+                .padding(.vertical, compact ? 8 : 10)
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
