@@ -1080,6 +1080,8 @@ struct WhiteboardWidget: View {
         .sheet(isPresented: $showEdit) {
             WhiteboardEditor()
                 .environmentObject(store)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
     }
 }
@@ -1087,22 +1089,69 @@ struct WhiteboardWidget: View {
 struct WhiteboardEditor: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.hubAccent) private var accent
     @State private var draft = ""
+    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "House", tail: "Note") {
-                HubHeaderPill(title: "Save") {
-                    store.setWhiteboardNote(draft)
-                    dismiss()
+                HStack(spacing: 8) {
+                    HubHeaderPill(title: "Close") { dismiss() }
+                    HubHeaderPill(title: "Save") {
+                        store.setWhiteboardNote(draft.trimmingCharacters(in: .whitespacesAndNewlines))
+                        dismiss()
+                    }
                 }
             }
-            TextEditor(text: $draft)
-                .font(.title3.weight(.semibold))
-                .padding(16)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Type the note. Everyone on the Hub will see it.")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white)
+                    if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("Soccer bags by the door…")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppTheme.textTertiary)
+                            .padding(.horizontal, 18)
+                            .padding(.top, 18)
+                            .allowsHitTesting(false)
+                    }
+                    TextEditor(text: $draft)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.text)
+                        .scrollContentBackground(.hidden)
+                        .focused($focused)
+                        .padding(10)
+                }
+                .frame(minHeight: 220)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(accent, lineWidth: 2)
+                )
+                if draft.isEmpty == false {
+                    Button {
+                        draft = ""
+                    } label: {
+                        Text("Clear note")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.chore)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(20)
+            Spacer(minLength: 0)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .onAppear { draft = store.whiteboardNote }
+        .onAppear {
+            draft = store.whiteboardNote
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                focused = true
+            }
+        }
     }
 }
 
