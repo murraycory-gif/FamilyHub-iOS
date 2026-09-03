@@ -27,7 +27,7 @@ struct TodayView: View {
     @State private var shoppingDraft = ""
     @State private var showDinnerLaunch: DinnerLaunch?
     @State private var agendaEvent: CalendarEvent?
-    @State private var showWidgetPicker = false
+    @State private var pickSlot: Int?
     @State private var showAddFlight = false
     @State private var flightDay = Date()
     @State private var showAddPackage = false
@@ -107,10 +107,23 @@ struct TodayView: View {
         .sheet(item: $agendaEvent) { event in
             EventDetailSheet(event: event)
         }
-        .sheet(isPresented: $showWidgetPicker) {
-            HubWidgetPicker()
-                .environmentObject(store)
-                .presentationDetents([.large])
+        .sheet(isPresented: Binding(
+            get: { pickSlot != nil },
+            set: { if $0 == false { pickSlot = nil } }
+        )) {
+            HubWidgetPickSheet(current: pickSlot.flatMap { visibleWidgets(for: selectedDay)[safe: $0] }) { kind in
+                if let slot = pickSlot {
+                    store.setHubWidget(at: slot, kind: kind)
+                    if kind == .flights {
+                        flightDay = selectedDay
+                        showAddFlight = true
+                    }
+                    if kind == .packages, store.packages.filter({ !$0.isDelivered }).isEmpty {
+                        showAddPackage = true
+                    }
+                }
+                pickSlot = nil
+            }
         }
         .sheet(isPresented: $showAddFlight) {
             AddFlightSheet(day: flightDay)
@@ -172,7 +185,8 @@ struct TodayView: View {
         let tiles = visibleWidgets(for: day)
         let top = tiles[safe: 0] ?? .weather
         let low = tiles[safe: 1] ?? .shopping
-        let large = tiles[safe: 2] ?? .dinner
+        let tall = tiles[safe: 2] ?? .dinner
+        let extra = tiles[safe: 3]
         let gap: CGFloat = compact ? 8 : 12
         if portrait {
             VStack(spacing: gap) {
@@ -180,62 +194,136 @@ struct TodayView: View {
                     agenda(for: day)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     VStack(spacing: gap) {
-                        widgetTile(top, day: day, live: false)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        widgetTile(low, day: day, live: false)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        widgetSlot(top, day: day, index: 0)
+                        widgetSlot(low, day: day, index: 1)
                     }
                     .frame(maxWidth: .infinity)
                 }
-                widgetTile(large, day: day, live: false)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: compact ? 132 : 168)
+                if let extra {
+                    HStack(spacing: gap) {
+                        widgetSlot(tall, day: day, index: 2)
+                        widgetSlot(extra, day: day, index: 3)
+                    }
+                    .frame(height: compact ? 132 : 176)
+                } else {
+                    widgetSlot(tall, day: day, index: 2, offerAddUnder: true)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: compact ? 132 : 176)
+                }
             }
         } else {
             HStack(alignment: .top, spacing: gap) {
                 agenda(for: day)
                     .frame(maxWidth: compact ? 220 : .infinity, maxHeight: .infinity)
                 VStack(spacing: gap) {
-                    widgetTile(top, day: day, live: false)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    widgetTile(low, day: day, live: false)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    widgetSlot(top, day: day, index: 0)
+                    widgetSlot(low, day: day, index: 1)
                 }
                 .frame(maxWidth: .infinity)
-                widgetTile(large, day: day, live: false)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if let extra {
+                    VStack(spacing: gap) {
+                        widgetSlot(tall, day: day, index: 2, offerExpand: true)
+                        widgetSlot(extra, day: day, index: 3)
+                    }
+                    .frame(maxWidth: .infinity)
+                } else {
+                    widgetSlot(tall, day: day, index: 2, offerAddUnder: true)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
         }
     }
 
     private func visibleWidgets(for day: Date) -> [HubWidgetKind] {
-        var kinds = store.hubWidgets.map(\.kind)
+        var kinds = store.hubWidgets.map(\.kind).filter { HubWidgetKind.choosable.contains($0) }
         if kinds.isEmpty {
             kinds = [.weather, .shopping, .dinner]
         }
-        let fill: [HubWidgetKind] = [.weather, .shopping, .dinner, .packages]
-        for extra in fill where kinds.count < 3 && !kinds.contains(extra) {
+        for extra in HubWidgetKind.choosable where kinds.count < 3 && !kinds.contains(extra) {
             kinds.append(extra)
         }
+        let needsShopping = store.shoppingItems.contains {
+            $0.isChecked == false && $0.sourceDay.map { Calendar.current.isDate($0, inSameDayAs: day) } == true
+        }
+        if needsShopping, kinds.contains(.shopping) == false {
+            if kinds.count < 4 {
+                kinds.append(.shopping)
+            } else if kinds.indices.contains(1), kinds[1] != .flights {
+                kinds[1] = .shopping
+            }
+        }
         let dayHasFlight = !FlightParse.flights(on: day, events: store.events, extra: store.flights).isEmpty
-        if dayHasFlight, !kinds.contains(.flights) {
-            if let i = kinds.firstIndex(of: .shopping) {
+        if dayHasFlight, kinds.contains(.flights) == false {
+            if kinds.count < 4 {
+                kinds.append(.flights)
+            } else if let i = kinds.firstIndex(of: .shopping) {
                 kinds[i] = .flights
             } else if kinds.indices.contains(1) {
                 kinds[1] = .flights
             }
         }
         let dayHasBills = store.billsDue(on: day).isEmpty == false
-        if dayHasBills, !kinds.contains(.bills) {
-            if let i = kinds.firstIndex(of: .shopping) {
-                kinds[i] = .bills
+        if dayHasBills, kinds.contains(.bills) == false {
+            if kinds.count < 4 {
+                kinds.append(.bills)
             } else if let i = kinds.firstIndex(of: .packages) {
                 kinds[i] = .bills
-            } else if kinds.indices.contains(1), kinds[1] != .flights {
-                kinds[1] = .bills
             }
         }
-        return Array(kinds.prefix(3))
+        return Array(kinds.prefix(4))
+    }
+
+    @ViewBuilder
+    private func widgetSlot(
+        _ kind: HubWidgetKind,
+        day: Date,
+        index: Int,
+        offerAddUnder: Bool = false,
+        offerExpand: Bool = false
+    ) -> some View {
+        widgetTile(kind, day: day, live: false)
+            .overlay(alignment: .topTrailing) {
+                Button { pickSlot = index } label: {
+                    Text("Change")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.white, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 8)
+                .padding(.trailing, 10)
+            }
+            .overlay(alignment: .bottom) {
+                if offerAddUnder {
+                    Button {
+                        store.addWidgetUnderRight()
+                    } label: {
+                        Label("Add one under", systemImage: "plus")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(.white, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 10)
+                } else if offerExpand {
+                    Button {
+                        store.makeRightWidgetBigger()
+                    } label: {
+                        Label("Make bigger", systemImage: "arrow.up.left.and.arrow.down.right")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(.white, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 10)
+                }
+            }
     }
 
     @ViewBuilder
@@ -349,10 +437,6 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     greeting
                     HStack(spacing: 8) {
-                        Button { showWidgetPicker = true } label: {
-                            filterBanner(symbol: "square.grid.2x2.fill", title: "Widgets", compact: true)
-                        }
-                        .buttonStyle(.plain)
                         dateButton(compact: true)
                         profileButton(compact: true)
                     }
@@ -361,10 +445,6 @@ struct TodayView: View {
                 HStack(alignment: .center, spacing: compact ? 8 : 12) {
                     greeting
                     Spacer(minLength: 8)
-                    Button { showWidgetPicker = true } label: {
-                        filterBanner(symbol: "square.grid.2x2.fill", title: compact ? "Widgets" : "Widgets", compact: compact)
-                    }
-                    .buttonStyle(.plain)
                     dateButton(compact: compact)
                     profileButton(compact: compact)
                 }

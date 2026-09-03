@@ -1,122 +1,156 @@
 import MapKit
 import SwiftUI
 
-struct HubWidgetPicker: View {
-    @EnvironmentObject private var store: HubStore
+struct HubWidgetPickSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var slots: [HubWidgetKind] = []
-    @State private var setup: WidgetSetup?
+    @Environment(\.hubAccent) private var accent
+    var current: HubWidgetKind?
+    var onPick: (HubWidgetKind) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Hub", tail: "Widgets") {
-                HubHeaderPill(title: "Done") {
-                    commit()
-                    dismiss()
-                }
+            HubStickyHeader(lead: "Pick", tail: "One") {
+                HubHeaderPill(title: "Close") { dismiss() }
             }
+            Text("Tap what you want this box to show.")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Tap a tile to place it. Done saves it on the Hub. Bills Due shows on days a bill is due. Flights and packages can be set up after you pick them.")
-                        .foregroundStyle(AppTheme.textSecondary)
-                    ForEach(Array(slots.enumerated()), id: \.offset) { index, kind in
-                        slotCard(index: index, kind: kind)
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+                    ForEach(HubWidgetKind.choosable) { kind in
+                        Button {
+                            onPick(kind)
+                            dismiss()
+                        } label: {
+                            VStack(spacing: 12) {
+                                Image(systemName: kind.symbol)
+                                    .font(.system(size: 34, weight: .bold))
+                                Text(kind.title)
+                                    .font(.title3.weight(.bold))
+                                    .multilineTextAlignment(.center)
+                                    .minimumScaleFactor(0.8)
+                                    .lineLimit(2)
+                            }
+                            .foregroundStyle(current == kind ? .white : AppTheme.text)
+                            .frame(maxWidth: .infinity, minHeight: 132)
+                            .padding(16)
+                            .background(current == kind ? AppTheme.blue : Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                    .stroke(current == kind ? AppTheme.blue : AppTheme.cardBorder, lineWidth: current == kind ? 3 : 1)
+                            )
+                            .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+                        }
+                        .buttonStyle(HubPressStyle())
                     }
-                    Button {
-                        commit()
-                        dismiss()
-                    } label: {
-                        Text("Save to Hub")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(AppTheme.blue, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
                 }
                 .padding(20)
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .onAppear {
-            let current = store.hubWidgets.map(\.kind).filter { HubWidgetKind.choosable.contains($0) }
-            slots = pad(current)
-        }
-        .sheet(item: $setup) { item in
-            Group {
-                if item == .flight {
-                    AddFlightSheet(day: Date())
-                } else {
-                    AddPackageSheet()
-                }
-            }
-            .environmentObject(store)
-        }
     }
+}
 
-    private func slotCard(index: Int, kind: HubWidgetKind) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(index == 2 ? "Large tile" : index == 0 ? "Top tile" : "Lower tile")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.textTertiary)
-                .textCase(.uppercase)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 10)], spacing: 10) {
-                ForEach(HubWidgetKind.choosable) { option in
-                    Button {
-                        pick(option, at: index)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: option.symbol)
-                            Text(option.title)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
+struct HubWidgetPicker: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var editIndex: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "Hub", tail: "Tiles") {
+                HubHeaderPill(title: "Done") { dismiss() }
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("These boxes sit next to Today’s Agenda. Tap Change on any box, or add one under the tall box.")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    ForEach(Array(store.hubWidgets.map(\.kind).enumerated()), id: \.offset) { index, kind in
+                        HStack(spacing: 14) {
+                            Image(systemName: kind.symbol)
+                                .font(.title2.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                                .frame(width: 36)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(kind.title)
+                                    .font(.title3.weight(.bold))
+                                Text(index == 2 && store.hubWidgets.count == 3 ? "Tall box" : "Box \(index + 1)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
+                            Spacer()
+                            Button {
+                                editIndex = index
+                            } label: {
+                                Text("Change")
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(AppTheme.blue, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(kind == option ? .white : AppTheme.text)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 12)
-                        .frame(maxWidth: .infinity)
-                        .background(kind == option ? AppTheme.blue : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .padding(16)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(kind == option ? AppTheme.blue : AppTheme.cardBorder, lineWidth: 2)
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
                         )
                     }
-                    .buttonStyle(.plain)
+                    if store.hubWidgets.count < 4 {
+                        Button {
+                            store.addWidgetUnderRight()
+                        } label: {
+                            Label("Add a box under the tall one", systemImage: "plus")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(AppTheme.blueSoft, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button {
+                            store.makeRightWidgetBigger()
+                        } label: {
+                            Label("Make the tall box bigger", systemImage: "arrow.up.left.and.arrow.down.right")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(AppTheme.blueSoft, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                .padding(20)
             }
         }
-        .padding(14)
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppTheme.blue, lineWidth: 3)
+        .background(AppTheme.bg.ignoresSafeArea())
+        .sheet(item: editBinding) { kind in
+            HubWidgetPickSheet(current: kind) { picked in
+                if let index = editIndex {
+                    store.setHubWidget(at: index, kind: picked)
+                }
+                editIndex = nil
+            }
+        }
+    }
+
+    private var editBinding: Binding<HubWidgetKind?> {
+        Binding(
+            get: {
+                guard let index = editIndex, store.hubWidgets.indices.contains(index) else { return nil }
+                return store.hubWidgets[index].kind
+            },
+            set: { if $0 == nil { editIndex = nil } }
         )
-    }
-
-    private func pick(_ option: HubWidgetKind, at index: Int) {
-        if let other = slots.firstIndex(of: option), other != index {
-            slots.swapAt(index, other)
-        } else {
-            slots[index] = option
-        }
-        commit()
-        if option == .flights { setup = .flight }
-        if option == .packages, store.packages.filter({ !$0.isDelivered }).isEmpty { setup = .package }
-    }
-
-    private func commit() {
-        store.setHubWidgets(slots)
-    }
-
-    private func pad(_ kinds: [HubWidgetKind]) -> [HubWidgetKind] {
-        var next = kinds
-        for kind in HubWidgetKind.choosable where next.count < 3 && !next.contains(kind) {
-            next.append(kind)
-        }
-        return Array(next.prefix(3))
     }
 }
 

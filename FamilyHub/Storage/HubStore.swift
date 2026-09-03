@@ -536,8 +536,51 @@ final class HubStore: ObservableObject {
     func addHubWidget(_ kind: HubWidgetKind) {
         guard HubWidgetKind.choosable.contains(kind) else { return }
         guard !hubWidgets.contains(where: { $0.kind == kind }) else { return }
+        guard hubWidgets.count < 4 else { return }
         hubWidgets.append(.make(kind))
         persist()
+    }
+
+    func setHubWidget(at index: Int, kind: HubWidgetKind) {
+        guard HubWidgetKind.choosable.contains(kind) else { return }
+        var kinds = hubWidgets.map(\.kind)
+        if kinds.isEmpty { kinds = HubWidget.defaultSet.map(\.kind) }
+        while kinds.count <= index && kinds.count < 4 {
+            if let extra = unused(in: kinds).first {
+                kinds.append(extra)
+            } else {
+                break
+            }
+        }
+        guard kinds.indices.contains(index) else { return }
+        if let other = kinds.firstIndex(of: kind), other != index {
+            kinds.swapAt(index, other)
+        } else {
+            kinds[index] = kind
+        }
+        setHubWidgets(kinds)
+    }
+
+    func addWidgetUnderRight() {
+        var kinds = hubWidgets.map(\.kind)
+        if kinds.isEmpty { kinds = HubWidget.defaultSet.map(\.kind) }
+        while kinds.count < 3 {
+            if let extra = unused(in: kinds).first { kinds.append(extra) } else { break }
+        }
+        guard kinds.count < 4, let extra = unused(in: kinds).first else { return }
+        kinds.append(extra)
+        setHubWidgets(kinds)
+    }
+
+    func makeRightWidgetBigger() {
+        var kinds = hubWidgets.map(\.kind)
+        guard kinds.count > 3 else { return }
+        kinds.removeLast()
+        setHubWidgets(kinds)
+    }
+
+    private func unused(in kinds: [HubWidgetKind]) -> [HubWidgetKind] {
+        HubWidgetKind.choosable.filter { kinds.contains($0) == false }
     }
 
     func setHubWidgets(_ kinds: [HubWidgetKind]) {

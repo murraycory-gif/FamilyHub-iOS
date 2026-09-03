@@ -1072,11 +1072,16 @@ struct HubWidget: Codable, Identifiable, Hashable {
     ]
 
     static func migrated(_ raw: [HubWidget]) -> [HubWidget] {
-        let kinds = raw.map(\.kind)
-        if kinds.contains(.weather), kinds.contains(.shopping), kinds.contains(.dinner) {
-            return Array(raw.prefix(3))
+        let kinds = raw.map(\.kind).filter { choosable.contains($0) }
+        var unique: [HubWidgetKind] = []
+        for kind in kinds where unique.contains(kind) == false {
+            unique.append(kind)
         }
-        return defaultSet
+        if unique.isEmpty { return defaultSet }
+        for kind in defaultSet.map(\.kind) where unique.count < 3 && unique.contains(kind) == false {
+            unique.append(kind)
+        }
+        return Array(unique.prefix(4)).map(HubWidget.make)
     }
 }
 
