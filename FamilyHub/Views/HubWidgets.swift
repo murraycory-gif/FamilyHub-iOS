@@ -1063,19 +1063,18 @@ struct WhiteboardWidget: View {
                 }
                 .buttonStyle(.plain)
             }
-            Button { showEdit = true } label: {
-                Text(store.whiteboardNote.isEmpty ? "Tap to leave a note for the house." : store.whiteboardNote)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(store.whiteboardNote.isEmpty ? AppTheme.textSecondary : AppTheme.text)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .multilineTextAlignment(.leading)
-            }
-            .buttonStyle(.plain)
-            .padding(14)
-            .background(AppTheme.tableFill)
+            Text(store.whiteboardNote.isEmpty ? "Tap anywhere to leave a note." : store.whiteboardNote)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(store.whiteboardNote.isEmpty ? AppTheme.textSecondary : AppTheme.text)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .multilineTextAlignment(.leading)
+                .padding(14)
+                .background(AppTheme.tableFill)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
+        .contentShape(Rectangle())
+        .onTapGesture { showEdit = true }
         .hubLift(accent: accent)
         .sheet(isPresented: $showEdit) {
             WhiteboardEditor()
