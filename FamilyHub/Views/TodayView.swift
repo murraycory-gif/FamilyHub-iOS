@@ -1281,11 +1281,8 @@ struct TodayView: View {
     }
 
     private func dinnerEyebrow(_ plan: DinnerPlan?) -> String {
-        if plan?.placeKind == "delivery" {
-            return Calendar.current.isDateInToday(selectedDay) ? "Delivery tonight" : "Delivery"
-        }
-        if plan?.placeKind == "takeout" {
-            return Calendar.current.isDateInToday(selectedDay) ? "Take out tonight" : "Take out"
+        if plan?.placeKind == "delivery" || plan?.placeKind == "takeout" {
+            return Calendar.current.isDateInToday(selectedDay) ? "Take out & delivery tonight" : "Take out & delivery"
         }
         if plan?.placeName != nil {
             return Calendar.current.isDateInToday(selectedDay) ? "Eating out tonight" : "Eating out"

@@ -143,8 +143,7 @@ private struct MealDayCard: View {
 
     private var kindLabel: String {
         guard let plan else { return "Tap to plan" }
-        if plan.placeKind == "delivery" { return "Delivery" }
-        if plan.placeKind == "takeout" { return "Take out" }
+        if plan.placeKind == "delivery" || plan.placeKind == "takeout" { return "Take out & Delivery" }
         if plan.placeName != nil { return "Eating out" }
         if let id = plan.recipeID, let recipe = store.recipe(id: id) {
             if let side = store.dinnerSide(on: day) {
@@ -324,7 +323,7 @@ struct TonightDinnerView: View {
             coordinate: plan.placeLatitude.flatMap { lat in
                 plan.placeLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
             },
-            kindTitle: plan.placeKind == "delivery" ? "Delivery Tonight" : plan.placeKind == "takeout" ? "Take Out" : "Eating Out"
+            kindTitle: (plan.placeKind == "delivery" || plan.placeKind == "takeout") ? "Take Out & Delivery" : "Eating Out"
         )
     }
 
@@ -413,8 +412,7 @@ struct MealChoiceSheet: View {
                     }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
                         choice(.eatOut(.sitdown), title: "Eating out", detail: "Sit down near you", symbol: "fork.knife", image: "DinnerEatOut")
-                        choice(.eatOut(.takeout), title: "Take out", detail: "Pick it up and bring it home", symbol: "bag.fill", image: "DinnerTakeout")
-                        choice(.eatOut(.delivery), title: "Delivery", detail: "Brought to your door", symbol: "bicycle", image: "DinnerDelivery")
+                        choice(.eatOut(.takeout), title: "Take out & Delivery", detail: "Pick it up or have it brought to the door", symbol: "bag.fill", image: "DinnerTakeout")
                         choice(.family, title: "Family recipes", detail: "Scan, type, or paste a TikTok link", symbol: "book.closed.fill", image: "DinnerFamily")
                         choice(.recipes, title: "Recipes", detail: "American and world cookbook", symbol: "fork.knife.circle.fill", image: "DinnerRecipes")
                         choice(.manual, title: "Enter a meal", detail: "Type it yourself", symbol: "square.and.pencil", image: "DinnerManual")
@@ -555,14 +553,13 @@ private struct EatOutPicker: View {
 
     private var headerLead: String {
         switch mode {
-        case .delivery: return "Food"
-        case .takeout: return "Take"
+        case .delivery, .takeout: return "Take"
         case .sitdown: return "Eating"
         }
     }
 
     private var headerTail: String {
-        mode == .delivery ? "Delivery" : "Out"
+        mode == .sitdown ? "Out" : "Out & Delivery"
     }
 
     var body: some View {

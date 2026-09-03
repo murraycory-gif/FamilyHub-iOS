@@ -13,8 +13,7 @@ enum PlaceMode: String, CaseIterable, Identifiable, Codable {
     var title: String {
         switch self {
         case .sitdown: return "Eating out"
-        case .takeout: return "Take out"
-        case .delivery: return "Delivery"
+        case .takeout, .delivery: return "Take out & Delivery"
         }
     }
 

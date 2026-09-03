@@ -14,33 +14,76 @@ enum PlaceImages {
         return image
     }
 
+import Foundation
+import CoreLocation
+import MapKit
+import UIKit
+
+enum PlaceImages {
+    private static var memory: [String: UIImage] = [:]
+    private static let lock = NSLock()
+
+    static func photo(name: String, address: String?, coordinate: CLLocationCoordinate2D? = nil, website: URL? = nil) async -> UIImage? {
+        let key = query(name: name, address: address).lowercased()
+        if let cached = cached(key) { return cached }
+        let image = await firstPhoto(name: name, address: address, coordinate: coordinate, website: website)
+        if let image { store(image, key: key) }
+        return image
+    }
+
     private static func firstPhoto(name: String, address: String?, coordinate: CLLocationCoordinate2D?, website: URL?) async -> UIImage? {
-        let q = query(name: name, address: address)
-        return await withTaskGroup(of: Shot.self) { group in
-            group.addTask { .from(await wikipedia(name, address)) }
-            group.addTask { .from(await commonsGeo(coordinate)) }
-            group.addTask { .from(await nominatim(q)) }
-            group.addTask { .from(await duckDuckGo(q)) }
-            group.addTask { .from(await bing(q)) }
-            group.addTask { .from(await openGraph(website)) }
-            group.addTask {
-                try? await Task.sleep(for: .seconds(5))
-                return .timeout
+        if let image = await openGraph(website) { return image }
+        if let image = await lookAround(coordinate) { return image }
+        if let image = await mapShot(coordinate) { return image }
+        if let image = await nominatimExact(name: name, address: address) { return image }
+        return nil
+    }
+
+    private static func lookAround(_ coordinate: CLLocationCoordinate2D?) async -> UIImage? {
+        guard let coordinate else { return nil }
+        let request = MKLookAroundSceneRequest(coordinate: coordinate)
+        guard let scene = try? await request.scene else { return nil }
+        let options = MKLookAroundSnapshotter.Options()
+        options.size = CGSize(width: 800, height: 500)
+        let shot = MKLookAroundSnapshotter(scene: scene, options: options)
+        return try? await shot.snapshot.image
+    }
+
+    private static func mapShot(_ coordinate: CLLocationCoordinate2D?) async -> UIImage? {
+        guard let coordinate else { return nil }
+        let options = MKMapSnapshotter.Options()
+        options.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 160, longitudinalMeters: 160)
+        options.size = CGSize(width: 800, height: 500)
+        options.pointOfInterestFilter = .includingAll
+        options.traitCollection = UITraitCollection(userInterfaceStyle: .light)
+        let shot = MKMapSnapshotter(options: options)
+        return await withCheckedContinuation { cont in
+            shot.start { snapshot, _ in
+                cont.resume(returning: snapshot?.image)
             }
-            while let shot = await group.next() {
-                switch shot {
-                case .photo(let image):
-                    group.cancelAll()
-                    return image
-                case .timeout:
-                    group.cancelAll()
-                    return nil
-                case .miss:
-                    continue
-                }
-            }
-            return nil
         }
+    }
+
+    private static func nominatimExact(name: String, address: String?) async -> UIImage? {
+        let q = query(name: name, address: address)
+        var comps = URLComponents(string: "https://nominatim.openstreetmap.org/search")!
+        comps.queryItems = [
+            URLQueryItem(name: "q", value: q),
+            URLQueryItem(name: "format", value: "json"),
+            URLQueryItem(name: "extratags", value: "1"),
+            URLQueryItem(name: "limit", value: "3")
+        ]
+        guard let url = comps.url, let data = await data(url),
+              let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return nil }
+        let needle = name.lowercased()
+        for row in rows {
+            let display = (row["display_name"] as? String ?? "").lowercased()
+            guard display.contains(needle) else { continue }
+            let extras = row["extratags"] as? [String: String] ?? [:]
+            if let imageURL = extras["image"], let image = await download(imageURL) { return image }
+        }
+        return nil
     }
 
     private enum Shot {
@@ -294,7 +337,7 @@ enum PlaceImages {
 
     private static func diskURL(_ key: String) -> URL? {
         guard let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
-        let folder = dir.appendingPathComponent("PlacePhotos", isDirectory: true)
+        let folder = dir.appendingPathComponent("PlacePhotosV2", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let safe = key.replacingOccurrences(of: "/", with: "-")
         return folder.appendingPathComponent(safe + ".jpg")
