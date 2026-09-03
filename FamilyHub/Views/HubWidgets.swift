@@ -1,5 +1,6 @@
 import MapKit
 import SwiftUI
+import UIKit
 
 struct HubWidgetPickSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -795,6 +796,16 @@ struct AddPackageSheet: View {
                 VStack(alignment: .leading, spacing: 12) {
                     field("What’s coming", text: $name)
                     field("Tracking number", text: $tracking)
+                    Text("Paste an Amazon email or just the tracking number. HUB will pick the carrier.")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    Button("Paste from clipboard") {
+                        if let text = UIPasteboard.general.string {
+                            applyPaste(text)
+                        }
+                    }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
                     Text("Carrier").font(.caption.weight(.bold)).foregroundStyle(AppTheme.textTertiary)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack {
@@ -850,6 +861,22 @@ struct AddPackageSheet: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .onAppear {
+            if tracking.isEmpty, let text = UIPasteboard.general.string, text.count > 6 {
+                applyPaste(text)
+            }
+        }
+    }
+
+    private func applyPaste(_ raw: String) {
+        let parsed = PackageParse.read(raw)
+        if tracking.trimmingCharacters(in: .whitespaces).isEmpty {
+            tracking = parsed.tracking
+        }
+        carrier = parsed.carrier
+        if name.trimmingCharacters(in: .whitespaces).isEmpty {
+            name = parsed.name
+        }
     }
 
     private func field(_ title: String, text: Binding<String>) -> some View {
@@ -859,5 +886,270 @@ struct AddPackageSheet: View {
                 .padding(14)
                 .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
+    }
+}
+
+enum PackageParse {
+    static func read(_ raw: String) -> (tracking: String, carrier: PackageCarrier, name: String) {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let ups = firstMatch(#"\b1Z[0-9A-Z]{16}\b"#, in: text) {
+            return (ups, .ups, "UPS package")
+        }
+        if let fedex = firstMatch(#"\b(\d{12}|\d{14}|\d{15}|\d{20})\b"#, in: text), fedex.count >= 12 {
+            return (fedex, .fedex, "FedEx package")
+        }
+        if let usps = firstMatch(#"\b(94\d{20}|93\d{20}|92\d{20}|91\d{20}|420\d{27})\b"#, in: text) {
+            return (usps, .usps, "USPS package")
+        }
+        if text.uppercased().contains("AMAZON") || text.uppercased().contains("TBA") {
+            if let tba = firstMatch(#"\bTBA[0-9A-Z]+\b"#, in: text) {
+                return (tba, .amazon, "Amazon package")
+            }
+            let token = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).map(String.init).first(where: { $0.count >= 10 }) ?? text
+            return (token, .amazon, "Amazon package")
+        }
+        let token = text.split(whereSeparator: \.isWhitespace).map(String.init).first(where: { $0.count >= 8 }) ?? text
+        return (token, .other, "Package")
+    }
+
+    private static func firstMatch(_ pattern: String, in text: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, range: range), let swift = Range(match.range, in: text) else { return nil }
+        return String(text[swift])
+    }
+}
+
+struct LeavingWidget: View {
+    @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
+    @Environment(\.hubAccent) private var accent
+    let day: Date
+
+    private var rows: [(event: CalendarEvent, member: FamilyMember?, leaveAt: Date)] {
+        let now = Date()
+        let start = Calendar.current.startOfDay(for: day)
+        return store.events
+            .filter { Calendar.current.isDate($0.startAt, inSameDayAs: start) && $0.allDay == false }
+            .filter { ($0.endAt ?? $0.startAt.addingTimeInterval(3600)) > now.addingTimeInterval(-15 * 60) }
+            .sorted { $0.startAt < $1.startAt }
+            .prefix(5)
+            .map { event in
+                let drive: TimeInterval = event.location.trimmingCharacters(in: .whitespaces).isEmpty ? 10 * 60 : 30 * 60
+                return (event, event.memberID.flatMap(store.member(id:)), event.startAt.addingTimeInterval(-drive))
+            }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HubTileBanner(symbol: "car.fill", title: "Who's Out")
+            Group {
+                if rows.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Everyone’s here")
+                            .font(.headline.weight(.bold))
+                        Text("Leave-by times show up when someone has a place to be.")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(rows, id: \.event.id) { row in
+                                Button {
+                                    router.openCalendar(filter: row.member.map { .member($0.id) } ?? .family, day: day, eventID: row.event.id)
+                                } label: {
+                                    HubAgendaCallout(
+                                        rail: row.member.map { Color(hex: $0.colorHex) } ?? accent,
+                                        eyebrow: leaveLabel(row.leaveAt, start: row.event.startAt),
+                                        title: row.event.title,
+                                        badge: row.member?.name ?? "Family",
+                                        accent: accent
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.tableFill)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
+    }
+
+    private func leaveLabel(_ leave: Date, start: Date) -> String {
+        let now = Date()
+        if leave <= now, start > now { return "Leave now" }
+        if start <= now { return "Going now" }
+        return "Leave \(Date.hubClock(leave))"
+    }
+}
+
+struct ScoreboardWidget: View {
+    @EnvironmentObject private var store: HubStore
+    @EnvironmentObject private var router: HubRouter
+    @Environment(\.hubAccent) private var accent
+    let day: Date
+
+    private var kids: [FamilyMember] {
+        let due = store.assignments.filter { Calendar.current.isDate($0.dueOn, inSameDayAs: day) }
+        let ids = Set(due.map(\.memberID))
+        let listed = store.members.filter { $0.role == .child || ids.contains($0.id) }
+        return listed.isEmpty ? store.members.filter { $0.role == .child } : listed
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HubTileBanner(symbol: "checkmark.circle.fill", title: "Chore Board")
+            Group {
+                if kids.isEmpty {
+                    Text("Add a kid to start chores.")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 8) {
+                            ForEach(kids) { member in
+                                let open = store.assignments.filter {
+                                    $0.memberID == member.id &&
+                                    Calendar.current.isDate($0.dueOn, inSameDayAs: day) &&
+                                    $0.status == .pending
+                                }.count
+                                Button { router.open(.chores) } label: {
+                                    HubAgendaCallout(
+                                        rail: Color(hex: member.colorHex),
+                                        eyebrow: open == 0 ? "All done" : "\(open) open",
+                                        title: member.name,
+                                        badge: Money.cents(member.allowanceBalanceCents),
+                                        accent: accent
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.tableFill)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
+    }
+}
+
+struct WhiteboardWidget: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.hubAccent) private var accent
+    @State private var showEdit = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HubTileBanner(symbol: "square.and.pencil", title: "Whiteboard") {
+                Button { showEdit = true } label: {
+                    Text(store.whiteboardNote.isEmpty ? "Write" : "Edit")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.white, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            Button { showEdit = true } label: {
+                Text(store.whiteboardNote.isEmpty ? "Tap to leave a note for the house." : store.whiteboardNote)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(store.whiteboardNote.isEmpty ? AppTheme.textSecondary : AppTheme.text)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.plain)
+            .padding(14)
+            .background(AppTheme.tableFill)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
+        .sheet(isPresented: $showEdit) {
+            WhiteboardEditor()
+                .environmentObject(store)
+        }
+    }
+}
+
+struct WhiteboardEditor: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HubStickyHeader(lead: "House", tail: "Note") {
+                HubHeaderPill(title: "Save") {
+                    store.setWhiteboardNote(draft)
+                    dismiss()
+                }
+            }
+            TextEditor(text: $draft)
+                .font(.title3.weight(.semibold))
+                .padding(16)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .onAppear { draft = store.whiteboardNote }
+    }
+}
+
+struct BirthdayWidget: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.hubAccent) private var accent
+    let day: Date
+
+    private var upcoming: [(member: FamilyMember, when: Date, days: Int)] {
+        store.members.compactMap { member -> (FamilyMember, Date, Int)? in
+            guard let when = member.nextBirthday(from: day) else { return nil }
+            let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: day), to: when).day ?? 0
+            return (member, when, days)
+        }
+        .sorted { $0.1 < $1.1 }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HubTileBanner(symbol: "gift.fill", title: "Birthdays")
+            Group {
+                if upcoming.isEmpty {
+                    Text("Add birthdays in Profiles.")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 8) {
+                            ForEach(upcoming.prefix(5), id: \.member.id) { row in
+                                HubAgendaCallout(
+                                    rail: Color(hex: row.member.colorHex),
+                                    eyebrow: row.days == 0 ? "Today" : row.days == 1 ? "Tomorrow" : "In \(row.days) days",
+                                    title: row.member.name,
+                                    badge: row.when.formatted(.dateTime.month(.abbreviated).day()),
+                                    accent: accent
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.tableFill)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.card)
+        .hubLift(accent: accent)
     }
 }

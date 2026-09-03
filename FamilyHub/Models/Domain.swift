@@ -172,6 +172,19 @@ struct FamilyMember: Identifiable, Codable, Hashable {
         guard let birthday else { return nil }
         return Calendar.current.dateComponents([.year], from: birthday, to: Date()).year
     }
+
+    func nextBirthday(from day: Date = Date()) -> Date? {
+        guard let birthday else { return nil }
+        let calendar = Calendar.current
+        var parts = calendar.dateComponents([.month, .day], from: birthday)
+        parts.year = calendar.component(.year, from: day)
+        guard var next = calendar.date(from: parts) else { return nil }
+        if calendar.startOfDay(for: next) < calendar.startOfDay(for: day) {
+            parts.year = (parts.year ?? 0) + 1
+            next = calendar.date(from: parts) ?? next
+        }
+        return calendar.startOfDay(for: next)
+    }
 }
 
 enum PersonStyle {
@@ -522,6 +535,7 @@ struct HubSnapshot: Codable {
     var joinCode: String?
     var signedInMemberID: UUID?
     var notifyPrefs: HubNotifyPrefs?
+    var whiteboardNote: String?
 }
 
 struct ShoppingItem: Identifiable, Codable, Hashable {
@@ -1010,11 +1024,15 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
     case flights
     case packages
     case bills
+    case leaving
+    case scoreboard
+    case whiteboard
+    case birthdays
 
     var id: String { rawValue }
 
     static var choosable: [HubWidgetKind] {
-        [.weather, .shopping, .dinner, .flights, .packages, .bills]
+        [.weather, .shopping, .dinner, .flights, .packages, .bills, .leaving, .scoreboard, .whiteboard, .birthdays]
     }
 
     var title: String {
@@ -1027,6 +1045,10 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
         case .flights: return "Flight Tracker"
         case .packages: return "Packages"
         case .bills: return "Bills Due"
+        case .leaving: return "Who's Out"
+        case .scoreboard: return "Chore Board"
+        case .whiteboard: return "Whiteboard"
+        case .birthdays: return "Birthdays"
         }
     }
 
@@ -1040,6 +1062,10 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
         case .flights: return "airplane"
         case .packages: return "shippingbox.fill"
         case .bills: return "dollarsign.circle.fill"
+        case .leaving: return "car.fill"
+        case .scoreboard: return "checkmark.circle.fill"
+        case .whiteboard: return "square.and.pencil"
+        case .birthdays: return "gift.fill"
         }
     }
 
@@ -1053,6 +1079,10 @@ enum HubWidgetKind: String, Codable, CaseIterable, Identifiable {
         case .flights: return "Pulls flights from the calendar, or add one"
         case .packages: return "Amazon and carrier tracking"
         case .bills: return "Shows bills due that day from your bills calendar"
+        case .leaving: return "Who has to leave next and when to walk out the door"
+        case .scoreboard: return "Open chores and money earned"
+        case .whiteboard: return "A note the whole house can see"
+        case .birthdays: return "Upcoming birthdays and days left"
         }
     }
 }

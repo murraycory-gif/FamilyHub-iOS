@@ -26,6 +26,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var joinCode: String
     @Published private(set) var signedInMemberID: UUID?
     @Published private(set) var notifyPrefs: HubNotifyPrefs
+    @Published private(set) var whiteboardNote: String
     @Published var errorMessage: String?
     @Published private(set) var familyPhotoData: Data?
     @Published private(set) var memberPhotos: [UUID: Data] = [:]
@@ -64,6 +65,7 @@ final class HubStore: ObservableObject {
         joinCode = Self.makeJoinCode()
         signedInMemberID = nil
         notifyPrefs = .off
+        whiteboardNote = ""
         familyPhotoData = nil
         loadOrSeed()
         familyPhotoData = try? Data(contentsOf: familyPhotoURL)
@@ -618,6 +620,11 @@ final class HubStore: ObservableObject {
         persist()
     }
 
+    func setWhiteboardNote(_ text: String) {
+        whiteboardNote = String(text.prefix(400))
+        persist()
+    }
+
     func addPackage(_ package: TrackedPackage) {
         packages.insert(package, at: 0)
         persist()
@@ -972,6 +979,7 @@ final class HubStore: ObservableObject {
         joinCode = (snapshot.joinCode?.isEmpty == false) ? (snapshot.joinCode ?? Self.makeJoinCode()) : Self.makeJoinCode()
         signedInMemberID = snapshot.signedInMemberID ?? ownerID
         notifyPrefs = snapshot.notifyPrefs ?? .off
+        whiteboardNote = snapshot.whiteboardNote ?? ""
         if snapshot.joinCode == nil {
             persist()
         }
@@ -1000,7 +1008,8 @@ final class HubStore: ObservableObject {
             ownerID: ownerID,
             joinCode: joinCode,
             signedInMemberID: signedInMemberID,
-            notifyPrefs: notifyPrefs
+            notifyPrefs: notifyPrefs,
+            whiteboardNote: whiteboardNote
         )
         do {
             let encoder = JSONEncoder()

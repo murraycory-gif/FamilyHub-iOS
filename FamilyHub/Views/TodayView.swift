@@ -270,6 +270,36 @@ struct TodayView: View {
                 kinds[i] = .bills
             }
         }
+        let leavingSoon = store.events.contains {
+            Calendar.current.isDate($0.startAt, inSameDayAs: day) &&
+            $0.allDay == false &&
+            $0.startAt.timeIntervalSinceNow < 3 * 3600 &&
+            $0.startAt.timeIntervalSinceNow > -15 * 60
+        }
+        if leavingSoon, kinds.contains(.leaving) == false, kinds.count < 4 {
+            kinds.append(.leaving)
+        }
+        if store.packages.contains(where: { $0.isDelivered == false }), kinds.contains(.packages) == false, kinds.count < 4 {
+            kinds.append(.packages)
+        }
+        let birthdaySoon = store.members.contains { member in
+            guard let when = member.nextBirthday(from: day) else { return false }
+            let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: day), to: when).day ?? 99
+            return days <= 14
+        }
+        if birthdaySoon, kinds.contains(.birthdays) == false, kinds.count < 4 {
+            kinds.append(.birthdays)
+        }
+        let choresDue = store.assignments.contains {
+            Calendar.current.isDate($0.dueOn, inSameDayAs: day) && $0.status == .pending
+        }
+        if choresDue, kinds.contains(.scoreboard) == false, kinds.count < 4 {
+            kinds.append(.scoreboard)
+        }
+        if store.whiteboardNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+           kinds.contains(.whiteboard) == false, kinds.count < 4 {
+            kinds.append(.whiteboard)
+        }
         return Array(kinds.prefix(4))
     }
 
@@ -344,6 +374,14 @@ struct TodayView: View {
             PackageWidget(onAdd: { showAddPackage = true })
         case .bills:
             BillsWidget(day: day)
+        case .leaving:
+            LeavingWidget(day: day)
+        case .scoreboard:
+            ScoreboardWidget(day: day)
+        case .whiteboard:
+            WhiteboardWidget()
+        case .birthdays:
+            BirthdayWidget(day: day)
         default:
             shoppingTile
         }
