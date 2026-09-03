@@ -59,7 +59,7 @@ struct TodayView: View {
                     stripHeight: familyH
                 )
                 .frame(height: familyH)
-                .padding(.top, 10)
+                .padding(.top, 22)
             }
             .animation(nil, value: selectedDay)
             .padding(.horizontal, 24)
@@ -650,10 +650,12 @@ struct TodayView: View {
                     ScrollView {
                         VStack(spacing: 10) {
                             ForEach(Array(uniqueItems(items).prefix(16).enumerated()), id: \.offset) { _, item in
-                                Button { openAgendaItem(item) } label: {
-                                    dayRow(item)
+                                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                                    Button { openAgendaItem(item) } label: {
+                                        dayRow(item, now: timeline.date)
+                                    }
+                                    .buttonStyle(HubPressStyle())
                                 }
-                                .buttonStyle(HubPressStyle())
                             }
                         }
                     }
@@ -1000,46 +1002,50 @@ struct TodayView: View {
         }
     }
 
-    private func dayRow(_ item: HubDayItem) -> some View {
-        HStack(alignment: .center, spacing: 14) {
+    private func dayRow(_ item: HubDayItem, now: Date = Date()) -> some View {
+        let passed = item.hasPassed(now: now)
+        let rail = passed ? Color(white: 0.62) : assigneeColor(for: item)
+        let ink = passed ? AppTheme.textTertiary : AppTheme.text
+        let timeColor = passed ? AppTheme.textTertiary : accent
+        return HStack(alignment: .center, spacing: 14) {
             Capsule()
-                .fill(assigneeColor(for: item))
+                .fill(rail)
                 .frame(width: 5)
                 .padding(.vertical, 8)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.timeLabel)
                     .font(.headline.weight(.bold).monospacedDigit())
-                    .foregroundStyle(accent)
+                    .foregroundStyle(timeColor)
                 Text(item.title)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(AppTheme.text)
+                    .foregroundStyle(ink)
                     .lineLimit(2)
                 if !item.detail.isEmpty {
                     Text(item.detail)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textTertiary)
                         .lineLimit(2)
                 }
             }
             Spacer(minLength: 8)
             Text(assigneeName(for: item))
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(assigneeColor(for: item))
+                .foregroundStyle(rail)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(assigneeColor(for: item).opacity(0.16), in: Capsule())
+                .background(rail.opacity(0.14), in: Capsule())
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(passed ? Color(white: 0.96) : Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                .stroke(Color.black.opacity(passed ? 0.04 : 0.05), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
-        .shadow(color: .black.opacity(0.03), radius: 1, y: 1)
+        .shadow(color: .black.opacity(passed ? 0.03 : 0.08), radius: passed ? 3 : 6, y: passed ? 1 : 3)
+        .opacity(passed ? 0.62 : 1)
     }
 
     private func assigneeName(for item: HubDayItem) -> String {
@@ -1175,8 +1181,8 @@ struct TodayView: View {
     }
 
     private func familySection(width: CGFloat, portrait: Bool, stripHeight: CGFloat) -> some View {
-        let count = max(1, 1 + store.members.count)
-        let target = sizeClass == .compact ? 2 : (portrait ? 3 : 5)
+        let count = max(1, store.members.count)
+        let target = sizeClass == .compact ? 2 : (portrait ? 3 : 4)
         let visible = min(count, target)
         let inset: CGFloat = 20
         let gap: CGFloat = 10
@@ -1202,13 +1208,6 @@ struct TodayView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .center, spacing: gap) {
-                    FamilyFocusCard(selected: profile == .family, day: selectedDay, photoHeight: photoH) {
-                        profile = .family
-                    } onEvent: { event in
-                        router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
-                    }
-                    .frame(width: cardW, height: cardH)
-
                     ForEach(store.members) { member in
                         MemberHomeCard(
                             member: member,
@@ -1243,6 +1242,8 @@ private struct HubDayItem: Identifiable {
     var detail: String
     var timeLabel: String
     var sortDate: Date
+    var endAt: Date? = nil
+    var allDay: Bool = false
     var memberID: UUID?
 
     var kindLabel: String {
@@ -1254,6 +1255,13 @@ private struct HubDayItem: Identifiable {
         }
     }
 
+    func hasPassed(now: Date = Date()) -> Bool {
+        if allDay {
+            return Calendar.current.startOfDay(for: now) > Calendar.current.startOfDay(for: sortDate)
+        }
+        return (endAt ?? sortDate) < now
+    }
+
     static func event(_ event: CalendarEvent) -> HubDayItem {
         HubDayItem(
             id: "e-\(event.id)",
@@ -1262,6 +1270,8 @@ private struct HubDayItem: Identifiable {
             detail: String(event.location.prefix(80)),
             timeLabel: event.allDay ? "All day" : Date.hubClock(event.startAt),
             sortDate: event.startAt,
+            endAt: event.endAt,
+            allDay: event.allDay,
             memberID: event.memberID
         )
     }
