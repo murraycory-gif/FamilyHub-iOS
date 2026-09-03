@@ -490,7 +490,9 @@ final class HubStore: ObservableObject {
     }
 
     func setNotifyPrefs(_ prefs: HubNotifyPrefs) {
-        notifyPrefs = prefs
+        var next = prefs
+        next.channel = .device
+        notifyPrefs = next
         persist()
         HubPinger.shared.refresh(self)
     }

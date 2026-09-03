@@ -180,9 +180,6 @@ final class HubPinger: ObservableObject {
                 lastError = "Allow notifications for HUB in iPad Settings."
             }
         }
-        if store.notifyPrefs.channel.usesText, store.notifyPrefs.textReady {
-            await sendRemoteSMS(store, body: "\(title): \(body)")
-        }
     }
 
     func phones(in store: HubStore) -> [String] {

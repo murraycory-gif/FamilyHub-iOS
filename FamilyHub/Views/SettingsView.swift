@@ -407,11 +407,10 @@ struct WeatherSettingsView: View {
 
 struct NotifySettingsView: View {
     @EnvironmentObject private var store: HubStore
-    @ObservedObject private var pinger = HubPinger.shared
     @State private var testNote: String?
 
     var body: some View {
-        SettingsPageShell(tail: "Notifications", symbol: "bell.fill", title: "Pings and texts") {
+        SettingsPageShell(tail: "Notifications", symbol: "bell.fill", title: "Notifications") {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle(isOn: Binding(
                     get: { store.notifyPrefs.anyOn },
@@ -424,6 +423,7 @@ struct NotifySettingsView: View {
                                 next.chorePing = true
                                 next.billsPing = true
                             }
+                            next.channel = .device
                             store.setNotifyPrefs(next)
                             askNotifyPermission()
                         } else {
@@ -433,7 +433,7 @@ struct NotifySettingsView: View {
                 )) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Allow notifications").font(.headline.weight(.bold))
-                        Text("Master switch. Flip individual pings below.")
+                        Text("Pings stay on this device. Flip each one below and set the time.")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
                     }
@@ -443,47 +443,17 @@ struct NotifySettingsView: View {
                 .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
 
-                Text("How they go out").font(.headline.weight(.bold)).padding(.top, 6)
-                Text("This iPad gets lock-screen pings. Text is optional.")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
-                HStack(spacing: 8) {
-                    ForEach(NotifyChannel.allCases) { option in
-                        Button {
-                            var next = store.notifyPrefs
-                            next.channel = option
-                            store.setNotifyPrefs(next)
-                            if option.usesDevice { askNotifyPermission() }
-                        } label: {
-                            Text(option.label)
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(store.notifyPrefs.channel == option ? .white : AppTheme.blue)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(store.notifyPrefs.channel == option ? AppTheme.blue : AppTheme.blueSoft, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
+                Button("Send a test ping") {
+                    HubPinger.shared.sendTest(store)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        testNote = HubPinger.shared.lastError ?? "Check the lock screen."
                     }
-                    Spacer(minLength: 0)
                 }
-
-                if store.notifyPrefs.channel.usesText {
-                    textSetupBox
-                }
-
-                if store.notifyPrefs.channel.usesDevice {
-                    Button("Send a test ping") {
-                        HubPinger.shared.sendTest(store)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            testNote = HubPinger.shared.lastError ?? "Check this iPad’s lock screen."
-                        }
-                    }
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(AppTheme.blue, in: Capsule())
-                }
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(AppTheme.blue, in: Capsule())
                 if let testNote {
                     Text(testNote)
                         .font(.caption.weight(.semibold))
@@ -530,110 +500,6 @@ struct NotifySettingsView: View {
             }
         }
         .hubTour("settings", steps: HubTours.settings.filter { $0.id == "setNotify" })
-    }
-
-    private var textSetupBox: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Your phone").font(.headline.weight(.bold))
-            TextField("(555) 123-4567", text: Binding(
-                get: { store.notifyPrefs.extraPhone },
-                set: {
-                    let pretty = HubPinger.prettyPhone($0)
-                    var next = store.notifyPrefs
-                    if next.extraPhone != pretty { HubPinger.shared.clearPhoneLink() }
-                    next.extraPhone = pretty
-                    store.setNotifyPrefs(next)
-                }
-            ))
-            .keyboardType(.phonePad)
-            .textContentType(.telephoneNumber)
-            .textFieldStyle(.roundedBorder)
-            .font(.title2.weight(.bold))
-            if HubPinger.e164(store.notifyPrefs.extraPhone) == nil {
-                Text("Use a 10-digit US number.")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.chore)
-            }
-            Text("HUB’s sender").font(.headline.weight(.bold)).padding(.top, 4)
-            Text("Get this from Twilio (free trial is enough). Open the console, copy the three values, paste them here.")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.textSecondary)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("1. Sign up at twilio.com/try-twilio")
-                Text("2. Account ID = Account SID on the home page")
-                Text("3. Secret key = Auth Token (click to show)")
-                Text("4. Number texts come from = Get a number → buy a US number")
-                Text("5. Verify your phone under Phone Numbers → Verified Caller IDs (trial only texts verified numbers)")
-            }
-            .font(.caption.weight(.semibold))
-            Link(destination: URL(string: "https://console.twilio.com")!) {
-                Text("Open Twilio console")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(AppTheme.blue, in: Capsule())
-            }
-            labeledField("Number texts come from", store.notifyPrefs.twilioFrom, placeholder: "+1 555 111 2222") { value in
-                var next = store.notifyPrefs
-                next.twilioFrom = HubPinger.prettyPhone(value)
-                store.setNotifyPrefs(next)
-            }
-            labeledField("Account ID", store.notifyPrefs.twilioSID, placeholder: "ACxxxxxxxx") { value in
-                var next = store.notifyPrefs
-                next.twilioSID = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                store.setNotifyPrefs(next)
-            }
-            labeledField("Secret key", store.notifyPrefs.twilioToken, secret: true, placeholder: "Auth Token") { value in
-                var next = store.notifyPrefs
-                next.twilioToken = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                store.setNotifyPrefs(next)
-            }
-            if store.notifyPrefs.textReady {
-                Text("Sender is ready.").font(.subheadline.weight(.bold)).foregroundStyle(AppTheme.blue)
-            }
-            if pinger.phoneVerified {
-                Text("Last text reached \(store.notifyPrefs.extraPhone)")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(AppTheme.blue)
-            }
-            Button {
-                Task {
-                    await HubPinger.shared.sendTestText(store)
-                    testNote = HubPinger.shared.lastError ?? "Sent. Check your phone — it should be from HUB, not you."
-                }
-            } label: {
-                HStack {
-                    if pinger.sending { ProgressView().tint(.white) }
-                    Text(pinger.sending ? "Sending…" : "Text me")
-                }
-            }
-            .font(.headline.weight(.bold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(AppTheme.blue, in: Capsule())
-            .disabled(pinger.sending)
-        }
-        .padding(14)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
-    }
-
-    private func labeledField(_ title: String, _ value: String, secret: Bool = false, placeholder: String = "", onChange: @escaping (String) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption.weight(.bold)).foregroundStyle(AppTheme.textSecondary)
-            if secret {
-                SecureField(placeholder.isEmpty ? "Paste once" : placeholder, text: Binding(get: { value }, set: onChange))
-                    .textFieldStyle(.roundedBorder)
-                    .textContentType(.password)
-            } else {
-                TextField(placeholder, text: Binding(get: { value }, set: onChange))
-                    .textFieldStyle(.roundedBorder)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-            }
-        }
     }
 
     private func notifyRow(
