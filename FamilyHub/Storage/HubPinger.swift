@@ -96,32 +96,33 @@ final class HubPinger: ObservableObject {
 
         var requests: [UNNotificationRequest] = []
         if prefs.morningBrief {
-            requests.append(daily("hub.morning", hour: 7, minute: 0, title: "Sunrise brief", body: morningBody(store)))
+            requests.append(daily("hub.morning", hour: prefs.morningAt / 60, minute: prefs.morningAt % 60, title: "Sunrise brief", body: morningBody(store)))
         }
         if prefs.dinnerPing {
-            requests.append(daily("hub.dinner", hour: 16, minute: 0, title: "What's for dinner?", body: dinnerBody(store)))
+            requests.append(daily("hub.dinner", hour: prefs.dinnerAt / 60, minute: prefs.dinnerAt % 60, title: "What's for dinner?", body: dinnerBody(store)))
         }
         if prefs.chorePing {
-            requests.append(daily("hub.chores", hour: 8, minute: 0, title: "Chore check", body: choreBody(store)))
+            requests.append(daily("hub.chores", hour: prefs.choreAt / 60, minute: prefs.choreAt % 60, title: "Chore check", body: choreBody(store)))
         }
         if prefs.billsPing {
-            requests.append(daily("hub.bills", hour: 8, minute: 15, title: "Bills Due", body: billsBody(store)))
+            requests.append(daily("hub.bills", hour: prefs.billsAt / 60, minute: prefs.billsAt % 60, title: "Bills Due", body: billsBody(store)))
         }
         if prefs.shoppingPing {
-            requests.append(daily("hub.shop", hour: 8, minute: 30, title: "Shopping list", body: shopBody(store)))
+            requests.append(daily("hub.shop", hour: prefs.shoppingAt / 60, minute: prefs.shoppingAt % 60, title: "Shopping list", body: shopBody(store)))
         }
         if prefs.eventPings {
             let cal = Calendar.current
+            let lead = TimeInterval(max(5, prefs.eventLeadMinutes) * 60)
             let upcoming = store.events
                 .filter { $0.startAt > Date() && $0.startAt < Date().addingTimeInterval(60 * 60 * 24 * 7) }
                 .prefix(20)
             for event in upcoming {
-                let fire = event.startAt.addingTimeInterval(-30 * 60)
+                let fire = event.startAt.addingTimeInterval(-lead)
                 guard fire > Date() else { continue }
                 let parts = cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
                 let content = UNMutableNotificationContent()
                 content.title = event.title
-                content.body = "Starts in 30 minutes."
+                content.body = "Starts in \(prefs.eventLeadMinutes) minutes."
                 content.sound = .default
                 let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
                 requests.append(UNNotificationRequest(identifier: "hub.event.\(event.id)", content: content, trigger: trigger))
@@ -135,28 +136,28 @@ final class HubPinger: ObservableObject {
     func fireDue(_ store: HubStore) async {
         let prefs = store.notifyPrefs
         guard prefs.anyOn else { return }
-        let hour = Calendar.current.component(.hour, from: Date())
-        if prefs.morningBrief, (6...9).contains(hour), mark("morning") {
+        if prefs.morningBrief, around(prefs.morningAt), mark("morning") {
             await deliver(store, title: "Sunrise brief", body: morningBody(store), device: true)
         }
-        if prefs.dinnerPing, (15...18).contains(hour), store.dinner(on: Date()) == nil, mark("dinner") {
+        if prefs.dinnerPing, around(prefs.dinnerAt), store.dinner(on: Date()) == nil, mark("dinner") {
             await deliver(store, title: "What's for dinner?", body: dinnerBody(store), device: true)
         }
-        if prefs.chorePing, (7...9).contains(hour), mark("chores") {
+        if prefs.chorePing, around(prefs.choreAt), mark("chores") {
             await deliver(store, title: "Chore check", body: choreBody(store), device: true)
         }
-        if prefs.billsPing, (7...9).contains(hour), mark("bills") {
+        if prefs.billsPing, around(prefs.billsAt), mark("bills") {
             await deliver(store, title: "Bills Due", body: billsBody(store), device: true)
         }
-        if prefs.shoppingPing, (7...9).contains(hour), store.shoppingItems.contains(where: { !$0.isChecked }), mark("shop") {
+        if prefs.shoppingPing, around(prefs.shoppingAt), store.shoppingItems.contains(where: { !$0.isChecked }), mark("shop") {
             await deliver(store, title: "Shopping list", body: shopBody(store), device: true)
         }
         if prefs.eventPings {
+            let lead = TimeInterval(max(5, prefs.eventLeadMinutes) * 60)
             let soon = store.events.filter {
-                $0.startAt > Date() && $0.startAt < Date().addingTimeInterval(35 * 60)
+                $0.startAt > Date() && $0.startAt < Date().addingTimeInterval(lead + 5 * 60)
             }
             for event in soon where mark("event.\(event.id.uuidString)") {
-                await deliver(store, title: event.title, body: "Starts in 30 minutes.", device: true)
+                await deliver(store, title: event.title, body: "Starts in \(prefs.eventLeadMinutes) minutes.", device: true)
             }
         }
     }
@@ -248,6 +249,12 @@ final class HubPinger: ObservableObject {
     private func shopBody(_ store: HubStore) -> String {
         let open = store.shoppingItems.filter { !$0.isChecked }
         return open.isEmpty ? "List is empty." : "\(open.count) item(s) still to get."
+    }
+
+    private func around(_ minutes: Int, window: Int = 20) -> Bool {
+        let now = Calendar.current.dateComponents([.hour, .minute], from: Date())
+        let current = (now.hour ?? 0) * 60 + (now.minute ?? 0)
+        return abs(current - minutes) <= window
     }
 
     private func mark(_ id: String) -> Bool {

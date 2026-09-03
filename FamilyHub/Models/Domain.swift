@@ -1389,10 +1389,17 @@ struct HubNotifyPrefs: Codable, Equatable {
     var twilioSID: String
     var twilioToken: String
     var twilioFrom: String
+    var morningAt: Int
+    var dinnerAt: Int
+    var choreAt: Int
+    var billsAt: Int
+    var shoppingAt: Int
+    var eventLeadMinutes: Int
 
     enum CodingKeys: String, CodingKey {
         case morningBrief, eventPings, dinnerPing, chorePing, shoppingPing, billsPing
         case channel, who, extraPhone, twilioSID, twilioToken, twilioFrom
+        case morningAt, dinnerAt, choreAt, billsAt, shoppingAt, eventLeadMinutes
     }
 
     init(
@@ -1407,7 +1414,13 @@ struct HubNotifyPrefs: Codable, Equatable {
         extraPhone: String = "",
         twilioSID: String = "",
         twilioToken: String = "",
-        twilioFrom: String = ""
+        twilioFrom: String = "",
+        morningAt: Int = 7 * 60,
+        dinnerAt: Int = 16 * 60,
+        choreAt: Int = 8 * 60,
+        billsAt: Int = 8 * 60 + 15,
+        shoppingAt: Int = 8 * 60 + 30,
+        eventLeadMinutes: Int = 30
     ) {
         self.morningBrief = morningBrief
         self.eventPings = eventPings
@@ -1421,6 +1434,12 @@ struct HubNotifyPrefs: Codable, Equatable {
         self.twilioSID = twilioSID
         self.twilioToken = twilioToken
         self.twilioFrom = twilioFrom
+        self.morningAt = morningAt
+        self.dinnerAt = dinnerAt
+        self.choreAt = choreAt
+        self.billsAt = billsAt
+        self.shoppingAt = shoppingAt
+        self.eventLeadMinutes = eventLeadMinutes
     }
 
     init(from decoder: Decoder) throws {
@@ -1437,6 +1456,12 @@ struct HubNotifyPrefs: Codable, Equatable {
         twilioSID = try c.decodeIfPresent(String.self, forKey: .twilioSID) ?? ""
         twilioToken = try c.decodeIfPresent(String.self, forKey: .twilioToken) ?? ""
         twilioFrom = try c.decodeIfPresent(String.self, forKey: .twilioFrom) ?? ""
+        morningAt = try c.decodeIfPresent(Int.self, forKey: .morningAt) ?? 7 * 60
+        dinnerAt = try c.decodeIfPresent(Int.self, forKey: .dinnerAt) ?? 16 * 60
+        choreAt = try c.decodeIfPresent(Int.self, forKey: .choreAt) ?? 8 * 60
+        billsAt = try c.decodeIfPresent(Int.self, forKey: .billsAt) ?? 8 * 60 + 15
+        shoppingAt = try c.decodeIfPresent(Int.self, forKey: .shoppingAt) ?? 8 * 60 + 30
+        eventLeadMinutes = try c.decodeIfPresent(Int.self, forKey: .eventLeadMinutes) ?? 30
     }
 
     static let off = HubNotifyPrefs(
@@ -1454,6 +1479,20 @@ struct HubNotifyPrefs: Codable, Equatable {
 
     var textReady: Bool {
         !twilioSID.isEmpty && !twilioToken.isEmpty && !twilioFrom.isEmpty
+    }
+
+    static func minutes(from date: Date) -> Int {
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+    }
+
+    static func date(from minutes: Int) -> Date {
+        let clamped = max(0, min(23 * 60 + 59, minutes))
+        return Calendar.current.date(bySettingHour: clamped / 60, minute: clamped % 60, second: 0, of: Date()) ?? Date()
+    }
+
+    static func label(_ minutes: Int) -> String {
+        date(from: minutes).formatted(date: .omitted, time: .shortened)
     }
 }
 

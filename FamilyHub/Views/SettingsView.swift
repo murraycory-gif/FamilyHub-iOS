@@ -443,8 +443,8 @@ struct NotifySettingsView: View {
                 .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
 
-                Text("How they go out").font(.headline.weight(.bold))
-                Text("This iPad gets lock-screen pings. Text is HUB sending a real SMS to your phone — not you messaging yourself.")
+                Text("How they go out").font(.headline.weight(.bold)).padding(.top, 6)
+                Text("This iPad gets lock-screen pings. Text is optional.")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
                 HStack(spacing: 8) {
@@ -490,12 +490,43 @@ struct NotifySettingsView: View {
                         .foregroundStyle(AppTheme.textSecondary)
                 }
 
-                notifyRow("Sunrise brief", "Morning rundown of the household.", \.morningBrief)
-                notifyRow("Before events", "A tap before something on the family calendar.", \.eventPings)
-                notifyRow("Dinner lock-in", "When tonight’s meal is set or still empty.", \.dinnerPing)
-                notifyRow("Chore check", "When a chore is due or waiting on approval.", \.chorePing)
-                notifyRow("Bills Due", "When a bill from your bills calendar is coming up.", \.billsPing)
-                notifyRow("Shopping nudge", "When the list has items before you leave the house.", \.shoppingPing)
+                Text("What and when").font(.headline.weight(.bold)).padding(.top, 8)
+                notifyRow(
+                    "Sunrise brief",
+                    "Morning rundown of the house.",
+                    \.morningBrief,
+                    time: \.morningAt
+                )
+                notifyRow(
+                    "Before events",
+                    "Ping before something on the calendar.",
+                    \.eventPings,
+                    lead: true
+                )
+                notifyRow(
+                    "Dinner reminder",
+                    "Ask what’s for dinner if nothing is set.",
+                    \.dinnerPing,
+                    time: \.dinnerAt
+                )
+                notifyRow(
+                    "Chore check",
+                    "Open chores for the day.",
+                    \.chorePing,
+                    time: \.choreAt
+                )
+                notifyRow(
+                    "Bills Due",
+                    "Bills on the calendar today.",
+                    \.billsPing,
+                    time: \.billsAt
+                )
+                notifyRow(
+                    "Shopping list",
+                    "If the list still has items.",
+                    \.shoppingPing,
+                    time: \.shoppingAt
+                )
             }
         }
         .hubTour("settings", steps: HubTours.settings.filter { $0.id == "setNotify" })
@@ -605,22 +636,76 @@ struct NotifySettingsView: View {
         }
     }
 
-    private func notifyRow(_ title: String, _ detail: String, _ key: WritableKeyPath<HubNotifyPrefs, Bool>) -> some View {
-        Toggle(isOn: Binding(
-            get: { store.notifyPrefs[keyPath: key] },
-            set: { on in
-                var next = store.notifyPrefs
-                next[keyPath: key] = on
-                store.setNotifyPrefs(next)
-                if on { askNotifyPermission() }
+    private func notifyRow(
+        _ title: String,
+        _ detail: String,
+        _ key: WritableKeyPath<HubNotifyPrefs, Bool>,
+        time: WritableKeyPath<HubNotifyPrefs, Int>? = nil,
+        lead: Bool = false
+    ) -> some View {
+        let on = store.notifyPrefs[keyPath: key]
+        return VStack(alignment: .leading, spacing: 10) {
+            Toggle(isOn: Binding(
+                get: { store.notifyPrefs[keyPath: key] },
+                set: { value in
+                    var next = store.notifyPrefs
+                    next[keyPath: key] = value
+                    store.setNotifyPrefs(next)
+                    if value { askNotifyPermission() }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.headline.weight(.bold))
+                    Text(detail).font(.caption.weight(.semibold)).foregroundStyle(AppTheme.textSecondary)
+                }
             }
-        )) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.headline.weight(.bold))
-                Text(detail).font(.caption.weight(.semibold)).foregroundStyle(AppTheme.textSecondary)
+            .tint(AppTheme.blue)
+            if on, let time {
+                HStack {
+                    Text("Time")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    Spacer()
+                    DatePicker(
+                        "",
+                        selection: Binding(
+                            get: { HubNotifyPrefs.date(from: store.notifyPrefs[keyPath: time]) },
+                            set: { date in
+                                var next = store.notifyPrefs
+                                next[keyPath: time] = HubNotifyPrefs.minutes(from: date)
+                                store.setNotifyPrefs(next)
+                            }
+                        ),
+                        displayedComponents: .hourAndMinute
+                    )
+                    .labelsHidden()
+                    .tint(AppTheme.blue)
+                }
+            }
+            if on, lead {
+                HStack {
+                    Text("Warn me")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    Spacer()
+                    Picker("", selection: Binding(
+                        get: { store.notifyPrefs.eventLeadMinutes },
+                        set: { value in
+                            var next = store.notifyPrefs
+                            next.eventLeadMinutes = value
+                            store.setNotifyPrefs(next)
+                        }
+                    )) {
+                        Text("15 min before").tag(15)
+                        Text("30 min before").tag(30)
+                        Text("1 hour before").tag(60)
+                        Text("2 hours before").tag(120)
+                    }
+                    .pickerStyle(.menu)
+                    .tint(AppTheme.blue)
+                }
             }
         }
-        .tint(AppTheme.blue)
         .padding(14)
         .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
