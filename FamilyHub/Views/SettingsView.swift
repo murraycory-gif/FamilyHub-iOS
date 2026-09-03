@@ -35,7 +35,50 @@ struct ProfilesSettingsView: View {
 
     var body: some View {
         SettingsPageShell(tail: "Profiles", symbol: "person.3.fill", title: "HUB Profiles") {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Who is using this device")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                Text("This is only who is holding this iPad or iPhone. Profiles below are the whole family.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 10)], spacing: 10) {
+                    ForEach(store.members) { member in
+                        let on = store.signedInMemberID == member.id
+                        Button {
+                            store.setSignedIn(member.id)
+                        } label: {
+                            HStack(spacing: 10) {
+                                MemberAvatar(member: member, size: 36)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(member.name)
+                                        .font(.subheadline.weight(.bold))
+                                        .foregroundStyle(on ? .white : AppTheme.text)
+                                        .lineLimit(1)
+                                    Text(member.id == store.ownerID ? "Owner" : member.role.label)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(on ? .white.opacity(0.85) : AppTheme.textSecondary)
+                                }
+                                Spacer(minLength: 0)
+                                if on {
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.white)
+                                }
+                            }
+                            .padding(12)
+                            .background(on ? AppTheme.blue : Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(on ? AppTheme.blue : Color.black.opacity(0.05), lineWidth: 1)
+                            )
+                            .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
+                        }
+                        .buttonStyle(HubPressStyle())
+                    }
+                }
+                Text("Family profiles")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .padding(.top, 6)
                 ForEach(store.members) { member in
                     HStack(spacing: 12) {
                         MemberAvatar(member: member, size: 56)
@@ -239,14 +282,13 @@ struct AllowanceSettingsPage: View {
     }
 }
 
-struct WeatherSettingsView: View {
+struct WeatherSettingsForm: View {
     @EnvironmentObject private var store: HubStore
     @StateObject private var weather = WeatherLoader()
     @State private var showPlace = false
 
     var body: some View {
-        SettingsPageShell(tail: "Weather", symbol: "cloud.sun.fill", title: "Location and units") {
-            VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
                 Button { showPlace = true } label: {
                     HStack(spacing: 14) {
                         ZStack {
@@ -371,7 +413,6 @@ struct WeatherSettingsView: View {
                     }
                 }
             }
-        }
         .hubTour("settings", steps: HubTours.settings.filter { $0.id == "setWeather" })
         .sheet(isPresented: $showPlace) {
             WeatherPlacePicker()

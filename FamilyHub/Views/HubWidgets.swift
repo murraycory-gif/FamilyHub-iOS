@@ -57,83 +57,88 @@ struct HubWidgetPickSheet: View {
 
 struct HubWidgetPicker: View {
     @EnvironmentObject private var store: HubStore
-    @Environment(\.dismiss) private var dismiss
     @State private var editIndex: Int?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Hub", tail: "Tiles") {
-                HubHeaderPill(title: "Done") { dismiss() }
-            }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("These boxes sit next to Today’s Agenda. Tap Change on any box, or add one under the tall box.")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                    ForEach(Array(store.hubWidgets.map(\.kind).enumerated()), id: \.offset) { index, kind in
-                        HStack(spacing: 14) {
-                            Image(systemName: kind.symbol)
-                                .font(.title2.weight(.bold))
-                                .foregroundStyle(AppTheme.blue)
-                                .frame(width: 36)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(kind.title)
-                                    .font(.title3.weight(.bold))
-                                Text(index == 2 && store.hubWidgets.count == 3 ? "Tall box" : "Box \(index + 1)")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(AppTheme.textSecondary)
-                            }
-                            Spacer()
-                            Button {
-                                editIndex = index
-                            } label: {
-                                Text("Change")
-                                    .font(.headline.weight(.bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                                    .background(AppTheme.blue, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
+        SettingsPageShell(tail: "Widgets", symbol: "square.grid.2x2.fill", title: "Hub tiles, bills, and weather") {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("These boxes sit next to Today’s Agenda. Change a box, or add one under the tall box.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                ForEach(Array(store.hubWidgets.map(\.kind).enumerated()), id: \.offset) { index, kind in
+                    HStack(spacing: 14) {
+                        Image(systemName: kind.symbol)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(width: 36)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(kind.title)
+                                .font(.title3.weight(.bold))
+                            Text(index == 2 && store.hubWidgets.count == 3 ? "Tall box" : "Box \(index + 1)")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
                         }
-                        .padding(16)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(AppTheme.cardBorder, lineWidth: 1)
-                        )
-                    }
-                    if store.hubWidgets.count < 4 {
+                        Spacer()
                         Button {
-                            store.addWidgetUnderRight()
+                            editIndex = index
                         } label: {
-                            Label("Add a box under the tall one", systemImage: "plus")
+                            Text("Change")
                                 .font(.headline.weight(.bold))
-                                .foregroundStyle(AppTheme.blue)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(AppTheme.blueSoft, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        Button {
-                            store.makeRightWidgetBigger()
-                        } label: {
-                            Label("Make the tall box bigger", systemImage: "arrow.up.left.and.arrow.down.right")
-                                .font(.headline.weight(.bold))
-                                .foregroundStyle(AppTheme.blue)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(AppTheme.blueSoft, in: Capsule())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(AppTheme.blue, in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
+                    .padding(16)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(AppTheme.cardBorder, lineWidth: 1)
+                    )
                 }
-                .padding(20)
+                if store.hubWidgets.count < 4 {
+                    Button {
+                        store.addWidgetUnderRight()
+                    } label: {
+                        Label("Add a box under the tall one", systemImage: "plus")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(AppTheme.blueSoft, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        store.makeRightWidgetBigger()
+                    } label: {
+                        Label("Make the tall box bigger", systemImage: "arrow.up.left.and.arrow.down.right")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(AppTheme.blueSoft, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Text("Bills Due")
+                    .font(.headline.weight(.bold))
+                    .padding(.top, 8)
+                Text("Pick which calendar is bills. Those items show on the Bills widget.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                BillsCalendarPicker()
+
+                Text("Weather")
+                    .font(.headline.weight(.bold))
+                    .padding(.top, 8)
+                WeatherSettingsForm()
             }
         }
-        .background(AppTheme.bg.ignoresSafeArea())
         .sheet(item: editBinding) { kind in
             HubWidgetPickSheet(current: kind) { picked in
                 if let index = editIndex {
