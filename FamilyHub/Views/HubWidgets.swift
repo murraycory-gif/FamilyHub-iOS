@@ -1048,13 +1048,10 @@ struct ScoreboardWidget: View {
 struct WhiteboardWidget: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.hubAccent) private var accent
-    @State private var showEdit = false
+    var onOpen: () -> Void
 
     var body: some View {
-        Button {
-            guard showEdit == false else { return }
-            showEdit = true
-        } label: {
+        Button(action: onOpen) {
             VStack(alignment: .leading, spacing: 0) {
                 HubTileBanner(symbol: "square.and.pencil", title: "Whiteboard") {
                     Text(store.whiteboardNote.isEmpty ? "Write" : "Edit")
@@ -1078,11 +1075,6 @@ struct WhiteboardWidget: View {
         }
         .buttonStyle(.plain)
         .hubLift(accent: accent)
-        .allowsHitTesting(showEdit == false)
-        .fullScreenCover(isPresented: $showEdit) {
-            WhiteboardEditor()
-                .environmentObject(store)
-        }
     }
 }
 

@@ -32,6 +32,7 @@ struct TodayView: View {
     @State private var flightDay = Date()
     @State private var showAddPackage = false
     @State private var showAddMember = false
+    @State private var showWhiteboard = false
     @State private var pageIndex: Int? = 0
 
     private var accent: Color {
@@ -135,6 +136,10 @@ struct TodayView: View {
         }
         .fullScreenCover(isPresented: $showAddMember) {
             EditMemberSheet(member: nil)
+                .environmentObject(store)
+        }
+        .fullScreenCover(isPresented: $showWhiteboard) {
+            WhiteboardEditor()
                 .environmentObject(store)
         }
         .task {
@@ -379,7 +384,7 @@ struct TodayView: View {
         case .scoreboard:
             ScoreboardWidget(day: day)
         case .whiteboard:
-            WhiteboardWidget()
+            WhiteboardWidget { showWhiteboard = true }
         case .birthdays:
             BirthdayWidget(day: day)
         default:
