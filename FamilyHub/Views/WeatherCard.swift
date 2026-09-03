@@ -50,7 +50,7 @@ struct WeatherAtmosphere: View {
     var body: some View {
         Group {
             if live {
-                TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: false)) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 8.0, paused: false)) { timeline in
                     AtmosphereLayers(
                         code: code,
                         isDay: isDay,

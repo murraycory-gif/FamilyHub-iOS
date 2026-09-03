@@ -262,7 +262,7 @@ struct FlightWidget: View {
             }
             Group {
                 if let flight = flights.first {
-                    TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                    TimelineView(.periodic(from: .now, by: 15)) { timeline in
                         Button { opened = flight } label: {
                             widgetBody(flight, now: timeline.date)
                         }
@@ -1051,9 +1051,12 @@ struct WhiteboardWidget: View {
     @State private var showEdit = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: "square.and.pencil", title: "Whiteboard") {
-                Button { showEdit = true } label: {
+        Button {
+            guard showEdit == false else { return }
+            showEdit = true
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HubTileBanner(symbol: "square.and.pencil", title: "Whiteboard") {
                     Text(store.whiteboardNote.isEmpty ? "Write" : "Edit")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(accent)
@@ -1061,26 +1064,24 @@ struct WhiteboardWidget: View {
                         .padding(.vertical, 4)
                         .background(.white, in: Capsule())
                 }
-                .buttonStyle(.plain)
+                Text(store.whiteboardNote.isEmpty ? "Tap anywhere to leave a note." : store.whiteboardNote)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(store.whiteboardNote.isEmpty ? AppTheme.textSecondary : AppTheme.text)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .multilineTextAlignment(.leading)
+                    .padding(14)
+                    .background(AppTheme.tableFill)
             }
-            Text(store.whiteboardNote.isEmpty ? "Tap anywhere to leave a note." : store.whiteboardNote)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(store.whiteboardNote.isEmpty ? AppTheme.textSecondary : AppTheme.text)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .multilineTextAlignment(.leading)
-                .padding(14)
-                .background(AppTheme.tableFill)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.card)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(AppTheme.card)
-        .contentShape(Rectangle())
-        .onTapGesture { showEdit = true }
+        .buttonStyle(.plain)
         .hubLift(accent: accent)
-        .sheet(isPresented: $showEdit) {
+        .allowsHitTesting(showEdit == false)
+        .fullScreenCover(isPresented: $showEdit) {
             WhiteboardEditor()
                 .environmentObject(store)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
         }
     }
 }
@@ -1147,9 +1148,7 @@ struct WhiteboardEditor: View {
         .background(AppTheme.bg.ignoresSafeArea())
         .onAppear {
             draft = store.whiteboardNote
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                focused = true
-            }
+            focused = true
         }
     }
 }

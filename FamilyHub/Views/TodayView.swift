@@ -311,7 +311,7 @@ struct TodayView: View {
         offerAddUnder: Bool = false,
         offerExpand: Bool = false
     ) -> some View {
-        widgetTile(kind, day: day, live: false)
+        widgetTile(kind, day: day, live: Calendar.current.isDate(day, inSameDayAs: selectedDay))
             .overlay(alignment: .topTrailing) {
                 Button { pickSlot = index } label: {
                     Text("Change")
@@ -829,7 +829,7 @@ struct TodayView: View {
             hours: weather.hoursForTile(on: day, count: 5),
             isToday: Calendar.current.isDateInToday(day),
             isLoading: weather.isLoading,
-            live: true,
+            live: live && Calendar.current.isDate(day, inSameDayAs: selectedDay),
             onOpen: {
                 outlookDay = day
                 showWeatherOutlook = true
