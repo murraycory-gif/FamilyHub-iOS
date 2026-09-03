@@ -193,7 +193,25 @@ struct TodayView: View {
         let tall = tiles[safe: 2] ?? .dinner
         let extra = tiles[safe: 3]
         let gap: CGFloat = compact ? 8 : 12
-        if portrait {
+        if compact && portrait {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: gap) {
+                    agenda(for: day)
+                        .frame(minHeight: 210)
+                    widgetSlot(top, day: day, index: 0)
+                        .frame(height: 168)
+                    widgetSlot(low, day: day, index: 1)
+                        .frame(height: 168)
+                    widgetSlot(tall, day: day, index: 2)
+                        .frame(height: 176)
+                    if let extra {
+                        widgetSlot(extra, day: day, index: 3)
+                            .frame(height: 168)
+                    }
+                }
+                .padding(.bottom, 8)
+            }
+        } else if portrait {
             VStack(spacing: gap) {
                 HStack(alignment: .top, spacing: gap) {
                     agenda(for: day)

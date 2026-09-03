@@ -939,7 +939,7 @@ final class HubStore: ObservableObject {
 
     private func loadOrSeed() {
         guard fileManager.fileExists(atPath: snapshotURL.path) else {
-            apply(SampleFamily.snapshot())
+            apply(Self.emptySnapshot())
             persist()
             return
         }
@@ -1017,9 +1017,74 @@ final class HubStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
+            scheduleCloudPublish(data)
         } catch {
             errorMessage = "Could not save: \(error.localizedDescription)"
         }
+    }
+
+    private var cloudPublishTask: Task<Void, Never>?
+
+    private func scheduleCloudPublish(_ data: Data) {
+        guard signedInMemberID != nil, signedInMemberID == ownerID else { return }
+        cloudPublishTask?.cancel()
+        let code = joinCode
+        cloudPublishTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.2))
+            guard !Task.isCancelled else { return }
+            do {
+                try await HouseholdCloud.publish(code: code, data: data)
+            } catch {
+                await MainActor.run { self?.errorMessage = error.localizedDescription }
+            }
+        }
+    }
+
+    func publishHouseholdNow() async -> String? {
+        guard let data = try? Data(contentsOf: snapshotURL) else { return "Nothing to share yet." }
+        do {
+            try await HouseholdCloud.publish(code: joinCode, data: data)
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    func joinRemoteHousehold(code: String) async throws {
+        let data = try await HouseholdCloud.fetch(code: code)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let snapshot = try decoder.decode(HubSnapshot.self, from: data)
+        apply(snapshot)
+        signedInMemberID = nil
+        persist()
+    }
+
+    func resetAsNewDownload() {
+        try? fileManager.removeItem(at: snapshotURL)
+        try? fileManager.removeItem(at: familyPhotoURL)
+        try? fileManager.removeItem(at: memberPhotoFolder)
+        apply(Self.emptySnapshot())
+        familyPhotoData = nil
+        memberPhotos = [:]
+        persist()
+    }
+
+    static func emptySnapshot() -> HubSnapshot {
+        HubSnapshot(
+            householdName: "",
+            members: [],
+            events: [],
+            reminders: [],
+            todos: [],
+            chores: [],
+            assignments: [],
+            ledger: [],
+            weatherPlace: .chicago,
+            weatherFollowsMe: true,
+            hubWidgets: HubWidget.defaultSet,
+            recipes: SampleFamily.starterRecipes
+        )
     }
 }
 

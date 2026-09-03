@@ -12,6 +12,8 @@ struct OnboardingView: View {
     @State private var household = ""
     @State private var joinInput = ""
     @State private var joinError: String?
+    @State private var joinReadyMembers = false
+    @State private var joining = false
     @State private var personName = ""
     @State private var personRole: MemberRole = .child
     @State private var city = ""
@@ -66,7 +68,9 @@ struct OnboardingView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
 
-            Button(primaryTitle) { advance() }
+            Button(primaryTitle) {
+                Task { await advance() }
+            }
                 .buttonStyle(PrimaryButtonStyle())
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
@@ -80,7 +84,7 @@ struct OnboardingView: View {
 
     private var primaryTitle: String {
         if page == 0 { return "Continue" }
-        if path == .join { return page == lastPage ? "Open HUB" : "Join this HUB" }
+        if path == .join { return page == lastPage ? "Open HUB" : (joining ? "Looking…" : "Join this HUB") }
         return page == lastPage ? "Open my HUB" : "Next"
     }
 
@@ -94,11 +98,12 @@ struct OnboardingView: View {
         }
     }
 
-    private func advance() {
+    private func advance() async {
         if page == 0 { withAnimation { page = 1 }; return }
         if path == .join {
             if page == 1 {
-                guard tryJoin() else { return }
+                let ok = await tryJoin()
+                guard ok else { return }
             }
             if page < lastPage { withAnimation { page += 1 } } else { finish() }
             return
@@ -124,18 +129,28 @@ struct OnboardingView: View {
         }
     }
 
-    private func tryJoin() -> Bool {
+    private func tryJoin() async -> Bool {
         let code = joinInput.replacingOccurrences(of: " ", with: "").uppercased()
         guard code.count == 6 else {
             joinError = "Ask the owner for the 6-character HUB code."
             return false
         }
-        if code == store.joinCode.uppercased() {
+        if code == store.joinCode.uppercased(), store.members.isEmpty == false {
             joinError = nil
+            joinReadyMembers = true
             return true
         }
-        joinError = "That code is not this HUB. Open HUB on the owner’s iPad or use the same Apple ID."
-        return false
+        joining = true
+        joinError = nil
+        defer { joining = false }
+        do {
+            try await store.joinRemoteHousehold(code: code)
+            joinReadyMembers = true
+            return true
+        } catch {
+            joinError = error.localizedDescription
+            return false
+        }
     }
 
     private func finish() {
@@ -461,7 +476,11 @@ struct OnboardingView: View {
                 if let joinError {
                     Text(joinError).foregroundStyle(AppTheme.chore).font(.subheadline.weight(.semibold))
                 }
-                if joinInput.replacingOccurrences(of: " ", with: "").uppercased() == store.joinCode.uppercased() {
+                if joining {
+                    ProgressView("Finding that HUB…")
+                        .font(.headline.weight(.semibold))
+                }
+                if joinReadyMembers || store.members.isEmpty == false && joinInput.replacingOccurrences(of: " ", with: "").uppercased() == store.joinCode.uppercased() {
                     Text("Pick your profile")
                         .font(.headline)
                     ForEach(store.members) { member in

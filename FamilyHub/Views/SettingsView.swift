@@ -161,11 +161,14 @@ struct DeviceSettingsView: View {
 
 struct InviteSettingsView: View {
     @EnvironmentObject private var store: HubStore
+    @AppStorage("familyhub.onboarding.completed.v4") private var onboardingCompleted = false
+    @AppStorage("familyhub.tours.v2") private var tours = ""
+    @State private var publishNote: String?
 
     var body: some View {
         SettingsPageShell(tail: "Invite", symbol: "person.badge.plus", title: "Invite to this HUB") {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Family uses this code, then picks their own profile. They see the same calendars, meals, and chores.")
+                Text("Family uses this code on a new install, then picks their profile. Both devices need iCloud on.")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
                 Text(store.joinCode)
@@ -175,7 +178,7 @@ struct InviteSettingsView: View {
                     .padding(16)
                     .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 HStack {
-                    ShareLink(item: "Join our family HUB. Code: \(store.joinCode)") {
+                    ShareLink(item: "Join our family HUB. Code: \(store.joinCode). Open HUB → Join a family HUB.") {
                         Label("Share code", systemImage: "square.and.arrow.up")
                             .font(.headline.weight(.bold))
                             .foregroundStyle(.white)
@@ -188,6 +191,31 @@ struct InviteSettingsView: View {
                         .foregroundStyle(AppTheme.blue)
                     Spacer()
                 }
+                Button {
+                    Task {
+                        publishNote = await store.publishHouseholdNow() ?? "HUB is live for that code."
+                    }
+                } label: {
+                    Text("Publish this HUB now")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(AppTheme.blue, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                if let publishNote {
+                    Text(publishNote)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+                Button("Start as a new download") {
+                    store.resetAsNewDownload()
+                    tours = ""
+                    onboardingCompleted = false
+                }
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.chore)
             }
         }
     }
