@@ -1,21 +1,5 @@
 import Foundation
 import CoreLocation
-import UIKit
-
-enum PlaceImages {
-    private static var memory: [String: UIImage] = [:]
-    private static let lock = NSLock()
-
-    static func photo(name: String, address: String?, coordinate: CLLocationCoordinate2D? = nil, website: URL? = nil) async -> UIImage? {
-        let key = query(name: name, address: address).lowercased()
-        if let cached = cached(key) { return cached }
-        let image = await firstPhoto(name: name, address: address, coordinate: coordinate, website: website)
-        if let image { store(image, key: key) }
-        return image
-    }
-
-import Foundation
-import CoreLocation
 import MapKit
 import UIKit
 
