@@ -68,6 +68,7 @@ final class HubRouter: ObservableObject {
     @Published var section: HubSection? = .today
     @Published var listKind: ListKind = .reminders
     @Published var columnVisibility: NavigationSplitViewVisibility = .detailOnly
+    @Published var showMenu = false
 
     @Published var calendarFilter: DayFilter = .family
     @Published var calendarDay = Date()
@@ -93,6 +94,14 @@ final class HubRouter: ObservableObject {
 
     func toggleSidebar() {
         columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
+    }
+
+    func openMenu(regular: Bool) {
+        if regular {
+            toggleSidebar()
+        } else {
+            showMenu = true
+        }
     }
 }
 
@@ -127,7 +136,21 @@ struct MainHubView: View {
         }
         .environmentObject(router)
         .background(AppTheme.bg.ignoresSafeArea())
+        .sheet(isPresented: $router.showMenu) {
+            NavigationStack {
+                sidebar
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            HubIconButton(symbol: "xmark", label: "Close") {
+                                router.showMenu = false
+                            }
+                        }
+                    }
+            }
+            .presentationDetents([.large])
+        }
         .onChange(of: router.section) { _, _ in
+            router.showMenu = false
             guard sizeClass == .regular else { return }
             router.columnVisibility = .detailOnly
         }

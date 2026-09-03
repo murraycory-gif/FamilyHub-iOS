@@ -204,10 +204,11 @@ struct HubIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.body.weight(.semibold))
+                .font(.body.weight(.bold))
                 .foregroundStyle(AppTheme.blue)
-                .frame(width: 40, height: 36)
-                .background(AppTheme.card, in: Capsule(style: .continuous))
+                .frame(width: 44, height: 44)
+                .background(AppTheme.card, in: Circle())
+                .overlay(Circle().stroke(AppTheme.blue.opacity(0.18), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label.isEmpty ? symbol : label)
@@ -240,13 +241,11 @@ struct HubChromeModifier: ViewModifier {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 8) {
-                        if sizeClass == .regular {
-                            HubIconButton(symbol: "sidebar.left", label: "Menu") {
-                                router.toggleSidebar()
-                            }
+                        HubIconButton(symbol: "line.3.horizontal", label: "Menu") {
+                            router.openMenu(regular: sizeClass == .regular)
                         }
                         if showBack {
-                            HubIconButton(symbol: "chevron.left", label: "HUB") {
+                            HubIconButton(symbol: "chevron.left", label: "Back to HUB") {
                                 router.open(.today)
                             }
                         }
