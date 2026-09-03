@@ -1,5 +1,10 @@
 # TestFlight + first-run check
 
+App Store name: **Command HUB**
+Home screen name: **Command Hub**
+Bundle ID stays `com.corymurray.FamilyHub`
+
+
 ## On this Mac (owner iPad)
 
 1. Xcode → FamilyHub target → **Signing & Capabilities**

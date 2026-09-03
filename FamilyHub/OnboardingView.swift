@@ -33,7 +33,7 @@ struct OnboardingView: View {
                         .foregroundStyle(AppTheme.blue)
                 }
                 Spacer()
-                Text("HUB setup")
+                Text("Command HUB setup")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(AppTheme.text)
                 Spacer()
@@ -170,7 +170,7 @@ struct OnboardingView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 120, height: 120)
-            Text("Build your HUB")
+            Text("Build Command HUB")
                 .font(.system(size: 36, weight: .bold))
             Text("One shared home for calendars, dinner, chores, and the people in your house.")
                 .font(.title3)
