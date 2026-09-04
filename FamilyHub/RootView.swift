@@ -47,26 +47,21 @@ struct RootView: View {
 }
 
 struct LaunchSplashView: View {
+    @Environment(\.colorScheme) private var scheme
     @State private var appear = false
 
     var body: some View {
         ZStack {
-            AppTheme.bg.ignoresSafeArea()
+            (scheme == .dark ? Color(hex: "06101C") : AppTheme.bg)
+                .ignoresSafeArea()
 
-            VStack(spacing: 18) {
-                Image("HubMark")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 160, height: 160)
-                    .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-                    .scaleEffect(appear ? 1 : 0.92)
-                    .opacity(appear ? 1 : 0.85)
-
-                Text("HUB Circle")
-                    .font(.system(size: 28, weight: .semibold))
-                    .tracking(1.2)
-                    .foregroundStyle(AppTheme.text)
+            HStack(spacing: 18) {
+                HubOrbitMark(size: 108, animated: true)
+                    .scaleEffect(appear ? 1 : 0.9)
+                HubWordmark(hubSize: 42, circleSize: 28)
+                    .opacity(appear ? 1 : 0.7)
             }
+            .padding(.horizontal, 28)
         }
         .onAppear {
             withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {

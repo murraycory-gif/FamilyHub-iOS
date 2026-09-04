@@ -285,10 +285,7 @@ struct OnboardingView: View {
                 if landscape && !compact {
                     HStack(alignment: .center, spacing: 28) {
                         VStack(spacing: 12) {
-                            Image("HubMark")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 120, height: 120)
+                            HubOrbitMark(size: 120, animated: true)
                             Text("Build your HUB")
                                 .font(.system(size: 32, weight: .bold))
                         }
@@ -307,10 +304,7 @@ struct OnboardingView: View {
                     }
                 } else {
                     VStack(spacing: landscape ? 12 : 18) {
-                        Image("HubMark")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: compact ? (landscape ? 72 : 88) : 120, height: compact ? (landscape ? 72 : 88) : 120)
+                        HubOrbitMark(size: compact ? (landscape ? 72 : 88) : 120, animated: true)
                         Text("Build your HUB")
                             .font(.system(size: compact ? (landscape ? 26 : 30) : 36, weight: .bold))
                             .multilineTextAlignment(.center)

@@ -217,12 +217,8 @@ struct HubIconButton: View {
 
 struct HubNavLogo: View {
     var body: some View {
-        Image("HubGlyph")
-            .resizable()
-            .scaledToFit()
-            .frame(width: 56, height: 56)
-            .padding(.vertical, -10)
-            .accessibilityLabel("HUB")
+        HubBrandLockup(markSize: 34, hubSize: 16, circleSize: 12)
+            .padding(.vertical, -6)
     }
 }
 
@@ -574,9 +570,14 @@ struct HubStickyHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            HubPageTitle(lead: lead, tail: tail)
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
+            HubBrandLockup(markSize: 44, hubSize: 22, circleSize: 16)
+            if !pageLabel.isEmpty {
+                Text(pageLabel)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(AppTheme.blue)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 8)
             trailing
         }
@@ -585,6 +586,12 @@ struct HubStickyHeader<Trailing: View>: View {
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.bg)
+    }
+
+    private var pageLabel: String {
+        if lead == "HUB" { return tail }
+        if tail.isEmpty { return lead }
+        return "\(lead) \(tail)"
     }
 }
 

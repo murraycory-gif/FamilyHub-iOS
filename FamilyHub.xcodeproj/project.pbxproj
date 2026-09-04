@@ -46,6 +46,7 @@
 		A037 /* HubWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B037 /* HubWidgets.swift */; };
 		A038 /* FlightTrack.swift in Sources */ = {isa = PBXBuildFile; fileRef = B038 /* FlightTrack.swift */; };
 		A039 /* HouseholdCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = B039 /* HouseholdCloud.swift */; };
+		A040 /* HubBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = B040 /* HubBrand.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A904 /* RubikWetPaint-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B904 /* RubikWetPaint-Regular.ttf */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
@@ -75,6 +76,7 @@
 		B009 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		B010 /* CalendarHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarHubView.swift; sourceTree = "<group>"; };
 		B011 /* SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedViews.swift; sourceTree = "<group>"; };
+		B040 /* HubBrand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubBrand.swift; sourceTree = "<group>"; };
 		B012 /* ChoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoresView.swift; sourceTree = "<group>"; };
 		B013 /* ListsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListsView.swift; sourceTree = "<group>"; };
 		B014 /* FamilyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyView.swift; sourceTree = "<group>"; };
@@ -178,6 +180,7 @@
 				B010 /* CalendarHubView.swift */,
 				B018 /* CalendarSourcesView.swift */,
 				B011 /* SharedViews.swift */,
+				B040 /* HubBrand.swift */,
 				B012 /* ChoresView.swift */,
 				B013 /* ListsView.swift */,
 				B014 /* FamilyView.swift */,
@@ -345,6 +348,7 @@
 				A009 /* TodayView.swift in Sources */,
 				A010 /* CalendarHubView.swift in Sources */,
 				A011 /* SharedViews.swift in Sources */,
+				A040 /* HubBrand.swift in Sources */,
 				A012 /* ChoresView.swift in Sources */,
 				A013 /* ListsView.swift in Sources */,
 				A014 /* FamilyView.swift in Sources */,
