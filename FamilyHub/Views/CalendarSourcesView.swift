@@ -15,7 +15,7 @@ struct CalendarSourcesView: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("HUB stays in sync with iCloud, Google, and Outlook calendars already on this iPad. Changes here write back to those calendars. Link-only calendars stay read-only.")
+                    Text("HUB syncs any calendar already on this device — iCloud, Google, Outlook, Yahoo, Exchange, Fastmail, Proton, CalDAV, and subscribed links. Add the account in Settings → Calendar → Accounts, then tap Sync. Changes here write back to writable calendars.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
 

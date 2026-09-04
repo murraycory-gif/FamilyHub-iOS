@@ -28,6 +28,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var notifyPrefs: HubNotifyPrefs
     @Published private(set) var whiteboardNote: String
     @Published private(set) var hubWidgetLimit: Int
+    @Published private(set) var setupCompleted: Bool
     @Published var errorMessage: String?
     @Published private(set) var familyPhotoData: Data?
     @Published private(set) var memberPhotos: [UUID: Data] = [:]
@@ -68,11 +69,12 @@ final class HubStore: ObservableObject {
         notifyPrefs = .off
         whiteboardNote = ""
         hubWidgetLimit = 4
+        setupCompleted = false
         familyPhotoData = nil
         loadOrSeed()
         familyPhotoData = try? Data(contentsOf: familyPhotoURL)
         loadMemberPhotos()
-    }
+        Task { await restoreAccountIfNeeded() }
 
     private static func defaultRoot() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -991,9 +993,11 @@ final class HubStore: ObservableObject {
         notifyPrefs = snapshot.notifyPrefs ?? .off
         whiteboardNote = snapshot.whiteboardNote ?? ""
         hubWidgetLimit = min(4, max(3, snapshot.hubWidgetLimit ?? 4))
+        setupCompleted = snapshot.setupCompleted ?? !snapshot.members.isEmpty
         if snapshot.joinCode == nil {
             persist()
         }
+        rememberAccount()
     }
 
     private func persist() {
@@ -1021,7 +1025,8 @@ final class HubStore: ObservableObject {
             signedInMemberID: signedInMemberID,
             notifyPrefs: notifyPrefs,
             whiteboardNote: whiteboardNote,
-            hubWidgetLimit: hubWidgetLimit
+            hubWidgetLimit: hubWidgetLimit,
+            setupCompleted: setupCompleted
         )
         do {
             let encoder = JSONEncoder()
@@ -1029,6 +1034,7 @@ final class HubStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
+            rememberAccount()
             scheduleCloudPublish(data)
         } catch {
             errorMessage = "Could not save: \(error.localizedDescription)"
@@ -1072,11 +1078,45 @@ final class HubStore: ObservableObject {
         persist()
     }
 
+    func markSetupComplete() {
+        setupCompleted = true
+        persist()
+    }
+
+    private func rememberAccount() {
+        guard setupCompleted || !members.isEmpty else { return }
+        UserDefaults.standard.set(joinCode, forKey: Self.accountKey)
+        NSUbiquitousKeyValueStore.default.set(joinCode, forKey: Self.accountKey)
+        NSUbiquitousKeyValueStore.default.synchronize()
+    }
+
+    private static let accountKey = "familyhub.account.join"
+
+    func restoreAccountIfNeeded() async {
+        if setupCompleted || !members.isEmpty {
+            rememberAccount()
+            return
+        }
+        let saved = NSUbiquitousKeyValueStore.default.string(forKey: Self.accountKey)
+            ?? UserDefaults.standard.string(forKey: Self.accountKey)
+        guard let saved, saved.count == 6 else { return }
+        do {
+            try await joinRemoteHousehold(code: saved)
+            setupCompleted = true
+            persist()
+        } catch {
+            // Stay on setup if the cloud house is not published yet.
+        }
+    }
+
     func resetAsNewDownload() {
+        UserDefaults.standard.removeObject(forKey: Self.accountKey)
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: Self.accountKey)
         try? fileManager.removeItem(at: snapshotURL)
         try? fileManager.removeItem(at: familyPhotoURL)
         try? fileManager.removeItem(at: memberPhotoFolder)
         apply(Self.emptySnapshot())
+        setupCompleted = false
         familyPhotoData = nil
         memberPhotos = [:]
         persist()

@@ -22,6 +22,9 @@ struct OnboardingView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var cropPayload: PhotoCropPayload?
     @State private var city = ""
+    @State private var locationNote = ""
+    @State private var locating = false
+    @State private var joining = false
     @State private var prefs = HubNotifyPrefs.off
     @StateObject private var weather = WeatherLoader()
 
@@ -139,7 +142,7 @@ struct OnboardingView: View {
 
     private var primaryTitle: String {
         if page == 0 { return "Continue" }
-        if path == .join { return page == lastPage ? "Open HUB" : "Join this HUB" }
+        if path == .join { return page == lastPage ? "Open HUB" : (joining ? "Joining…" : "Join this HUB") }
         return page == lastPage ? "Open my HUB" : "Next"
     }
 
@@ -158,7 +161,8 @@ struct OnboardingView: View {
         if page == 0 { withAnimation { page = 1 }; return }
         if path == .join {
             if page == 1 {
-                guard tryJoin() else { return }
+                startJoin()
+                return
             }
             if page < lastPage { withAnimation { page += 1 } } else { finish() }
             return
@@ -207,23 +211,35 @@ struct OnboardingView: View {
         personRole = .child
     }
 
-    private func tryJoin() -> Bool {
+    private func startJoin() {
         let code = joinInput.replacingOccurrences(of: " ", with: "").uppercased()
         guard code.count == 6 else {
             joinError = "Ask the owner for the 6-character HUB code."
-            return false
+            return
         }
-        if code == store.joinCode.uppercased() {
+        if code == store.joinCode.uppercased(), !store.members.isEmpty {
             joinError = nil
-            return true
+            withAnimation { page = 2 }
+            return
         }
-        joinError = "That code is not this HUB. Open HUB on the owner’s device and copy the code."
-        return false
+        joining = true
+        joinError = nil
+        Task {
+            do {
+                try await store.joinRemoteHousehold(code: code)
+                joinError = nil
+                withAnimation { page = 2 }
+            } catch {
+                joinError = error.localizedDescription
+            }
+            joining = false
+        }
     }
 
     private func finish() {
         if !household.isEmpty { store.setHouseholdName(household) }
         store.setNotifyPrefs(prefs)
+        store.markSetupComplete()
         if prefs.anyOn {
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
         }
@@ -491,14 +507,21 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Button {
                     focused = nil
+                    locating = true
+                    locationNote = "Finding you…"
                     Task {
-                        if let here = try? await weather.placeFromCurrentLocation() {
+                        do {
+                            let here = try await weather.placeFromCurrentLocation()
                             store.setWeatherPlace(here, followMe: true)
                             city = here.label
+                            locationNote = "Using \(here.label)"
+                        } catch {
+                            locationNote = error.localizedDescription
                         }
+                        locating = false
                     }
                 } label: {
-                    Label("Use where I am now", systemImage: "location.fill")
+                    Label(locating ? "Finding you…" : "Use where I am now", systemImage: "location.fill")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -506,6 +529,12 @@ struct OnboardingView: View {
                         .background(AppTheme.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                .disabled(locating)
+                if !locationNote.isEmpty {
+                    Text(locationNote)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(locationNote.hasPrefix("Using") ? AppTheme.blue : AppTheme.chore)
+                }
 
                 TextField("City or ZIP", text: $city)
                     .textFieldStyle(.plain)
@@ -556,8 +585,22 @@ struct OnboardingView: View {
     }
 
     private var calendarPage: some View {
-        setupCard("Calendars", "HUB reads the calendars on this \(deviceWord) and writes new events back.") {
+        setupCard("Calendars", "HUB reads every calendar already on this \(deviceWord): iCloud, Google, Outlook, Yahoo, Exchange, Fastmail, Proton, and any CalDAV account. Add the account in iOS Settings first.") {
             VStack(alignment: .leading, spacing: 12) {
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    Label("Open iOS Settings to add an account", systemImage: "gearshape.fill")
+                        .font(.subheadline.weight(.bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(12)
+                        .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(AppTheme.blue)
+
                 if ingest.isAuthorized {
                     ForEach(store.calendarSources.prefix(8)) { source in
                         HStack {

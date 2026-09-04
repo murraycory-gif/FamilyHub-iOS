@@ -5,6 +5,12 @@ struct RootView: View {
     @AppStorage("familyhub.onboarding.completed.v4") private var onboardingCompleted = false
     @State private var showSplash = true
 
+    private var needsSetup: Bool {
+        if store.setupCompleted || onboardingCompleted { return false }
+        if !store.members.isEmpty { return false }
+        return true
+    }
+
     var body: some View {
         ZStack {
             AppTheme.bg.ignoresSafeArea()
@@ -12,8 +18,9 @@ struct RootView: View {
             if showSplash {
                 LaunchSplashView()
                     .zIndex(3)
-            } else if !onboardingCompleted {
+            } else if needsSetup {
                 OnboardingView {
+                    store.markSetupComplete()
                     withAnimation(.easeInOut(duration: 0.35)) {
                         onboardingCompleted = true
                     }

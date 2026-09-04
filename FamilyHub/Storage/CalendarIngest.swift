@@ -52,10 +52,10 @@ final class CalendarIngestor: ObservableObject {
             if granted {
                 available = EventKitBridge.list(store: ekStore)
                 message = available.isEmpty
-                    ? "No calendars on this iPad yet. Add iCloud, Google, or Outlook in Settings → Calendar → Accounts."
-                    : "Found \(available.count) calendars on this iPad."
+                    ? "No calendars on this device yet. Add iCloud, Google, Outlook, Yahoo, Exchange, or CalDAV in Settings → Calendar → Accounts."
+                    : "Found \(available.count) calendars on this device."
             } else {
-                message = "Calendar access is off. Turn it on in Settings to pull in iCloud, Google, and Outlook."
+                message = "Calendar access is off. Turn it on in Settings to pull in iCloud, Google, Outlook, Yahoo, and other accounts."
             }
         } catch {
             message = error.localizedDescription

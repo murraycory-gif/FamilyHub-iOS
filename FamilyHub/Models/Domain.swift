@@ -537,6 +537,7 @@ struct HubSnapshot: Codable {
     var notifyPrefs: HubNotifyPrefs?
     var whiteboardNote: String?
     var hubWidgetLimit: Int?
+    var setupCompleted: Bool?
 }
 
 struct ShoppingItem: Identifiable, Codable, Hashable {
@@ -849,7 +850,11 @@ enum CalendarBrand: String, Codable, CaseIterable, Identifiable {
     case icloud
     case google
     case outlook
+    case yahoo
+    case fastmail
+    case proton
     case exchange
+    case caldav
     case subscribed
     case ics
     case other
@@ -861,7 +866,11 @@ enum CalendarBrand: String, Codable, CaseIterable, Identifiable {
         case .icloud: return "iCloud"
         case .google: return "Google"
         case .outlook: return "Outlook"
+        case .yahoo: return "Yahoo"
+        case .fastmail: return "Fastmail"
+        case .proton: return "Proton"
         case .exchange: return "Exchange"
+        case .caldav: return "CalDAV"
         case .subscribed: return "Subscribed"
         case .ics: return "Calendar link"
         case .other: return "Other"
@@ -873,25 +882,32 @@ enum CalendarBrand: String, Codable, CaseIterable, Identifiable {
         case .icloud: return "icloud.fill"
         case .google: return "g.circle.fill"
         case .outlook: return "envelope.fill"
+        case .yahoo: return "y.circle.fill"
+        case .fastmail: return "bolt.horizontal.circle.fill"
+        case .proton: return "lock.circle.fill"
         case .exchange: return "building.2.fill"
-        case .subscribed, .ics: return "link"
+        case .caldav, .subscribed, .ics: return "link"
         case .other: return "calendar"
         }
     }
 
     var detail: String {
         switch self {
-        case .icloud: return "Calendars signed into this iPad with your Apple ID"
-        case .google: return "Gmail and Google Calendar accounts on this iPad"
-        case .outlook: return "Outlook and Microsoft 365 calendars on this iPad"
+        case .icloud: return "Calendars signed into this device with your Apple ID"
+        case .google: return "Gmail and Google Calendar accounts on this device"
+        case .outlook: return "Outlook and Microsoft 365 calendars on this device"
+        case .yahoo: return "Yahoo Calendar accounts added in iOS Settings"
+        case .fastmail: return "Fastmail CalDAV calendars"
+        case .proton: return "Proton Calendar via CalDAV or a secret link"
         case .exchange: return "Work or school Exchange calendars"
+        case .caldav: return "Any CalDAV account (Fastmail, Nextcloud, Zoho, and more)"
         case .subscribed: return "Calendars you subscribed to in the Calendar app"
         case .ics: return "A secret or public .ics link"
-        case .other: return "Any other calendar on this iPad"
+        case .other: return "Any other calendar on this device"
         }
     }
 
-    static let featured: [CalendarBrand] = [.icloud, .google, .outlook]
+    static let featured: [CalendarBrand] = [.icloud, .google, .outlook, .yahoo, .exchange, .caldav]
 
     static func infer(sourceTitle: String, typeName: String) -> CalendarBrand {
         let hay = (sourceTitle + " " + typeName).lowercased()
@@ -900,11 +916,18 @@ enum CalendarBrand: String, Codable, CaseIterable, Identifiable {
         if hay.contains("outlook") || hay.contains("hotmail") || hay.contains("live.com") || hay.contains("office 365") || hay.contains("microsoft") {
             return .outlook
         }
+        if hay.contains("yahoo") { return .yahoo }
+        if hay.contains("fastmail") { return .fastmail }
+        if hay.contains("proton") { return .proton }
         if hay.contains("exchange") { return .exchange }
-        if hay.contains("subscribed") || hay.contains("caldav") && hay.contains("subscribe") { return .subscribed }
+        if hay.contains("caldav") || hay.contains("nextcloud") || hay.contains("zoho") || hay.contains("icloud.com") == false && typeName.lowercased().contains("caldav") {
+            return .caldav
+        }
+        if hay.contains("subscribed") { return .subscribed }
         if typeName.lowercased().contains("exchange") { return .exchange }
         if typeName.lowercased().contains("subscribed") { return .subscribed }
         if typeName.lowercased().contains("caldav") && sourceTitle.lowercased().contains("icloud") { return .icloud }
+        if typeName.lowercased().contains("caldav") { return .caldav }
         return .other
     }
 }

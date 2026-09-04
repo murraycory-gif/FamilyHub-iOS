@@ -329,7 +329,20 @@ final class LocationFinder: NSObject, CLLocationManagerDelegate {
         if let cached = manager.location, abs(cached.timestamp.timeIntervalSinceNow) < 1800 {
             return cached
         }
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withThrowingTaskGroup(of: CLLocation.self) { group in
+            group.addTask { try await self.requestOnce() }
+            group.addTask {
+                try await Task.sleep(for: .seconds(12))
+                throw LocationError.timeout
+            }
+            guard let first = try await group.next() else { throw LocationError.timeout }
+            group.cancelAll()
+            return first
+        }
+    }
+
+    private func requestOnce() async throws -> CLLocation {
+        try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
             let status = manager.authorizationStatus
             if status == .notDetermined {
@@ -369,8 +382,14 @@ final class LocationFinder: NSObject, CLLocationManagerDelegate {
 
 enum LocationError: LocalizedError {
     case denied
+    case timeout
 
     var errorDescription: String? {
-        "Location access is off. Search a city or ZIP instead."
+        switch self {
+        case .denied:
+            return "Location is off. Allow it in Settings, or type a city or ZIP."
+        case .timeout:
+            return "Could not find you yet. Try again or type a city or ZIP."
+        }
     }
 }
