@@ -77,6 +77,7 @@ final class HubStore: ObservableObject {
         familyPhotoData = try? Data(contentsOf: familyPhotoURL)
         loadMemberPhotos()
         Task { await restoreAccountIfNeeded() }
+    }
 
     private static func defaultRoot() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
