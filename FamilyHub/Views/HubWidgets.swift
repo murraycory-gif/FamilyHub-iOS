@@ -1181,7 +1181,8 @@ struct BirthdayWidget: View {
                                     eyebrow: row.days == 0 ? "Today" : row.days == 1 ? "Tomorrow" : "In \(row.days) days",
                                     title: row.member.name,
                                     badge: row.when.formatted(.dateTime.month(.abbreviated).day()),
-                                    accent: accent
+                                    accent: accent,
+                                    compact: true
                                 )
                             }
                         }

@@ -35,15 +35,7 @@ struct TodayView: View {
     @State private var showWhiteboard = false
     @State private var pageIndex: Int? = 0
 
-    private var accent: Color {
-        switch profile {
-        case .family:
-            return AppTheme.blue
-        case .member(let id):
-            if let hex = store.member(id: id)?.colorHex { return Color(hex: hex) }
-            return AppTheme.blue
-        }
-    }
+    private var accent: Color { AppTheme.space }
 
     var body: some View {
         GeometryReader { geo in

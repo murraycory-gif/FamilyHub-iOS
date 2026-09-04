@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 private struct HubAccentKey: EnvironmentKey {
-    static let defaultValue: Color = AppTheme.blue
+    static let defaultValue: Color = AppTheme.space
 }
 
 extension EnvironmentValues {
@@ -217,7 +217,7 @@ struct HubIconButton: View {
 
 struct HubNavLogo: View {
     var body: some View {
-        HubBrandLockup(markSize: 34, hubSize: 15, circleSize: 11, onDark: true)
+        HubBrandLockup(markSize: 32, hubSize: 18, circleSize: 16, onDark: true)
             .padding(.vertical, -6)
     }
 }
@@ -571,7 +571,7 @@ struct HubStickyHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            HubBrandLockup(markSize: 44, hubSize: 20, circleSize: 13, onDark: true)
+            HubBrandLockup(markSize: 40, hubSize: 22, circleSize: 20, onDark: true)
             if !pageLabel.isEmpty {
                 Text(pageLabel)
                     .font(.system(size: 22, weight: .bold))
@@ -874,29 +874,30 @@ struct HubAgendaCallout: View {
     var title: String
     var badge: String
     var accent: Color
+    var compact: Bool = false
 
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
+        HStack(alignment: .center, spacing: compact ? 10 : 14) {
             Capsule()
                 .fill(rail)
-                .frame(width: 5)
-                .padding(.vertical, 8)
-            VStack(alignment: .leading, spacing: 2) {
+                .frame(width: compact ? 4 : 5)
+                .padding(.vertical, compact ? 4 : 8)
+            VStack(alignment: .leading, spacing: compact ? 0 : 2) {
                 Text(eyebrow)
-                    .font(.headline.weight(.bold).monospacedDigit())
+                    .font((compact ? Font.caption : Font.headline).weight(.bold).monospacedDigit())
                     .foregroundStyle(accent)
                     .lineLimit(1)
                 Text(title)
-                    .font(.title3.weight(.bold))
+                    .font(compact ? .subheadline.weight(.bold) : .title3.weight(.bold))
                     .foregroundStyle(AppTheme.text)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
             Spacer(minLength: 8)
             Text(badge)
-                .font(.subheadline.weight(.bold))
+                .font(compact ? .caption.weight(.bold) : .subheadline.weight(.bold))
                 .foregroundStyle(rail)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, compact ? 8 : 10)
+                .padding(.vertical, compact ? 4 : 6)
                 .background(rail.opacity(0.16), in: Capsule())
         }
         .padding(.horizontal, 12)

@@ -104,21 +104,21 @@ struct HubOrbitMark: View {
 struct HubWordmark: View {
     var onDark: Bool = false
     var hubSize: CGFloat = 28
-    var circleSize: CGFloat = 18
+    var circleSize: CGFloat = 20
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("HUB")
                 .font(.system(size: hubSize, weight: .heavy))
                 .foregroundStyle(onDark ? Color.white : AppTheme.text)
-                .tracking(1.2)
-            Rectangle()
-                .fill((onDark ? Color.white : AppTheme.blue).opacity(0.55))
-                .frame(width: hubSize * 1.55, height: 1.5)
+                .tracking(0.8)
+            Text("|")
+                .font(.system(size: hubSize * 0.72, weight: .semibold))
+                .foregroundStyle((onDark ? Color.white : AppTheme.space).opacity(0.45))
             Text("Circle")
                 .font(.system(size: circleSize, weight: .regular))
-                .foregroundStyle(onDark ? Color.white.opacity(0.82) : AppTheme.blue)
-                .tracking(3.2)
+                .foregroundStyle(onDark ? Color.white.opacity(0.9) : AppTheme.space)
+                .tracking(1.6)
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)
