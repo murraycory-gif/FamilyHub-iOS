@@ -22,6 +22,7 @@ struct OnboardingView: View {
     @State private var photoTarget: PhotoTarget?
     @State private var photoItem: PhotosPickerItem?
     @State private var cropPayload: PhotoCropPayload?
+    @State private var showBannerStudio = false
     @State private var city = ""
     @State private var locationNote = ""
     @State private var locating = false
@@ -108,6 +109,15 @@ struct OnboardingView: View {
                 }
             )
         }
+        .sheet(isPresented: $showBannerStudio) {
+            BannerStudio(title: "Your banner", current: pendingPhoto) { data in
+                if let data {
+                    applyCrop(data)
+                } else {
+                    pendingPhoto = nil
+                }
+            }
+        }
     }
 
     private var displayedPage: Int { page }
@@ -126,7 +136,7 @@ struct OnboardingView: View {
                 Color.clear.frame(width: 64, height: 1)
             }
             Spacer()
-            HubBrandLockup(markSize: 28, hubSize: 14, circleSize: 10)
+            HubBrandLockup(markSize: 36, hubSize: 20, circleSize: 18)
             Spacer()
             if page > 0 && page < lastPage && path == .create {
                 Button("Skip") {
@@ -288,38 +298,30 @@ struct OnboardingView: View {
             Group {
                 if landscape && !compact {
                     HStack(alignment: .center, spacing: 28) {
-                        VStack(spacing: 12) {
-                            HubOrbitMark(size: 120, animated: true)
-                            Text("Build your HUB")
-                                .font(.system(size: 32, weight: .bold))
-                        }
-                        .frame(maxWidth: 260)
+                        HubBrandLockup(markSize: 88, hubSize: 36, circleSize: 28)
                         VStack(spacing: 12) {
                             Text("Calendars, dinner, chores, and the people in your house — one place.")
                                 .font(.body.weight(.medium))
                                 .foregroundStyle(AppTheme.textSecondary)
-                            pathCard("Create this HUB", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
+                            pathCard("Create this Circle", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
                                 path = .create
                             }
-                            pathCard("Join a family HUB", "Someone already built one. Enter their code.", "person.badge.plus", path == .join) {
+                            pathCard("Join a family Circle", "Someone already built one. Enter their code.", "person.badge.plus", path == .join) {
                                 path = .join
                             }
                         }
                     }
                 } else {
                     VStack(spacing: landscape ? 12 : 18) {
-                        HubOrbitMark(size: compact ? (landscape ? 72 : 88) : 120, animated: true)
-                        Text("Build your HUB")
-                            .font(.system(size: compact ? (landscape ? 26 : 30) : 36, weight: .bold))
-                            .multilineTextAlignment(.center)
+                        HubBrandLockup(markSize: compact ? (landscape ? 64 : 80) : 96, hubSize: compact ? 28 : 36, circleSize: compact ? 22 : 28)
                         Text("Calendars, dinner, chores, and the people in your house — one place.")
                             .font(.body.weight(.medium))
                             .foregroundStyle(AppTheme.textSecondary)
                             .multilineTextAlignment(.center)
-                        pathCard("Create this HUB", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
+                        pathCard("Create this Circle", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
                             path = .create
                         }
-                        pathCard("Join a family HUB", "Someone already built one. Enter their code.", "person.badge.plus", path == .join) {
+                        pathCard("Join a family Circle", "Someone already built one. Enter their code.", "person.badge.plus", path == .join) {
                             path = .join
                         }
                     }
@@ -412,9 +414,33 @@ struct OnboardingView: View {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(AppTheme.blue, lineWidth: 3)
                 )
-                Text(ownerPreview == nil ? "Add the photo that shows on the Hub banner" : "Looks like the Hub banner — tap to move")
+                Text(ownerPreview == nil ? "Add your photo or pick a banner" : "Looks like the Circle banner — tap to move")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AppTheme.blue)
+                HStack(spacing: 10) {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Label("My photo", systemImage: "photo.on.rectangle")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(AppTheme.blue, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .onTapGesture { photoTarget = .owner }
+                    Button {
+                        photoTarget = .owner
+                        showBannerStudio = true
+                    } label: {
+                        Label("Banner library", systemImage: "square.grid.2x2.fill")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(AppTheme.blueSoft, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .frame(maxWidth: .infinity)
         }
@@ -698,26 +724,62 @@ struct OnboardingView: View {
     }
 
     private var pingsPage: some View {
-        setupCard("Pings", "Everything starts off. Turn on only what you want HUB to send.") {
+        setupCard("Pings", "Off until you turn one on. Set the time when it fires.") {
             VStack(spacing: 8) {
-                pingRow("Sunrise brief", "Morning rundown of the house.", $prefs.morningBrief)
-                pingRow("Before events", "A tap before a calendar event.", $prefs.eventPings)
-                pingRow("Dinner lock-in", "Tonight’s meal is set or still empty.", $prefs.dinnerPing)
-                pingRow("Chore check", "A chore is due or waiting.", $prefs.chorePing)
-                pingRow("Bills Due", "A bill on your bills calendar is coming up.", $prefs.billsPing)
-                pingRow("Shopping nudge", "Items are on the list before you leave.", $prefs.shoppingPing)
+                pingRow("Sunrise brief", "Morning rundown of the house.", $prefs.morningBrief, minutes: $prefs.morningAt)
+                pingRow("Before events", "A tap before a calendar event.", $prefs.eventPings, lead: true)
+                pingRow("Dinner lock-in", "Tonight’s meal is set or still empty.", $prefs.dinnerPing, minutes: $prefs.dinnerAt)
+                pingRow("Chore check", "A chore is due or waiting.", $prefs.chorePing, minutes: $prefs.choreAt)
+                pingRow("Bills Due", "A bill on your bills calendar is coming up.", $prefs.billsPing, minutes: $prefs.billsAt)
+                pingRow("Shopping nudge", "Items are on the list before you leave.", $prefs.shoppingPing, minutes: $prefs.shoppingAt)
             }
         }
     }
 
-    private func pingRow(_ title: String, _ detail: String, _ value: Binding<Bool>) -> some View {
-        Toggle(isOn: value) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                Text(detail).font(.footnote).foregroundStyle(AppTheme.textSecondary)
+    private func pingRow(_ title: String, _ detail: String, _ value: Binding<Bool>, minutes: Binding<Int>? = nil, lead: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: value) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.headline)
+                    Text(detail).font(.footnote).foregroundStyle(AppTheme.textSecondary)
+                }
+            }
+            .tint(AppTheme.blue)
+            if value.wrappedValue, let minutes {
+                HStack {
+                    Text("Time")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    Spacer()
+                    DatePicker(
+                        "",
+                        selection: Binding(
+                            get: { HubNotifyPrefs.date(from: minutes.wrappedValue) },
+                            set: { minutes.wrappedValue = HubNotifyPrefs.minutes(from: $0) }
+                        ),
+                        displayedComponents: .hourAndMinute
+                    )
+                    .labelsHidden()
+                    .tint(AppTheme.blue)
+                }
+            }
+            if value.wrappedValue, lead {
+                HStack {
+                    Text("Warn me")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    Spacer()
+                    Picker("", selection: $prefs.eventLeadMinutes) {
+                        Text("15 min").tag(15)
+                        Text("30 min").tag(30)
+                        Text("1 hour").tag(60)
+                        Text("2 hours").tag(120)
+                    }
+                    .pickerStyle(.menu)
+                    .tint(AppTheme.blue)
+                }
             }
         }
-        .tint(AppTheme.blue)
         .padding(12)
         .background(AppTheme.bg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
