@@ -35,7 +35,15 @@ struct TodayView: View {
     @State private var showWhiteboard = false
     @State private var pageIndex: Int? = 0
 
-    private var accent: Color { AppTheme.blue }
+    private var accent: Color {
+        switch profile {
+        case .family:
+            return AppTheme.blue
+        case .member(let id):
+            if let hex = store.member(id: id)?.colorHex { return Color(hex: hex) }
+            return AppTheme.blue
+        }
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -1356,7 +1364,7 @@ struct TodayView: View {
         let visible = familyVisibleCount(portrait: portrait, compact: compact)
         let gap: CGFloat = compact ? 8 : 12
         return VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: "house.fill", title: "HUB") {
+            HubTileBanner(symbol: "house.fill", title: "Circle") {
                 Button { showAddMember = true } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "person.badge.plus")

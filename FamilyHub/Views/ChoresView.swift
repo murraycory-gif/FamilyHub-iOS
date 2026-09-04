@@ -12,7 +12,7 @@ struct ChoresView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "HUB", tail: "Chores") {
+            HubStickyHeader(lead: "Circle", tail: "Chores") {
                 HubHeaderPill(title: "Add chore") { showAddChore = true }
             }
             ScrollViewReader { proxy in

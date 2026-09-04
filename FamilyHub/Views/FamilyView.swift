@@ -12,7 +12,7 @@ struct FamilyView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "HUB", tail: "Profiles")
+            HubStickyHeader(lead: "Circle", tail: "Profiles")
                 .coachSpot("famHeader")
             ScrollViewReader { proxy in
             ScrollView {
@@ -75,7 +75,7 @@ struct FamilyView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
-                    Text("HUB")
+                    Text("Circle")
                         .foregroundStyle(AppTheme.text)
                     Text("Profiles")
                         .foregroundStyle(AppTheme.blue)
@@ -646,7 +646,7 @@ struct EditMemberSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "HUB", tail: member == nil ? "Add Member" : "Edit Member") {
+            HubStickyHeader(lead: "Circle", tail: member == nil ? "Add Member" : "Edit Member") {
                 HStack(spacing: 8) {
                     Button { dismiss() } label: {
                         Text("Cancel")

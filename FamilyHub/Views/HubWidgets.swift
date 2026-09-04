@@ -421,7 +421,7 @@ struct FlightDetailSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "HUB", tail: "Flight") {
+            HubStickyHeader(lead: "Circle", tail: "Flight") {
                 HubHeaderPill(title: "Close") { dismiss() }
             }
             TimelineView(.periodic(from: .now, by: 1)) { timeline in

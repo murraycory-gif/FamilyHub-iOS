@@ -590,7 +590,7 @@ struct HubStickyHeader<Trailing: View>: View {
     }
 
     private var pageLabel: String {
-        if lead == "HUB" { return tail }
+        if lead == "HUB" || lead == "Circle" { return tail }
         if tail.isEmpty { return lead }
         return "\(lead) \(tail)"
     }

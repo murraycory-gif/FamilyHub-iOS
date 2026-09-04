@@ -9,7 +9,7 @@ struct SettingsPageShell<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "HUB", tail: tail)
+            HubStickyHeader(lead: "Circle", tail: tail)
             ScrollView {
                 HubPanel(symbol: symbol, title: title) {
                     content
@@ -70,7 +70,7 @@ struct ProfilesSettingsView: View {
     @State private var editing: FamilyMember?
 
     var body: some View {
-        SettingsPageShell(tail: "Profiles", symbol: "person.3.fill", title: "HUB Profiles") {
+        SettingsPageShell(tail: "Profiles", symbol: "person.3.fill", title: "Circle Profiles") {
             VStack(alignment: .leading, spacing: 16) {
                 AppearancePicker()
                 Text("Who is using this device")

@@ -303,7 +303,7 @@ enum HubTours {
     ]
 
     static let family: [CoachStep] = [
-        .init(id: "famHeader", symbol: "person.3.fill", title: "HUB Profiles", detail: "Everyone in the house. Each person has a color, photo, and their own profile."),
+        .init(id: "famHeader", symbol: "person.3.fill", title: "Circle Profiles", detail: "Everyone in the house. Each person has a color, photo, and their own profile."),
         .init(id: "famPeople", symbol: "person.crop.circle", title: "The people", detail: "Tap a person to open their profile. Add someone with the plus on a card.")
     ]
 

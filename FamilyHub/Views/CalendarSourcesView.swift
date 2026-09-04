@@ -8,7 +8,7 @@ struct CalendarSourcesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "HUB", tail: "Calendars") {
+            HubStickyHeader(lead: "Circle", tail: "Calendars") {
                 HubHeaderPill(title: ingest.isSyncing ? "Syncing" : "Sync") {
                     Task { await ingest.sync(into: store) }
                 }
