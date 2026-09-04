@@ -16,7 +16,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     }
 
     static var settingsItems: [HubSection] {
-        [.profiles, .invite, .calendars, .widgets, .notify]
+        [.profiles, .invite, .calendars, .widgets, .notify, .looks]
     }
 
     var title: String {
@@ -29,7 +29,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .meals: return "Meals"
         case .settings: return "Settings"
         case .family, .profiles: return "Profiles"
-        case .looks: return "Looks"
+        case .looks: return "Display"
         case .device: return "This iPad"
         case .invite: return "Invite"
         case .calendars: return "Calendars"

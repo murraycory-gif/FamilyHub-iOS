@@ -29,6 +29,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var whiteboardNote: String
     @Published private(set) var hubWidgetLimit: Int
     @Published private(set) var setupCompleted: Bool
+    @Published private(set) var appearance: HubAppearance
     @Published var errorMessage: String?
     @Published private(set) var familyPhotoData: Data?
     @Published private(set) var memberPhotos: [UUID: Data] = [:]
@@ -70,6 +71,7 @@ final class HubStore: ObservableObject {
         whiteboardNote = ""
         hubWidgetLimit = 4
         setupCompleted = false
+        appearance = .system
         familyPhotoData = nil
         loadOrSeed()
         familyPhotoData = try? Data(contentsOf: familyPhotoURL)
@@ -994,6 +996,7 @@ final class HubStore: ObservableObject {
         whiteboardNote = snapshot.whiteboardNote ?? ""
         hubWidgetLimit = min(4, max(3, snapshot.hubWidgetLimit ?? 4))
         setupCompleted = snapshot.setupCompleted ?? !snapshot.members.isEmpty
+        appearance = snapshot.appearance ?? .system
         if snapshot.joinCode == nil {
             persist()
         }
@@ -1026,7 +1029,8 @@ final class HubStore: ObservableObject {
             notifyPrefs: notifyPrefs,
             whiteboardNote: whiteboardNote,
             hubWidgetLimit: hubWidgetLimit,
-            setupCompleted: setupCompleted
+            setupCompleted: setupCompleted,
+            appearance: appearance
         )
         do {
             let encoder = JSONEncoder()
@@ -1080,6 +1084,11 @@ final class HubStore: ObservableObject {
 
     func markSetupComplete() {
         setupCompleted = true
+        persist()
+    }
+
+    func setAppearance(_ value: HubAppearance) {
+        appearance = value
         persist()
     }
 

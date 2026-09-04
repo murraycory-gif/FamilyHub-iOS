@@ -33,7 +33,7 @@ struct RootView: View {
                     .zIndex(1)
             }
         }
-        .preferredColorScheme(.light)
+        .preferredColorScheme(store.appearance.colorScheme)
         .tint(AppTheme.blue)
         .background(AppTheme.bg.ignoresSafeArea())
         .onAppear {

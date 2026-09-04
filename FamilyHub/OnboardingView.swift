@@ -8,6 +8,7 @@ struct OnboardingView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var ingest: CalendarIngestor
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.verticalSizeClass) private var verticalClass
     @FocusState private var focused: Field?
     @State private var page = 0
     @State private var path: Path = .create
@@ -45,6 +46,8 @@ struct OnboardingView: View {
 
     private var lastPage: Int { path == .join ? 2 : 6 }
     private var compact: Bool { sizeClass == .compact }
+    private var landscape: Bool { verticalClass == .compact }
+    private var cardWidth: CGFloat { compact ? 560 : 720 }
     private var deviceWord: String {
         UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "phone"
     }
@@ -75,9 +78,9 @@ struct OnboardingView: View {
         .safeAreaInset(edge: .bottom) {
             Button(primaryTitle) { advance() }
                 .buttonStyle(PrimaryButtonStyle())
-                .padding(.horizontal, 20)
-                .padding(.top, 10)
-                .padding(.bottom, 12)
+                .padding(.horizontal, compact ? 16 : 28)
+                .padding(.top, landscape ? 6 : 10)
+                .padding(.bottom, landscape ? 8 : 12)
                 .background(AppTheme.bg.opacity(0.96))
         }
         .background(AppTheme.bg.ignoresSafeArea())
@@ -278,29 +281,56 @@ struct OnboardingView: View {
 
     private var gate: some View {
         ScrollView {
-            VStack(spacing: 18) {
-                Image("HubMark")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: compact ? 88 : 120, height: compact ? 88 : 120)
-                Text("Build your HUB")
-                    .font(.system(size: compact ? 30 : 36, weight: .bold))
-                    .multilineTextAlignment(.center)
-                Text("Calendars, dinner, chores, and the people in your house — one place.")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(AppTheme.textSecondary)
-                    .multilineTextAlignment(.center)
-                pathCard("Create this HUB", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
-                    path = .create
-                }
-                pathCard("Join a family HUB", "Someone already built one. Enter their code.", "person.badge.plus", path == .join) {
-                    path = .join
+            Group {
+                if landscape && !compact {
+                    HStack(alignment: .center, spacing: 28) {
+                        VStack(spacing: 12) {
+                            Image("HubMark")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 120, height: 120)
+                            Text("Build your HUB")
+                                .font(.system(size: 32, weight: .bold))
+                        }
+                        .frame(maxWidth: 260)
+                        VStack(spacing: 12) {
+                            Text("Calendars, dinner, chores, and the people in your house — one place.")
+                                .font(.body.weight(.medium))
+                                .foregroundStyle(AppTheme.textSecondary)
+                            pathCard("Create this HUB", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
+                                path = .create
+                            }
+                            pathCard("Join a family HUB", "Someone already built one. Enter their code.", "person.badge.plus", path == .join) {
+                                path = .join
+                            }
+                        }
+                    }
+                } else {
+                    VStack(spacing: landscape ? 12 : 18) {
+                        Image("HubMark")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: compact ? (landscape ? 72 : 88) : 120, height: compact ? (landscape ? 72 : 88) : 120)
+                        Text("Build your HUB")
+                            .font(.system(size: compact ? (landscape ? 26 : 30) : 36, weight: .bold))
+                            .multilineTextAlignment(.center)
+                        Text("Calendars, dinner, chores, and the people in your house — one place.")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                            .multilineTextAlignment(.center)
+                        pathCard("Create this HUB", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
+                            path = .create
+                        }
+                        pathCard("Join a family HUB", "Someone already built one. Enter their code.", "person.badge.plus", path == .join) {
+                            path = .join
+                        }
+                    }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 20)
-            .frame(maxWidth: 560)
+            .padding(.horizontal, compact ? 16 : 28)
+            .padding(.top, landscape ? 6 : 12)
+            .padding(.bottom, 16)
+            .frame(maxWidth: cardWidth)
             .frame(maxWidth: .infinity)
         }
     }
@@ -756,25 +786,25 @@ struct OnboardingView: View {
 
     private func setupCard<Content: View>(_ title: String, _ detail: String, @ViewBuilder content: () -> Content) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: landscape ? 8 : 12) {
                 Text(title)
-                    .font(.system(size: compact ? 26 : 32, weight: .bold))
+                    .font(.system(size: compact ? (landscape ? 22 : 26) : (landscape ? 28 : 32), weight: .bold))
                 Text(detail)
-                    .font(.body.weight(.medium))
+                    .font((landscape ? Font.subheadline : Font.body).weight(.medium))
                     .foregroundStyle(AppTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 content()
             }
-            .padding(compact ? 16 : 22)
-            .frame(maxWidth: 640, alignment: .leading)
+            .padding(compact ? (landscape ? 12 : 16) : 22)
+            .frame(maxWidth: cardWidth, alignment: .leading)
             .background(AppTheme.card)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .stroke(AppTheme.blue, lineWidth: 2.5)
             )
-            .padding(.horizontal, compact ? 16 : 24)
-            .padding(.vertical, 8)
+            .padding(.horizontal, compact ? 16 : 28)
+            .padding(.vertical, landscape ? 4 : 8)
             .frame(maxWidth: .infinity)
         }
         .scrollIndicators(.hidden)

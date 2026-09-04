@@ -1,37 +1,37 @@
 import SwiftUI
+import UIKit
 
-/// EnviroMap light paper: cool white surfaces, brand blue, quiet type.
+/// EnviroMap paper in light, navy glass in dark. Brand blue stays Heartbeat 003DA5.
 enum AppTheme {
-    /// Same dark Albertsons blue as Heartbeat — banners, chrome, and blue text.
     static let blue = Color(hex: "003DA5")
-    static let blueSoft = Color(hex: "DCE6F4")
+    static let blueSoft = adaptive(light: "DCE6F4", dark: "1A2F55")
     static let blueDeep = Color(hex: "003DA5")
 
     static let navy = blue
     static let navySoft = blueSoft
-    static let navyMuted = Color(red: 0.38, green: 0.42, blue: 0.50)
+    static let navyMuted = adaptive(light: "616B80", dark: "9AA6B8")
     static let ice = blue
 
     static let forest = blue
     static let forestSoft = blueSoft
     static let clay = blueDeep
 
-    static let bg = Color(hex: "F3F5F8")
-    static let elevated = Color.white
-    static let card = Color.white
-    static let tableFill = Color(hex: "F7F8FB")
-    static let cardBorder = Color(hex: "E4E7EE")
+    static let bg = adaptive(light: "F3F5F8", dark: "0B1220")
+    static let elevated = adaptive(light: "FFFFFF", dark: "152036")
+    static let card = adaptive(light: "FFFFFF", dark: "152036")
+    static let tableFill = adaptive(light: "F7F8FB", dark: "10192B")
+    static let cardBorder = adaptive(light: "E4E7EE", dark: "2A3A55")
 
-    static let text = Color(red: 0.08, green: 0.10, blue: 0.16)
-    static let textSecondary = Color(red: 0.38, green: 0.42, blue: 0.50)
-    static let textTertiary = Color(red: 0.55, green: 0.58, blue: 0.65)
+    static let text = adaptive(light: "141A29", dark: "F2F5FA")
+    static let textSecondary = adaptive(light: "616B80", dark: "A8B4C8")
+    static let textTertiary = adaptive(light: "8C93A3", dark: "7D8AA0")
 
     static let chore = Color(hex: "DC2626")
-    static let choreSoft = Color(hex: "FEE2E2")
+    static let choreSoft = adaptive(light: "FEE2E2", dark: "3F1515")
     static let reminder = Color(hex: "D97706")
-    static let reminderSoft = Color(hex: "FEF3C7")
+    static let reminderSoft = adaptive(light: "FEF3C7", dark: "3F2E10")
     static let todo = Color(hex: "059669")
-    static let todoSoft = Color(hex: "D1FAE5")
+    static let todoSoft = adaptive(light: "D1FAE5", dark: "0F2F24")
 
     static let radiusL: CGFloat = 20
     static let radiusM: CGFloat = 14
@@ -39,6 +39,22 @@ enum AppTheme {
 
     static func paint(_ size: CGFloat) -> Font {
         .custom("RubikWetPaint-Regular", size: size)
+    }
+
+    static func adaptive(light: String, dark: String) -> Color {
+        Color(uiColor: UIColor { trait in
+            UIColor(Color(hex: trait.userInterfaceStyle == .dark ? dark : light))
+        })
+    }
+}
+
+extension HubAppearance {
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
     }
 }
 

@@ -512,6 +512,30 @@ struct LedgerEntry: Identifiable, Codable, Hashable {
     }
 }
 
+enum HubAppearance: String, Codable, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return "Match device"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .system: return "circle.lefthalf.filled"
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        }
+    }
+}
+
 struct HubSnapshot: Codable {
     var householdName: String
     var members: [FamilyMember]
@@ -538,6 +562,7 @@ struct HubSnapshot: Codable {
     var whiteboardNote: String?
     var hubWidgetLimit: Int?
     var setupCompleted: Bool?
+    var appearance: HubAppearance?
 }
 
 struct ShoppingItem: Identifiable, Codable, Hashable {

@@ -23,6 +23,42 @@ struct SettingsPageShell<Content: View>: View {
     }
 }
 
+struct AppearancePicker: View {
+    @EnvironmentObject private var store: HubStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Display")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+            Text("Light, dark, or match the iPhone / iPad setting.")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            HStack(spacing: 8) {
+                ForEach(HubAppearance.allCases) { mode in
+                    Button {
+                        store.setAppearance(mode)
+                    } label: {
+                        VStack(spacing: 6) {
+                            Image(systemName: mode.symbol)
+                                .font(.title3.weight(.bold))
+                            Text(mode.label)
+                                .font(.caption.weight(.bold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .foregroundStyle(store.appearance == mode ? .white : AppTheme.blue)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(store.appearance == mode ? AppTheme.blue : AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
 struct SettingsView: View {
     var body: some View { ProfilesSettingsView() }
 }
@@ -36,6 +72,7 @@ struct ProfilesSettingsView: View {
     var body: some View {
         SettingsPageShell(tail: "Profiles", symbol: "person.3.fill", title: "HUB Profiles") {
             VStack(alignment: .leading, spacing: 16) {
+                AppearancePicker()
                 Text("Who is using this device")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(AppTheme.text)
@@ -65,7 +102,7 @@ struct ProfilesSettingsView: View {
                                 }
                             }
                             .padding(12)
-                            .background(on ? AppTheme.blue : Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(on ? AppTheme.blue : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .stroke(on ? AppTheme.blue : Color.black.opacity(0.05), lineWidth: 1)
@@ -113,7 +150,7 @@ struct ProfilesSettingsView: View {
                         }
                     }
                     .padding(12)
-                    .background(Color.white)
+                    .background(AppTheme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -187,7 +224,7 @@ struct DeviceSettingsView: View {
                                 }
                             }
                             .padding(12)
-                            .background(on ? AppTheme.blue : Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(on ? AppTheme.blue : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .stroke(on ? AppTheme.blue : Color.black.opacity(0.05), lineWidth: 1)
@@ -313,7 +350,7 @@ struct WeatherSettingsForm: View {
                             .foregroundStyle(AppTheme.blue)
                     }
                     .padding(14)
-                    .background(Color.white)
+                    .background(AppTheme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)

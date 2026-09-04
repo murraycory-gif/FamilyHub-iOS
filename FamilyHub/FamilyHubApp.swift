@@ -30,7 +30,7 @@ struct FamilyHubApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                launch.ignoresSafeArea()
+                AppTheme.bg.ignoresSafeArea()
                 RootView()
                     .environmentObject(store)
                     .environmentObject(ingest)
@@ -39,8 +39,8 @@ struct FamilyHubApp: App {
                         HubPinger.shared.refresh(store)
                     }
             }
-            .background(launch.ignoresSafeArea())
-            .preferredColorScheme(.light)
+            .background(AppTheme.bg.ignoresSafeArea())
+            .preferredColorScheme(store.appearance.colorScheme)
             .onAppear {
                 UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }

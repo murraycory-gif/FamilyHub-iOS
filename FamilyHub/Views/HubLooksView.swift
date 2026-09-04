@@ -26,6 +26,7 @@ struct HubLooksView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            AppearancePicker()
             HStack(spacing: 10) {
                 Text("Hub")
                     .foregroundStyle(AppTheme.text)
