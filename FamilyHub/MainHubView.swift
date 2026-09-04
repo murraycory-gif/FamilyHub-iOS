@@ -74,6 +74,7 @@ final class HubRouter: ObservableObject {
     @Published var calendarDay = Date()
     @Published var focusedEventID: UUID?
     @Published var mealsDay = Date()
+    @Published var chromeHex: String = "06101C"
 
     func open(_ section: HubSection, list: ListKind? = nil) {
         if let list { listKind = list }

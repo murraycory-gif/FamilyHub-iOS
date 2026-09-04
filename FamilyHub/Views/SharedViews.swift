@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 private struct HubAccentKey: EnvironmentKey {
-    static let defaultValue: Color = AppTheme.blue
+    static let defaultValue: Color = AppTheme.space
 }
 
 extension EnvironmentValues {
@@ -231,7 +231,7 @@ struct HubChromeModifier: ViewModifier {
         content
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle("")
-            .toolbarBackground(AppTheme.space, for: .navigationBar)
+            .toolbarBackground(Color(hex: router.chromeHex), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar(removing: .sidebarToggle)

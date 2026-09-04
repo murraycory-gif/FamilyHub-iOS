@@ -38,10 +38,19 @@ struct TodayView: View {
     private var accent: Color {
         switch profile {
         case .family:
-            return AppTheme.blue
+            return AppTheme.space
         case .member(let id):
             if let hex = store.member(id: id)?.colorHex { return Color(hex: hex) }
-            return AppTheme.blue
+            return AppTheme.space
+        }
+    }
+
+    private func syncChrome() {
+        switch profile {
+        case .family:
+            router.chromeHex = "06101C"
+        case .member(let id):
+            router.chromeHex = store.member(id: id)?.colorHex ?? "06101C"
         }
     }
 
@@ -70,10 +79,13 @@ struct TodayView: View {
         .background(AppTheme.bg.ignoresSafeArea())
         .environment(\.hubAccent, accent)
         .onAppear {
+            syncChrome()
             let start = Calendar.current.startOfDay(for: selectedDay)
             selectedDay = start
             pageIndex = indexOfDay(start)
         }
+        .onChange(of: profile) { _, _ in syncChrome() }
+        .onDisappear { router.chromeHex = "06101C" }
         .onChange(of: pageIndex) { _, idx in
             guard let idx else { return }
             let day = dayAt(idx)
