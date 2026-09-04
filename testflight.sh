@@ -15,6 +15,11 @@ OPTIONS="$(pwd)/ExportOptions.plist"
 echo "Pulling latest…"
 git pull --rebase --autostash origin main
 
+echo "Opening Xcode…"
+open -a Xcode "$PROJECT"
+sleep 2
+open -a Xcode
+
 echo "Archiving HUB Circle for TestFlight…"
 mkdir -p "$(dirname "$ARCHIVE")"
 if ! xcodebuild \
