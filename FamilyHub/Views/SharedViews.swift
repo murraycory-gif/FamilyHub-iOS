@@ -216,8 +216,9 @@ struct HubIconButton: View {
 }
 
 struct HubNavLogo: View {
+    var onDark: Bool = true
     var body: some View {
-        HubBrandLockup(markSize: 32, hubSize: 18, circleSize: 16, onDark: true)
+        HubBrandLockup(markSize: 32, hubSize: 18, circleSize: 16, onDark: onDark)
             .padding(.vertical, -6)
     }
 }

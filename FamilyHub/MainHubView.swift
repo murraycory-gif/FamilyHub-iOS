@@ -187,7 +187,7 @@ struct MainHubView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                HubNavLogo()
+                HubNavLogo(onDark: false)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 HubIconButton(symbol: "sidebar.left", label: "Menu") {
