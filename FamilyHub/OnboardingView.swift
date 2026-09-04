@@ -98,7 +98,7 @@ struct OnboardingView: View {
             Task { await loadPickedPhoto(item) }
         }
         .fullScreenCover(item: $cropPayload) { payload in
-            PhotoCropper(
+            BannerCropper(
                 image: payload.image,
                 onCancel: { cropPayload = nil; photoItem = nil },
                 onCrop: { data in
@@ -126,12 +126,13 @@ struct OnboardingView: View {
                 Color.clear.frame(width: 64, height: 1)
             }
             Spacer()
-            Text("HUB setup")
-                .font(.headline.weight(.bold))
-                .foregroundStyle(AppTheme.text)
+            HubBrandLockup(markSize: 28, hubSize: 14, circleSize: 10)
             Spacer()
             if page > 0 && page < lastPage && path == .create {
-                Button("Skip") { finish() }
+                Button("Skip") {
+                    focused = nil
+                    withAnimation { page = min(page + 1, lastPage) }
+                }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.textTertiary)
                     .frame(width: 64, alignment: .trailing)
@@ -170,7 +171,10 @@ struct OnboardingView: View {
             if page < lastPage { withAnimation { page += 1 } } else { finish() }
             return
         }
-        if page == 1 { saveYou() }
+        if page == 1 {
+            if clean(ownerName).isEmpty { return }
+            saveYou()
+        }
         if page == 2 { store.setHouseholdName(clean(household).isEmpty ? ownerName : household) }
         if page < lastPage { withAnimation { page += 1 } } else { finish() }
     }
@@ -389,7 +393,8 @@ struct OnboardingView: View {
         PhotosPicker(selection: $photoItem, matching: .images) {
             VStack(spacing: 10) {
                 ZStack {
-                    Circle().fill(AppTheme.blueSoft)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(AppTheme.blueSoft)
                     if let ownerPreview {
                         Image(uiImage: ownerPreview)
                             .resizable()
@@ -400,10 +405,14 @@ struct OnboardingView: View {
                             .foregroundStyle(AppTheme.blue)
                     }
                 }
-                .frame(width: 96, height: 96)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(AppTheme.blue, lineWidth: 3))
-                Text(ownerPreview == nil ? "Add photo" : "Move and scale")
+                .frame(maxWidth: .infinity)
+                .frame(height: 118)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(AppTheme.blue, lineWidth: 3)
+                )
+                Text(ownerPreview == nil ? "Add the photo that shows on the Hub banner" : "Looks like the Hub banner — tap to move")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AppTheme.blue)
             }
@@ -432,10 +441,29 @@ struct OnboardingView: View {
         }
     }
 
+    private func bannerThumb(_ data: Data?) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous).fill(AppTheme.blueSoft)
+            if let data, let image = UIImage(data: data) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Image(systemName: "camera.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+            }
+        }
+        .frame(width: 88, height: 50)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.blue, lineWidth: 2)
+        )
+    }
+
     private func personRow(_ member: FamilyMember) -> some View {
         HStack(spacing: 12) {
             PhotosPicker(selection: $photoItem, matching: .images) {
-                MemberAvatar(member: member, size: 56)
+                bannerThumb(store.photo(for: member))
                     .overlay(alignment: .bottomTrailing) {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 9, weight: .bold))
@@ -472,21 +500,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 PhotosPicker(selection: $photoItem, matching: .images) {
-                    ZStack {
-                        Circle().fill(AppTheme.blueSoft)
-                        if let pendingPhoto, let image = UIImage(data: pendingPhoto) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                        } else {
-                            Image(systemName: "plus")
-                                .font(.title3.weight(.bold))
-                                .foregroundStyle(AppTheme.blue)
-                        }
-                    }
-                    .frame(width: 56, height: 56)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(AppTheme.blue, lineWidth: 2))
+                    bannerThumb(pendingPhoto)
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(TapGesture().onEnded { photoTarget = .draft })

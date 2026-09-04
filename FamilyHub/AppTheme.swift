@@ -3,9 +3,10 @@ import UIKit
 
 /// EnviroMap paper in light, navy glass in dark. Brand blue stays Heartbeat 003DA5.
 enum AppTheme {
-    static let blue = Color(hex: "0090FF")
-    static let blueSoft = adaptive(light: "D6ECFF", dark: "0B2A4A")
-    static let blueDeep = Color(hex: "0066C2")
+    static let blue = Color(hex: "00A8FF")
+    static let blueSoft = adaptive(light: "D6F0FF", dark: "0B2A4A")
+    static let blueDeep = Color(hex: "06101C")
+    static let space = Color(hex: "06101C")
 
     static let navy = blue
     static let navySoft = blueSoft
@@ -20,7 +21,7 @@ enum AppTheme {
     static let elevated = adaptive(light: "FFFFFF", dark: "152036")
     static let card = adaptive(light: "FFFFFF", dark: "152036")
     static let tableFill = adaptive(light: "F7F8FB", dark: "10192B")
-    static let cardBorder = adaptive(light: "B7D9F8", dark: "1C4A78")
+    static let cardBorder = adaptive(light: "C5D4E4", dark: "1C2A40")
 
     static let text = adaptive(light: "141A29", dark: "F2F5FA")
     static let textSecondary = adaptive(light: "616B80", dark: "A8B4C8")

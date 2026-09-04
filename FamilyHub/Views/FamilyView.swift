@@ -710,7 +710,7 @@ struct EditMemberSheet: View {
             }
         }
         .fullScreenCover(item: $cropPayload) { payload in
-            PhotoCropper(
+            BannerCropper(
                 image: payload.image,
                 onCancel: { cropPayload = nil },
                 onCrop: { data in

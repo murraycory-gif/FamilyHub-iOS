@@ -52,14 +52,11 @@ struct LaunchSplashView: View {
 
     var body: some View {
         ZStack {
-            (scheme == .dark ? Color(hex: "06101C") : AppTheme.bg)
-                .ignoresSafeArea()
+            AppTheme.space.ignoresSafeArea()
 
             HStack(spacing: 18) {
-                HubOrbitMark(size: 108, animated: true)
-                    .scaleEffect(appear ? 1 : 0.9)
-                HubWordmark(hubSize: 42, circleSize: 28)
-                    .opacity(appear ? 1 : 0.7)
+                HubOrbitMark(size: 120, animated: true)
+                HubWordmark(onDark: true, hubSize: 44, circleSize: 24)
             }
             .padding(.horizontal, 28)
         }

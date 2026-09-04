@@ -217,7 +217,7 @@ struct HubIconButton: View {
 
 struct HubNavLogo: View {
     var body: some View {
-        HubBrandLockup(markSize: 34, hubSize: 16, circleSize: 12)
+        HubBrandLockup(markSize: 34, hubSize: 15, circleSize: 11, onDark: true)
             .padding(.vertical, -6)
     }
 }
@@ -231,8 +231,9 @@ struct HubChromeModifier: ViewModifier {
         content
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle("")
-            .toolbarBackground(AppTheme.bg, for: .navigationBar)
+            .toolbarBackground(AppTheme.space, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar(removing: .sidebarToggle)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -570,11 +571,11 @@ struct HubStickyHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            HubBrandLockup(markSize: 44, hubSize: 22, circleSize: 16)
+            HubBrandLockup(markSize: 44, hubSize: 20, circleSize: 13, onDark: true)
             if !pageLabel.isEmpty {
                 Text(pageLabel)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(AppTheme.blue)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.92))
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
             }
@@ -585,7 +586,7 @@ struct HubStickyHeader<Trailing: View>: View {
         .padding(.top, 8)
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.bg)
+        .background(AppTheme.space)
     }
 
     private var pageLabel: String {
