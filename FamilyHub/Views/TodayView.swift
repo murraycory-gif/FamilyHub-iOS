@@ -34,6 +34,7 @@ struct TodayView: View {
     @State private var showAddMember = false
     @State private var showWhiteboard = false
     @State private var pageIndex: Int? = 0
+    @State private var draggingMemberID: UUID?
 
     private var accent: Color {
         switch profile {
@@ -1367,7 +1368,7 @@ struct TodayView: View {
     }
 
     private func familyVisibleCount(portrait: Bool, compact: Bool) -> Int {
-        let members = max(1, store.members.count)
+        let members = max(1, store.members.count + 1)
         let target = compact ? (portrait ? 2 : 3) : (portrait ? 3 : 4)
         return min(members, target)
     }
@@ -1412,7 +1413,31 @@ struct TodayView: View {
                                 }
                             )
                             .frame(width: cardW, height: cardH)
+                            .opacity(draggingMemberID == member.id ? 0.72 : 1)
+                            .onDrag {
+                                draggingMemberID = member.id
+                                return NSItemProvider(object: member.id.uuidString as NSString)
+                            }
+                            .onDrop(
+                                of: [.text],
+                                delegate: MemberReorderDelegate(
+                                    targetID: member.id,
+                                    draggingID: $draggingMemberID,
+                                    onMove: { store.moveMemberLive(id: $0, before: $1) },
+                                    onFinished: { store.persistMembers() }
+                                )
+                            )
                         }
+                        FamilyFocusCard(
+                            selected: profile == .family,
+                            day: selectedDay,
+                            photoHeight: photoH,
+                            onSelect: { profile = .family },
+                            onEvent: { event in
+                                router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
+                            }
+                        )
+                        .frame(width: cardW, height: cardH)
                     }
                     .padding(pad)
                 }
