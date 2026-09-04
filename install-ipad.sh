@@ -44,11 +44,12 @@ wait_for_ipad() {
     JSON="${TMPDIR:-/tmp}/familyhub-devices.json"
     if xcrun devicectl list devices --json-output "$JSON" >/dev/null 2>&1; then
       FOUND=$(python3 - "$JSON" <<'PY'
-import json, sys
+import json, os, sys
 data = json.load(open(sys.argv[1]))
 devices = data.get("result", {}).get("devices", []) or data.get("devices", [])
 preferred = "676FA816-88AE-59D9-A89D-5C17BFC2DA96"
 picks = []
+want_phone = os.environ.get("TARGET", "ipad").lower() in ("phone", "iphone")
 for device in devices:
     hardware = device.get("hardwareProperties") or {}
     props = device.get("deviceProperties") or {}
@@ -62,7 +63,6 @@ for device in devices:
     developer = str(props.get("developerModeStatus") or props.get("developerMode") or "").lower()
     is_ipad = "iPad" in name or "iPad" in marketing or str(hardware.get("deviceType") or "").startswith("iPad")
     is_phone = "iPhone" in name or "iPhone" in marketing or str(hardware.get("deviceType") or "").startswith("iPhone")
-    want_phone = """${TARGET:-ipad}""".lower() in ("phone", "iphone")
     if want_phone:
         if not is_phone:
             continue
