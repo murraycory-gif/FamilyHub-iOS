@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 private struct HubAccentKey: EnvironmentKey {
-    static let defaultValue: Color = AppTheme.space
+    static let defaultValue: Color = AppTheme.blue
 }
 
 extension EnvironmentValues {

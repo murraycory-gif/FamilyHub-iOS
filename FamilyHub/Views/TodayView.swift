@@ -35,7 +35,7 @@ struct TodayView: View {
     @State private var showWhiteboard = false
     @State private var pageIndex: Int? = 0
 
-    private var accent: Color { AppTheme.space }
+    private var accent: Color { AppTheme.blue }
 
     var body: some View {
         GeometryReader { geo in
