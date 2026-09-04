@@ -888,13 +888,22 @@ struct HubAgendaCallout: View {
                 .fill(rail)
                 .frame(width: compact ? 4 : 5)
                 .padding(.vertical, compact ? 4 : 8)
-            VStack(alignment: .leading, spacing: compact ? 0 : 2) {
-                Text(eyebrow)
-                    .font((compact ? Font.caption : Font.headline).weight(.bold).monospacedDigit())
-                    .foregroundStyle(accent)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: compact ? 1 : 3) {
+                HStack(spacing: 6) {
+                    Text("HUB")
+                        .font((compact ? Font.caption : Font.subheadline).weight(.heavy))
+                        .tracking(0.3)
+                    Text("|")
+                        .font((compact ? Font.caption2 : Font.caption).weight(.semibold))
+                        .opacity(0.45)
+                    Text(eyebrow)
+                        .font((compact ? Font.caption : Font.subheadline).weight(.regular).monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .foregroundStyle(accent)
                 Text(title)
-                    .font(compact ? .subheadline.weight(.bold) : .title3.weight(.bold))
+                    .font(compact ? .subheadline.weight(.regular) : .title3.weight(.regular))
                     .foregroundStyle(AppTheme.text)
                     .lineLimit(1)
             }
