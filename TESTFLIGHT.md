@@ -1,7 +1,7 @@
 # TestFlight + first-run check
 
-App Store name: **Command HUB**
-Home screen name: **Command Hub**
+App Store name: **HUB Circle**
+Home screen name: **HUB Circle**
 Bundle ID stays `com.corymurray.FamilyHub`
 
 

@@ -55,7 +55,7 @@ struct LaunchSplashView: View {
                     .scaleEffect(appear ? 1 : 0.92)
                     .opacity(appear ? 1 : 0.85)
 
-                Text("Command Hub")
+                Text("HUB Circle")
                     .font(.system(size: 28, weight: .semibold))
                     .tracking(1.2)
                     .foregroundStyle(AppTheme.text)
