@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pull, archive HUB, open Organizer for TestFlight upload.
+# Pull, archive, and upload HUB Circle to TestFlight.
 set -eu
 set -o pipefail
 cd "$(dirname "$0")"
@@ -7,15 +7,15 @@ cd "$(dirname "$0")"
 PROJECT="FamilyHub.xcodeproj"
 SCHEME="FamilyHub"
 ARCHIVE="$HOME/Library/Developer/Xcode/Archives/FamilyHub-$(date +%Y%m%d-%H%M).xcarchive"
+EXPORT_DIR="${TMPDIR:-/tmp}/FamilyHubExport"
 LOG="${TMPDIR:-/tmp}/familyhub-archive.log"
+EXPORT_LOG="${TMPDIR:-/tmp}/familyhub-export.log"
+OPTIONS="$(pwd)/ExportOptions.plist"
 
 echo "Pulling latest…"
 git pull --rebase --autostash origin main
 
-echo "Opening Xcode…"
-open -a Xcode "$PROJECT"
-
-echo "Archiving for App Store / TestFlight…"
+echo "Archiving HUB Circle for TestFlight…"
 mkdir -p "$(dirname "$ARCHIVE")"
 if ! xcodebuild \
   -project "$PROJECT" \
@@ -32,7 +32,28 @@ then
   exit 1
 fi
 
-echo "Archive ready:"
-echo "  $ARCHIVE"
-echo "Opening Organizer — select the HUB archive → Distribute App → App Store Connect → Upload → TestFlight."
-open -a Xcode "$ARCHIVE"
+echo "Uploading to App Store Connect / TestFlight…"
+rm -rf "$EXPORT_DIR"
+mkdir -p "$EXPORT_DIR"
+if ! xcodebuild \
+  -exportArchive \
+  -archivePath "$ARCHIVE" \
+  -exportPath "$EXPORT_DIR" \
+  -exportOptionsPlist "$OPTIONS" \
+  -allowProvisioningUpdates \
+  2>&1 | tee "$EXPORT_LOG"
+then
+  echo ""
+  echo "---- upload errors ----"
+  grep -E "error:|Error" "$EXPORT_LOG" | tail -40 || true
+  echo "If upload failed, open Organizer and Distribute the archive at:"
+  echo "  $ARCHIVE"
+  open -a Xcode "$ARCHIVE"
+  exit 1
+fi
+
+echo ""
+echo "Uploaded. In App Store Connect → HUB Circle → TestFlight"
+echo "wait until build 15 is Ready to Test, then add testers."
+echo "Build stamp:"
+grep 'static let string' FamilyHub/BuildStamp.swift || true
