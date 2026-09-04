@@ -61,8 +61,14 @@ for device in devices:
     pairing = str(conn.get("pairingState") or "").lower()
     developer = str(props.get("developerModeStatus") or props.get("developerMode") or "").lower()
     is_ipad = "iPad" in name or "iPad" in marketing or str(hardware.get("deviceType") or "").startswith("iPad")
-    if not is_ipad:
-        continue
+    is_phone = "iPhone" in name or "iPhone" in marketing or str(hardware.get("deviceType") or "").startswith("iPhone")
+    want_phone = """${TARGET:-ipad}""".lower() in ("phone", "iphone")
+    if want_phone:
+        if not is_phone:
+            continue
+    else:
+        if not is_ipad:
+            continue
     if "corp" in name.lower():
         continue
     if "disabled" in developer:
