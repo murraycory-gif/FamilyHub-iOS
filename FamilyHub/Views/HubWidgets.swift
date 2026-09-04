@@ -175,7 +175,7 @@ struct BillsWidget: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: "dollarsign.circle.fill", title: "Bills Due") {
+            HubTileBanner(symbol: "dollarsign.circle.fill", title: "Bills") {
                 if bills.isEmpty == false {
                     Text("\(bills.count)")
                         .font(.caption.weight(.bold))
@@ -256,7 +256,7 @@ struct FlightWidget: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: "airplane", title: "Flight Tracker") {
+            HubTileBanner(symbol: "airplane", title: "Flights") {
                 Button(action: onAdd) {
                     Image(systemName: "plus")
                         .font(.caption.weight(.bold))
@@ -947,7 +947,7 @@ struct LeavingWidget: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: "car.fill", title: "Who's Out")
+            HubTileBanner(symbol: "car.fill", title: "Out")
             Group {
                 if rows.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
@@ -1010,7 +1010,7 @@ struct ScoreboardWidget: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: "checkmark.circle.fill", title: "Chore Board")
+            HubTileBanner(symbol: "checkmark.circle.fill", title: "Chores")
             Group {
                 if kids.isEmpty {
                     Text("Add a kid to start chores.")

@@ -112,7 +112,7 @@ struct CalendarHubView: View {
         ZStack {
             Color.black.opacity(0.38).ignoresSafeArea().onTapGesture { showWho = false }
             VStack(spacing: 0) {
-                HubTileBanner(symbol: "person.3.fill", title: "Who's calendar")
+                HubTileBanner(symbol: "person.3.fill", title: "Calendar")
                 ScrollView {
                     VStack(spacing: 10) {
                         whoRow(title: "Whole family", detail: store.householdName, selected: filter == .family, color: AppTheme.blue) {

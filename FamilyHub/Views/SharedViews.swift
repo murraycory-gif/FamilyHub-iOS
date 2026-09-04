@@ -847,10 +847,16 @@ struct HubTileBanner<Trailing: View>: View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
                 .font(.body.weight(.bold))
+            Text("HUB")
+                .font(.headline.weight(.heavy))
+                .tracking(0.4)
+            Text("|")
+                .font(.subheadline.weight(.semibold))
+                .opacity(0.55)
             Text(title)
-                .font(.headline.weight(.bold))
+                .font(.headline.weight(.regular))
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(0.7)
             Spacer(minLength: 0)
             trailing
         }

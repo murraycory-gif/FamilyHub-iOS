@@ -426,7 +426,7 @@ struct TodayView: View {
         VStack(spacing: 0) {
             HubTileBanner(
                 symbol: showDayMenu ? "calendar" : "person.3.fill",
-                title: showDayMenu ? "Pick a day" : "Who’s Hub"
+                title: showDayMenu ? "Day" : "Circle"
             ) {
                 Button {
                     showDayMenu = false
@@ -797,7 +797,7 @@ struct TodayView: View {
         return VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(
                 symbol: "calendar",
-                title: Calendar.current.isDateInToday(day) ? "On Today's Agenda" : "On the Agenda"
+                title: Calendar.current.isDateInToday(day) ? "Agenda" : "Agenda"
             ) {
                 Text(profileTitle)
                     .font(.subheadline.weight(.bold))
@@ -867,7 +867,7 @@ struct TodayView: View {
     private var shoppingTile: some View {
         let open = store.shoppingItems.filter { !$0.isChecked }
         return VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: "cart.fill", title: "Shopping List") {
+            HubTileBanner(symbol: "cart.fill", title: "Shopping") {
                 HStack(spacing: 8) {
                     if open.isEmpty == false {
                         Text("\(open.count)")
@@ -993,7 +993,7 @@ struct TodayView: View {
         let recipe = plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
         let title = store.dinnerTitle(on: day)
         return VStack(spacing: 0) {
-            HubTileBanner(symbol: "fork.knife", title: "What's For Dinner") {
+            HubTileBanner(symbol: "fork.knife", title: "Dinner") {
                 if plan != nil {
                     Button {
                         store.clearDinner(on: day)
