@@ -810,7 +810,8 @@ struct TodayView: View {
         return VStack(alignment: .leading, spacing: 0) {
             HubTileBanner(
                 symbol: "calendar",
-                title: Calendar.current.isDateInToday(day) ? "Agenda" : "Agenda"
+                title: "Agenda",
+                lead: Calendar.current.isDateInToday(day) ? "What's On Today's" : "What's On"
             ) {
                 Text(profileTitle)
                     .font(.subheadline.weight(.bold))
@@ -1006,7 +1007,7 @@ struct TodayView: View {
         let recipe = plan.flatMap { $0.recipeID }.flatMap { store.recipe(id: $0) }
         let title = store.dinnerTitle(on: day)
         return VStack(spacing: 0) {
-            HubTileBanner(symbol: "fork.knife", title: "Dinner") {
+            HubTileBanner(symbol: "fork.knife", title: "Dinner", lead: "What's For") {
                 if plan != nil {
                     Button {
                         store.clearDinner(on: day)

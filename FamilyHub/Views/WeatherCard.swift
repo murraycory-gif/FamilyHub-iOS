@@ -474,7 +474,7 @@ struct HubWeatherTile: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HubTileBanner(symbol: "location.fill", title: shortPlace) {
+            HubTileBanner(symbol: "location.fill", title: shortPlace, lead: "Weather") {
                 Button(action: onChangePlace) {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 11, weight: .bold))

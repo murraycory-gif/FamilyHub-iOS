@@ -833,12 +833,14 @@ extension HubPanel where Trailing == EmptyView {
 }
 
 struct HubTileBanner<Trailing: View>: View {
+    var lead: String = "HUB"
     let symbol: String
     let title: String
     @Environment(\.hubAccent) private var accent
     @ViewBuilder var trailing: Trailing
 
-    init(symbol: String, title: String, @ViewBuilder trailing: () -> Trailing) {
+    init(symbol: String, title: String, lead: String = "HUB", @ViewBuilder trailing: () -> Trailing) {
+        self.lead = lead
         self.symbol = symbol
         self.title = title
         self.trailing = trailing()
@@ -848,9 +850,11 @@ struct HubTileBanner<Trailing: View>: View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
                 .font(.body.weight(.bold))
-            Text("HUB")
+            Text(lead)
                 .font(.headline.weight(.heavy))
-                .tracking(0.4)
+                .tracking(0.2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
             Text("|")
                 .font(.subheadline.weight(.semibold))
                 .opacity(0.55)
@@ -870,8 +874,8 @@ struct HubTileBanner<Trailing: View>: View {
 }
 
 extension HubTileBanner where Trailing == EmptyView {
-    init(symbol: String, title: String) {
-        self.init(symbol: symbol, title: title) { EmptyView() }
+    init(symbol: String, title: String, lead: String = "HUB") {
+        self.init(symbol: symbol, title: title, lead: lead) { EmptyView() }
     }
 }
 
