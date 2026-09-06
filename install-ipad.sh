@@ -123,12 +123,21 @@ if [ -z "${UDID:-}" ]; then
 fi
 
 echo "Installing on $UDID ..."
-if ! xcrun devicectl device install app --device "$UDID" "$APP"; then
-  echo ""
-  echo "Install failed. Connected devices:"
-  xcrun devicectl list devices || true
-  exit 1
-fi
+tries=0
+until xcrun devicectl device install app --device "$UDID" "$APP"; do
+  tries=$((tries + 1))
+  if [ "$tries" -ge 4 ]; then
+    echo ""
+    echo "Install failed. Unlock the iPad, unplug, plug back in, tap Trust, then:"
+    echo "  SKIP_BUILD=1 ./go.sh"
+    echo ""
+    echo "Connected devices:"
+    xcrun devicectl list devices || true
+    exit 1
+  fi
+  echo "Install dropped. Retry $tries/3 in 4s — keep the iPad awake on the Home Screen."
+  sleep 4
+done
 
 echo "Opening HUB..."
 xcrun devicectl device process launch --device "$UDID" "$BUNDLE_ID" || true
