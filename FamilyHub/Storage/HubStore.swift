@@ -33,6 +33,14 @@ final class HubStore: ObservableObject {
     @Published var errorMessage: String?
     @Published private(set) var familyPhotoData: Data?
     @Published private(set) var memberPhotos: [UUID: Data] = [:]
+    @Published private(set) var eventComments: [EventComment] = []
+    @Published private(set) var circlePlaces: [CirclePlace] = []
+    @Published private(set) var placePings: [PlacePing] = []
+    @Published private(set) var documents: [HubDocument] = []
+    @Published private(set) var custodyHouses: [CustodyHouse] = []
+    @Published private(set) var quietHours: [QuietHours] = []
+    @Published private(set) var recapPhotos: [RecapPhoto] = []
+    @Published private(set) var choreProofs: [ChoreProof] = []
 
     private let fileManager: FileManager
     private let snapshotURL: URL
@@ -950,6 +958,99 @@ final class HubStore: ObservableObject {
         persist()
     }
 
+    func addEventComment(eventID: UUID, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return }
+        eventComments.insert(.make(eventID: eventID, memberID: signedInMemberID, text: trimmed), at: 0)
+        persist()
+    }
+
+    func comments(for eventID: UUID) -> [EventComment] {
+        eventComments.filter { $0.eventID == eventID }.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    func addCirclePlace(_ place: CirclePlace) {
+        circlePlaces.append(place)
+        persist()
+    }
+
+    func recordPlacePing(placeID: UUID, memberID: UUID, arrived: Bool) {
+        placePings.insert(PlacePing(id: UUID(), placeID: placeID, memberID: memberID, arrived: arrived, at: Date()), at: 0)
+        persist()
+    }
+
+    func addDocument(_ doc: HubDocument) {
+        documents.insert(doc, at: 0)
+        persist()
+    }
+
+    func deleteDocument(_ id: UUID) {
+        documents.removeAll { $0.id == id }
+        persist()
+    }
+
+    func setCustodyHouses(_ houses: [CustodyHouse]) {
+        custodyHouses = houses
+        persist()
+    }
+
+    func house(on day: Date, kidID: UUID? = nil) -> CustodyHouse? {
+        let weekday = Calendar.current.component(.weekday, from: day)
+        return custodyHouses.first { house in
+            house.weekdays.contains(weekday) && (kidID == nil || house.kidIDs.contains(kidID!))
+        }
+    }
+
+    func setQuietHours(_ rows: [QuietHours]) {
+        quietHours = rows
+        persist()
+    }
+
+    func isQuiet(memberID: UUID, at date: Date = Date()) -> Bool {
+        guard let row = quietHours.first(where: { $0.memberID == memberID && $0.enabled }) else { return false }
+        let hour = Calendar.current.component(.hour, from: date)
+        let minute = Calendar.current.component(.minute, from: date)
+        let mins = hour * 60 + minute
+        if row.startMinute <= row.endMinute {
+            return mins >= row.startMinute && mins < row.endMinute
+        }
+        return mins >= row.startMinute || mins < row.endMinute
+    }
+
+    func addRecap(_ photo: RecapPhoto) {
+        recapPhotos.insert(photo, at: 0)
+        persist()
+    }
+
+    func addChoreProof(assignmentID: UUID, note: String) {
+        choreProofs.insert(ChoreProof(id: UUID(), assignmentID: assignmentID, note: note, createdAt: Date()), at: 0)
+        persist()
+    }
+
+    func addQuickEvent(from text: String, memberID: UUID? = nil) -> CalendarEvent? {
+        guard let draft = QuickAdd.parse(text) else { return nil }
+        let event = CalendarEvent.make(
+            title: draft.title,
+            startAt: draft.startAt,
+            endAt: draft.allDay ? nil : draft.startAt.addingTimeInterval(3600),
+            allDay: draft.allDay,
+            location: draft.location,
+            memberID: memberID
+        )
+        addEvent(event)
+        return event
+    }
+
+    func markBillPaid(_ id: UUID) {
+        guard let idx = reminders.firstIndex(where: { $0.id == id }) else { return }
+        reminders[idx].isCompleted = true
+        persist()
+    }
+
+    func addSchoolCalendar(title: String, url: String) {
+        addICSSource(title: title.isEmpty ? "School" : title, url: url, brand: .subscribed)
+    }
+
     // MARK: Persistence
 
     private func loadOrSeed() {
@@ -998,6 +1099,14 @@ final class HubStore: ObservableObject {
         hubWidgetLimit = min(4, max(3, snapshot.hubWidgetLimit ?? 4))
         setupCompleted = snapshot.setupCompleted ?? !snapshot.members.isEmpty
         appearance = snapshot.appearance ?? .system
+        eventComments = snapshot.eventComments ?? []
+        circlePlaces = snapshot.circlePlaces ?? []
+        placePings = snapshot.placePings ?? []
+        documents = snapshot.documents ?? []
+        custodyHouses = snapshot.custodyHouses ?? []
+        quietHours = snapshot.quietHours ?? []
+        recapPhotos = snapshot.recapPhotos ?? []
+        choreProofs = snapshot.choreProofs ?? []
         if snapshot.joinCode == nil {
             persist()
         }
@@ -1031,7 +1140,15 @@ final class HubStore: ObservableObject {
             whiteboardNote: whiteboardNote,
             hubWidgetLimit: hubWidgetLimit,
             setupCompleted: setupCompleted,
-            appearance: appearance
+            appearance: appearance,
+            eventComments: eventComments,
+            circlePlaces: circlePlaces,
+            placePings: placePings,
+            documents: documents,
+            custodyHouses: custodyHouses,
+            quietHours: quietHours,
+            recapPhotos: recapPhotos,
+            choreProofs: choreProofs
         )
         do {
             let encoder = JSONEncoder()

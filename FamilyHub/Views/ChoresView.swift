@@ -20,6 +20,7 @@ struct ChoresView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         peopleRow
                             .coachSpot("chorePay")
+                        gameRow
                         HStack(alignment: .top, spacing: 16) {
                             assignedPanel
                                 .frame(maxWidth: .infinity)
@@ -184,6 +185,30 @@ struct ChoresView: View {
                 .stroke(selected ? color : Color.black.opacity(0.05), lineWidth: selected ? 2.5 : 1)
         )
         .shadow(color: .black.opacity(selected ? 0.12 : 0.08), radius: selected ? 10 : 6, y: selected ? 5 : 3)
+    }
+
+    private var gameRow: some View {
+        HubPanel(symbol: "flame.fill", title: "Streaks") {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(kids) { kid in
+                    let xp = CircleXP.total(memberID: kid.id, assignments: store.assignments, chores: store.chores)
+                    let streak = CircleXP.streak(memberID: kid.id, assignments: store.assignments)
+                    HStack {
+                        Text(kid.name).font(.headline)
+                        Spacer()
+                        Text("Lv \(CircleXP.level(xp: xp))")
+                            .font(.subheadline.weight(.heavy))
+                            .foregroundStyle(AppTheme.blue)
+                        Text("\(streak) day streak")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+                Text("Kids can attach a proof note when they tap done.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+        }
     }
 
     private var assignedPanel: some View {

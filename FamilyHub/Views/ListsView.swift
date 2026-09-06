@@ -277,8 +277,20 @@ struct ShoppingListView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "Shopping", tail: "List") {
-                if !store.shoppingItems.isEmpty {
-                    HubHeaderPill(title: "Clear all") { confirmClearAll = true }
+                HStack(spacing: 8) {
+                    if let url = GrocerySend.instacartURL(items: openItems.map(\.name)) {
+                        Link(destination: url) {
+                            Text("Instacart").font(.subheadline.weight(.bold))
+                        }
+                    }
+                    if let url = GrocerySend.amazonFreshURL(items: openItems.map(\.name)) {
+                        Link(destination: url) {
+                            Text("Amazon Fresh").font(.subheadline.weight(.bold))
+                        }
+                    }
+                    if !store.shoppingItems.isEmpty {
+                        HubHeaderPill(title: "Clear all") { confirmClearAll = true }
+                    }
                 }
             }
             .coachSpot("shopHeader")

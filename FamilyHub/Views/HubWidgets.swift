@@ -213,15 +213,18 @@ struct BillsWidget: View {
                                     router.open(.lists, list: .reminders)
                                 } label: {
                                     HubAgendaCallout(
-                                        rail: AppTheme.reminder,
+                                        rail: item.isCompleted ? AppTheme.textTertiary : AppTheme.reminder,
                                         eyebrow: item.dueAt.map(Date.hubClock) ?? "Due",
                                         title: item.title,
-                                        badge: "Bills Due",
+                                        badge: item.isCompleted ? "Paid" : "Bills Due",
                                         accent: accent
                                     )
                                 }
                                 .buttonStyle(.plain)
-                            }
+                                .swipeActions(edge: .trailing) {
+                                    Button("Paid") { store.markBillPaid(item.id) }
+                                        .tint(AppTheme.todo)
+                                }
                         }
                     }
                 }

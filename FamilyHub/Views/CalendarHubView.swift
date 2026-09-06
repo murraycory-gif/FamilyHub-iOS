@@ -392,6 +392,7 @@ struct EventDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     let event: CalendarEvent
+    @State private var commentDraft = ""
 
     var body: some View {
         NavigationStack {
@@ -495,6 +496,7 @@ struct EventDetailSheet: View {
                             Text(event.notes)
                         }
                     }
+                    commentsBlock
                     Button(role: .destructive) {
                         ingest.deleteEvent(event)
                         dismiss()
@@ -515,6 +517,31 @@ struct EventDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }.foregroundStyle(AppTheme.blue)
+                }
+            }
+        }
+    }
+
+    private var commentsBlock: some View {
+        HubPanel(symbol: "bubble.left.and.bubble.right.fill", title: "Family chat") {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(store.comments(for: event.id)) { row in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(store.member(id: row.memberID ?? UUID())?.name ?? store.householdName)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                        Text(row.text).font(.subheadline.weight(.semibold))
+                    }
+                }
+                HStack {
+                    TextField("Who’s driving?", text: $commentDraft)
+                    Button("Send") {
+                        store.addEventComment(eventID: event.id, text: commentDraft)
+                        commentDraft = ""
+                    }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.blue)
+                    .disabled(commentDraft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
         }
@@ -554,6 +581,13 @@ struct AddEventSheet: View {
             onCancel: { dismiss() },
             onConfirm: save
         ) {
+            HubField(label: "Say it") {
+                TextField("soccer Thursday 5 at RecPlex", text: $title)
+                    .onSubmit { applyQuick() }
+            }
+            Button("Fill from that sentence") { applyQuick() }
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(AppTheme.blue)
             HubField(label: "Title") {
                 TextField("What's happening?", text: $title)
             }
@@ -598,6 +632,14 @@ struct AddEventSheet: View {
         .onChange(of: memberID) { _, _ in
             destinationID = defaultDestination()
         }
+    }
+
+    private func applyQuick() {
+        guard let draft = QuickAdd.parse(title, now: start) else { return }
+        title = draft.title
+        location = draft.location
+        start = draft.startAt
+        allDay = draft.allDay
     }
 
     private func defaultDestination() -> String? {

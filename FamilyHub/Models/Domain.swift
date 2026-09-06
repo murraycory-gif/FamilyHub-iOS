@@ -563,6 +563,14 @@ struct HubSnapshot: Codable {
     var hubWidgetLimit: Int?
     var setupCompleted: Bool?
     var appearance: HubAppearance?
+    var eventComments: [EventComment]?
+    var circlePlaces: [CirclePlace]?
+    var placePings: [PlacePing]?
+    var documents: [HubDocument]?
+    var custodyHouses: [CustodyHouse]?
+    var quietHours: [QuietHours]?
+    var recapPhotos: [RecapPhoto]?
+    var choreProofs: [ChoreProof]?
 }
 
 struct ShoppingItem: Identifiable, Codable, Hashable {

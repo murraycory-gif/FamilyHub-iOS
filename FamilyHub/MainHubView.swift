@@ -3,7 +3,7 @@ import SwiftUI
 enum HubSection: String, CaseIterable, Identifiable, Hashable {
     case today, calendar, chores, lists, shopping, meals
     case profiles, device, invite, calendars, bills, allowance, weather, widgets, notify
-    case settings, family, looks
+    case settings, family, looks, plus
 
     var id: String { rawValue }
 
@@ -12,7 +12,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     }
 
     static var sectionItems: [HubSection] {
-        [.today, .calendar, .chores, .lists, .shopping, .meals]
+        [.today, .calendar, .chores, .lists, .shopping, .meals, .plus]
     }
 
     static var settingsItems: [HubSection] {
@@ -27,6 +27,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .lists: return "Lists"
         case .shopping: return "Shopping"
         case .meals: return "Meals"
+        case .plus: return "Circle+"
         case .settings: return "Settings"
         case .family, .profiles: return "Profiles"
         case .looks: return "Display"
@@ -49,6 +50,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .lists: return "list.bullet.rectangle"
         case .shopping: return "cart.fill"
         case .meals: return "fork.knife"
+        case .plus: return "sparkles"
         case .settings: return "gearshape.fill"
         case .family, .profiles: return "person.3.fill"
         case .looks: return "square.grid.2x2.fill"
@@ -255,6 +257,7 @@ struct MainHubView: View {
         case .lists: ListsView().hubChrome(showBack: true)
         case .shopping: ShoppingListView().hubChrome(showBack: true)
         case .meals: MealsView().hubChrome(showBack: true)
+        case .plus: CirclePlusView().hubChrome(showBack: true)
         case .settings, .family, .profiles, .device: ProfilesSettingsView().hubChrome(showBack: true)
         case .looks: HubLooksView().hubChrome(showBack: true)
         case .invite: InviteSettingsView().hubChrome(showBack: true)

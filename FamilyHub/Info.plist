@@ -19,7 +19,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>16</string>
+	<string>17</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
@@ -44,7 +44,9 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>HUB uses photos for family cards and to scan recipes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>HUB uses your location to find takeout and restaurants near you.</string>
+	<string>HUB uses your location for weather, restaurants, and to know when someone leaves school or home.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>HUB can ping the house when a family member arrives or leaves School, Home, or Practice.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>FamilyHub reads iCloud, Google, and Outlook calendars on this iPad so the family hub stays in sync.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
