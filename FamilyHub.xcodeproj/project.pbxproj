@@ -47,6 +47,8 @@
 		A038 /* FlightTrack.swift in Sources */ = {isa = PBXBuildFile; fileRef = B038 /* FlightTrack.swift */; };
 		A039 /* HouseholdCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = B039 /* HouseholdCloud.swift */; };
 		A040 /* HubBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = B040 /* HubBrand.swift */; };
+		A041 /* CirclePlus.swift in Sources */ = {isa = PBXBuildFile; fileRef = B041 /* CirclePlus.swift */; };
+		A042 /* CirclePlusViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B042 /* CirclePlusViews.swift */; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A904 /* RubikWetPaint-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B904 /* RubikWetPaint-Regular.ttf */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
@@ -77,6 +79,8 @@
 		B010 /* CalendarHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarHubView.swift; sourceTree = "<group>"; };
 		B011 /* SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedViews.swift; sourceTree = "<group>"; };
 		B040 /* HubBrand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubBrand.swift; sourceTree = "<group>"; };
+		B041 /* CirclePlus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CirclePlus.swift; sourceTree = "<group>"; };
+		B042 /* CirclePlusViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CirclePlusViews.swift; sourceTree = "<group>"; };
 		B012 /* ChoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoresView.swift; sourceTree = "<group>"; };
 		B013 /* ListsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListsView.swift; sourceTree = "<group>"; };
 		B014 /* FamilyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyView.swift; sourceTree = "<group>"; };
@@ -192,6 +196,7 @@
 				B033 /* HubCoachView.swift */,
 				B035 /* SocialRecipeView.swift */,
 				B037 /* HubWidgets.swift */,
+				B042 /* CirclePlusViews.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -200,6 +205,7 @@
 			isa = PBXGroup;
 			children = (
 				B007 /* Domain.swift */,
+				B041 /* CirclePlus.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -340,6 +346,8 @@
 				A005 /* AppTheme.swift in Sources */,
 				A006 /* BuildStamp.swift in Sources */,
 				A007 /* Domain.swift in Sources */,
+				A041 /* CirclePlus.swift in Sources */,
+				A042 /* CirclePlusViews.swift in Sources */,
 				A008 /* HubStore.swift in Sources */,
 				A036 /* HubPinger.swift in Sources */,
 				A037 /* HubWidgets.swift in Sources */,
