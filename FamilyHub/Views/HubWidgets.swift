@@ -225,6 +225,7 @@ struct BillsWidget: View {
                                     Button("Paid") { store.markBillPaid(item.id) }
                                         .tint(AppTheme.todo)
                                 }
+                            }
                         }
                     }
                 }
