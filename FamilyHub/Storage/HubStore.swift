@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import UIKit
+import WidgetKit
 
 @MainActor
 final class HubStore: ObservableObject {
@@ -1158,9 +1159,32 @@ final class HubStore: ObservableObject {
             try data.write(to: snapshotURL, options: [.atomic])
             rememberAccount()
             scheduleCloudPublish(data)
+            publishWidgets()
         } catch {
             errorMessage = "Could not save: \(error.localizedDescription)"
         }
+    }
+
+    private func publishWidgets() {
+        let day = Date()
+        let next = events.filter { $0.startAt > Date() }.sorted { $0.startAt < $1.startAt }.first
+        WidgetBridge.write(WidgetBridge.Snapshot(
+            household: householdName.isEmpty ? "HUB Circle" : householdName,
+            agendaTitle: next?.title ?? "Nothing on the calendar",
+            agendaWhen: next.map { $0.allDay ? "All day" : Date.hubClock($0.startAt) } ?? "Today",
+            dinnerName: dinnerTitle(on: day) ?? "Nothing planned",
+            dinnerSide: dinnerSide(on: day)?.name ?? "",
+            leaveTitle: next?.title ?? "",
+            leaveAt: next.map { $0.startAt.addingTimeInterval(-20 * 60) },
+            eventStart: next?.startAt,
+            updatedAt: Date()
+        ))
+        WidgetCenter.shared.reloadAllTimelines()
+        #if canImport(ActivityKit)
+        if let next {
+            LeaveByLive.publish(title: next.title, eventID: next.id.uuidString, startAt: next.startAt)
+        }
+        #endif
     }
 
     private var cloudPublishTask: Task<Void, Never>?

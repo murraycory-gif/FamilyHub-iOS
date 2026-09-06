@@ -49,6 +49,12 @@
 		A040 /* HubBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = B040 /* HubBrand.swift */; };
 		A041 /* CirclePlus.swift in Sources */ = {isa = PBXBuildFile; fileRef = B041 /* CirclePlus.swift */; };
 		A042 /* CirclePlusViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B042 /* CirclePlusViews.swift */; };
+		A050 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B050 /* WidgetBridge.swift */; };
+		A051 /* LeaveByActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B051 /* LeaveByActivity.swift */; };
+		A052 /* FamilyHubWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B052 /* FamilyHubWidgets.swift */; };
+		A053 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B050 /* WidgetBridge.swift */; };
+		A054 /* LeaveByActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B051 /* LeaveByActivity.swift */; };
+		A055 /* FamilyHubWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B920 /* FamilyHubWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B900 /* Assets.xcassets */; };
 		A904 /* RubikWetPaint-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B904 /* RubikWetPaint-Regular.ttf */; };
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
@@ -63,6 +69,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = E001;
 			remoteInfo = FamilyHub;
+		};
+		P003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E003;
+			remoteInfo = FamilyHubWidgets;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -81,6 +94,12 @@
 		B040 /* HubBrand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubBrand.swift; sourceTree = "<group>"; };
 		B041 /* CirclePlus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CirclePlus.swift; sourceTree = "<group>"; };
 		B042 /* CirclePlusViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CirclePlusViews.swift; sourceTree = "<group>"; };
+		B050 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
+		B051 /* LeaveByActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaveByActivity.swift; sourceTree = "<group>"; };
+		B052 /* FamilyHubWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyHubWidgets.swift; sourceTree = "<group>"; };
+		B053 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B054 /* FamilyHubWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FamilyHubWidgets.entitlements; sourceTree = "<group>"; };
+		B920 /* FamilyHubWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FamilyHubWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B012 /* ChoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoresView.swift; sourceTree = "<group>"; };
 		B013 /* ListsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListsView.swift; sourceTree = "<group>"; };
 		B014 /* FamilyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyView.swift; sourceTree = "<group>"; };
@@ -143,6 +162,7 @@
 			children = (
 				D002 /* FamilyHub */,
 				D007 /* FamilyHubTests */,
+				D008 /* FamilyHubWidgets */,
 				D003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -159,6 +179,7 @@
 				D005 /* Models */,
 				D006 /* Storage */,
 				D004 /* Views */,
+				D009 /* Widgets */,
 				B900 /* Assets.xcassets */,
 				B904 /* RubikWetPaint-Regular.ttf */,
 				B901 /* Info.plist */,
@@ -172,6 +193,7 @@
 			children = (
 				B902 /* FamilyHub.app */,
 				B910 /* FamilyHubTests.xctest */,
+				B920 /* FamilyHubWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -233,6 +255,25 @@
 			path = Storage;
 			sourceTree = "<group>";
 		};
+		D008 /* FamilyHubWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				B052 /* FamilyHubWidgets.swift */,
+				B053 /* Info.plist */,
+				B054 /* FamilyHubWidgets.entitlements */,
+			);
+			path = FamilyHubWidgets;
+			sourceTree = "<group>";
+		};
+		D009 /* Widgets */ = {
+			isa = PBXGroup;
+			children = (
+				B050 /* WidgetBridge.swift */,
+				B051 /* LeaveByActivity.swift */,
+			);
+			path = Widgets;
+			sourceTree = "<group>";
+		};
 		D007 /* FamilyHubTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -253,10 +294,12 @@
 				C002 /* Sources */,
 				C001 /* Frameworks */,
 				C003 /* Resources */,
+				C020 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				P004 /* PBXTargetDependency */,
 			);
 			name = FamilyHub;
 			productName = FamilyHub;
@@ -280,6 +323,23 @@
 			productName = FamilyHubTests;
 			productReference = B910 /* FamilyHubTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		E003 /* FamilyHubWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = H004 /* Build configuration list for PBXNativeTarget "FamilyHubWidgets" */;
+			buildPhases = (
+				C022 /* Sources */,
+				C021 /* Frameworks */,
+				C023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FamilyHubWidgets;
+			productName = FamilyHubWidgets;
+			productReference = B920 /* FamilyHubWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -311,6 +371,7 @@
 			targets = (
 				E001 /* FamilyHub */,
 				E002 /* FamilyHubTests */,
+				E003 /* FamilyHubWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -326,6 +387,31 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C013 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C020 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A055 /* FamilyHubWidgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C021 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C023 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -348,6 +434,8 @@
 				A007 /* Domain.swift in Sources */,
 				A041 /* CirclePlus.swift in Sources */,
 				A042 /* CirclePlusViews.swift in Sources */,
+				A050 /* WidgetBridge.swift in Sources */,
+				A051 /* LeaveByActivity.swift in Sources */,
 				A008 /* HubStore.swift in Sources */,
 				A036 /* HubPinger.swift in Sources */,
 				A037 /* HubWidgets.swift in Sources */,
@@ -394,6 +482,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C022 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A052 /* FamilyHubWidgets.swift in Sources */,
+				A053 /* WidgetBridge.swift in Sources */,
+				A054 /* LeaveByActivity.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -401,6 +499,11 @@
 			isa = PBXTargetDependency;
 			target = E001 /* FamilyHub */;
 			targetProxy = P001 /* PBXContainerItemProxy */;
+		};
+		P004 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E003 /* FamilyHubWidgets */;
+			targetProxy = P003 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -522,6 +625,58 @@
 			};
 			name = Release;
 		};
+		G007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FamilyHubWidgets/FamilyHubWidgets.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FamilyHubWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.corymurray.FamilyHub.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		G008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FamilyHubWidgets/FamilyHubWidgets.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FamilyHubWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.corymurray.FamilyHub.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -548,6 +703,15 @@
 			buildConfigurations = (
 				G005 /* Debug */,
 				G006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		H004 /* Build configuration list for PBXNativeTarget "FamilyHubWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				G007 /* Debug */,
+				G008 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
