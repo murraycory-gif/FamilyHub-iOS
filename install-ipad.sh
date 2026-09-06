@@ -16,6 +16,10 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
   echo "Building for device..."
   rm -rf "$DERIVED"
   BUILD_LOG="${TMPDIR:-/tmp}/familyhub-xcodebuild.log"
+  TEAM_ARGS=""
+  if [ -f .signing-team ]; then
+    TEAM_ARGS="DEVELOPMENT_TEAM=$(tr -d '[:space:]' < .signing-team)"
+  fi
   if ! xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
@@ -23,6 +27,7 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
     -destination 'generic/platform=iOS' \
     -derivedDataPath "$DERIVED" \
     -allowProvisioningUpdates \
+    $TEAM_ARGS \
     build 2>&1 | tee "$BUILD_LOG"
   then
     echo ""

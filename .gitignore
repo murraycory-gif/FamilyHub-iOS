@@ -1,5 +1,6 @@
 # Local Apple team — never overwrite on pull
 FamilyHub/Config/Team.xcconfig
+.signing-team
 
 *.xcuserstate
 *.xccheckout
