@@ -571,6 +571,47 @@ struct HubSnapshot: Codable {
     var quietHours: [QuietHours]?
     var recapPhotos: [RecapPhoto]?
     var choreProofs: [ChoreProof]?
+
+    /// Payload safe for CloudKit's public database. Join still gets names, colors,
+    /// roles, and the household calendar, meals, and chores. Secrets and contact
+    /// details stay on the device that typed them.
+    func forPublicDatabase() -> HubSnapshot {
+        var copy = self
+        copy.members = members.map { member in
+            var next = member
+            next.email = ""
+            next.phone = ""
+            if next.role == .child {
+                next.birthday = nil
+                next.allowanceBalanceCents = 0
+            }
+            return next
+        }
+        var prefs = (notifyPrefs ?? .off).strippingSecrets()
+        prefs.extraPhone = ""
+        copy.notifyPrefs = prefs
+        copy.documents = (documents ?? []).filter { doc in
+            switch doc.kind {
+            case .insurance, .medical, .shots:
+                return false
+            case .sports, .school, .other:
+                return true
+            }
+        }
+        copy.calendarSources = calendarSources?.map { source in
+            var next = source
+            next.icsURL = nil
+            return next
+        }
+        copy.placePings = []
+        copy.circlePlaces = circlePlaces?.map { place in
+            var next = place
+            next.latitude = 0
+            next.longitude = 0
+            return next
+        }
+        return copy
+    }
 }
 
 struct ShoppingItem: Identifiable, Codable, Hashable {
