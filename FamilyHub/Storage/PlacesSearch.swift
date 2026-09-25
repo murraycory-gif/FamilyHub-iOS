@@ -365,7 +365,6 @@ final class PlacesSearch: ObservableObject {
         async let coffee = searchNamed("coffee", around: location, requireFood: false)
         async let tacos = searchNamed("tacos", around: location, requireFood: false)
         async let poi = searchPOIs(around: location)
-        async let osm = searchOSM(around: location)
 
         var seen = Set<String>()
         var result: [NearbyPlace] = []
@@ -375,8 +374,7 @@ final class PlacesSearch: ObservableObject {
             (try? await pizza) ?? [],
             (try? await coffee) ?? [],
             (try? await tacos) ?? [],
-            (try? await poi) ?? [],
-            (try? await osm) ?? []
+            (try? await poi) ?? []
         ]
         for batch in batches {
             merge(batch, into: &result, seen: &seen)
@@ -437,45 +435,6 @@ final class PlacesSearch: ObservableObject {
         let unique = items.filter { seen.insert($0.id).inserted }
         return unique.sorted { left, right in
             (left.distance ?? .greatestFiniteMagnitude) < (right.distance ?? .greatestFiniteMagnitude)
-        }
-    }
-
-    private func searchOSM(around location: CLLocation) async throws -> [NearbyPlace] {
-        let lat = location.coordinate.latitude
-        let lon = location.coordinate.longitude
-        let radius = Int(maxMeters)
-        let query = "[out:json][timeout:6];(node[\"amenity\"=\"restaurant\"](around:\(radius),\(lat),\(lon));node[\"amenity\"=\"fast_food\"](around:\(radius),\(lat),\(lon));node[\"amenity\"=\"cafe\"](around:\(radius),\(lat),\(lon));way[\"amenity\"=\"restaurant\"](around:\(radius),\(lat),\(lon));way[\"amenity\"=\"fast_food\"](around:\(radius),\(lat),\(lon)););out center tags;"
-        let endpoints = [
-            "https://overpass-api.de/api/interpreter",
-            "https://overpass.kumi.systems/api/interpreter"
-        ]
-        var lastError: Error?
-        for endpoint in endpoints {
-            do {
-                return try await fetchOSM(endpoint: endpoint, query: query, around: location)
-            } catch {
-                lastError = error
-            }
-        }
-        throw lastError ?? URLError(.cannotConnectToHost)
-    }
-
-    private func fetchOSM(endpoint: String, query: String, around location: CLLocation) async throws -> [NearbyPlace] {
-        guard let url = URL(string: endpoint) else { throw URLError(.badURL) }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 6
-        request.setValue("HUB/1.0", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        let encoded = query.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed) ?? query
-        request.httpBody = Data("data=\(encoded)".utf8)
-        let pair = try await URLSession.shared.data(for: request)
-        guard let http = pair.1 as? HTTPURLResponse, http.statusCode >= 200, http.statusCode < 300 else {
-            throw URLError(.badServerResponse)
-        }
-        let decoded = try JSONDecoder().decode(OSMResponse.self, from: pair.0)
-        return decoded.elements.compactMap { element in
-            element.asPlace(around: location, maxMeters: self.maxMeters, takeoutNames: self.takeoutNames)
         }
     }
 
@@ -558,62 +517,3 @@ private struct PlaceDiskCache: Codable {
     var places: [NearbyPlace]
 }
 
-private struct OSMResponse: Decodable {
-    var elements: [OSMElement]
-}
-
-private struct OSMElement: Decodable {
-    var type: String?
-    var id: Int64?
-    var lat: Double?
-    var lon: Double?
-    var center: OSMCenter?
-    var tags: [String: String]?
-
-    struct OSMCenter: Decodable {
-        var lat: Double
-        var lon: Double
-    }
-
-    func asPlace(around location: CLLocation, maxMeters: CLLocationDistance, takeoutNames: [String]) -> NearbyPlace? {
-        let tags = self.tags ?? [:]
-        let name = (tags["name"] ?? "").trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-        if name.isEmpty { return nil }
-        let resolvedLat = self.lat ?? center?.lat
-        let resolvedLon = self.lon ?? center?.lon
-        guard let resolvedLat = resolvedLat, let resolvedLon = resolvedLon else { return nil }
-        let distance = location.distance(from: CLLocation(latitude: resolvedLat, longitude: resolvedLon))
-        if distance > maxMeters { return nil }
-        let amenity = (tags["amenity"] ?? tags["shop"] ?? "").lowercased()
-        let cuisine = (tags["cuisine"] ?? "").replacingOccurrences(of: "_", with: " ")
-        let lower = name.lowercased()
-        var takeout = false
-        if amenity == "fast_food" || amenity == "cafe" || amenity == "ice_cream" {
-            takeout = true
-        }
-        if takeoutNames.contains(where: { lower.contains($0) }) {
-            takeout = true
-        }
-        let street = [tags["addr:housenumber"], tags["addr:street"]].compactMap { $0 }.joined(separator: " ")
-        let city = tags["addr:city"] ?? ""
-        let address = [street, city].filter { $0.isEmpty == false }.joined(separator: " ")
-        let phone = tags["phone"] ?? tags["contact:phone"] ?? ""
-        var website: URL?
-        if let raw = tags["website"] ?? tags["contact:website"] {
-            website = URL(string: raw)
-        }
-        let ident = "osm-\(type ?? "n")-\(id ?? 0)"
-        return NearbyPlace(
-            id: ident,
-            name: name,
-            category: cuisine.isEmpty ? amenity.replacingOccurrences(of: "_", with: " ") : cuisine,
-            address: address,
-            phone: phone,
-            url: website,
-            latitude: resolvedLat,
-            longitude: resolvedLon,
-            distance: distance,
-            mode: takeout ? .takeout : .sitdown
-        )
-    }
-}

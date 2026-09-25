@@ -45,6 +45,9 @@ enum DietMatch {
     /// An empty ingredient list does not pass a restriction.
     static func allows(_ recipe: CatalogRecipe, flags: Set<DietFlag>) -> Bool {
         if flags.isEmpty { return true }
+        if recipe.dietTags.isEmpty == false {
+            return flags.allSatisfy { recipe.dietTags.contains($0) }
+        }
         let blob = recipe.ingredients.joined(separator: " ").lowercased()
         if blob.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return false }
         return flags.allSatisfy { allows(blob, flag: $0) }

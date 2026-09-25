@@ -55,6 +55,8 @@
 		A046 /* HubIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B046 /* HubIntents.swift */; };
 		A047 /* RecipeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B047 /* RecipeProvider.swift */; };
 		A048 /* DietFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B048 /* DietFilter.swift */; };
+		A049 /* RecipePack.swift in Sources */ = {isa = PBXBuildFile; fileRef = B049 /* RecipePack.swift */; };
+		A905 /* SeedRecipes.json in Resources */ = {isa = PBXBuildFile; fileRef = B905 /* SeedRecipes.json */; };
 		A050 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B050 /* WidgetBridge.swift */; };
 		A051 /* LeaveByActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B051 /* LeaveByActivity.swift */; };
 		A052 /* FamilyHubWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B052 /* FamilyHubWidgets.swift */; };
@@ -69,6 +71,7 @@
 		A914 /* SnapshotReliabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B914 /* SnapshotReliabilityTests.swift */; };
 		A915 /* HubNoticePlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B915 /* HubNoticePlannerTests.swift */; };
 		A916 /* DietFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B916 /* DietFilterTests.swift */; };
+		A917 /* RecipePackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B917 /* RecipePackTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -109,6 +112,8 @@
 		B046 /* HubIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubIntents.swift; sourceTree = "<group>"; };
 		B047 /* RecipeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeProvider.swift; sourceTree = "<group>"; };
 		B048 /* DietFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietFilter.swift; sourceTree = "<group>"; };
+		B049 /* RecipePack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipePack.swift; sourceTree = "<group>"; };
+		B905 /* SeedRecipes.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = SeedRecipes.json; path = Resources/SeedRecipes.json; sourceTree = "<group>"; };
 		B050 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		B051 /* LeaveByActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaveByActivity.swift; sourceTree = "<group>"; };
 		B052 /* FamilyHubWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyHubWidgets.swift; sourceTree = "<group>"; };
@@ -155,6 +160,7 @@
 		B914 /* SnapshotReliabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotReliabilityTests.swift; sourceTree = "<group>"; };
 		B915 /* HubNoticePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubNoticePlannerTests.swift; sourceTree = "<group>"; };
 		B916 /* DietFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietFilterTests.swift; sourceTree = "<group>"; };
+		B917 /* RecipePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipePackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -201,6 +207,7 @@
 				D009 /* Widgets */,
 				B900 /* Assets.xcassets */,
 				B904 /* RubikWetPaint-Regular.ttf */,
+				B905 /* SeedRecipes.json */,
 				B901 /* Info.plist */,
 				B903 /* FamilyHub.entitlements */,
 			);
@@ -247,6 +254,7 @@
 			children = (
 				B007 /* Domain.swift */,
 				B048 /* DietFilter.swift */,
+				B049 /* RecipePack.swift */,
 				B041 /* CirclePlus.swift */,
 			);
 			path = Models;
@@ -307,6 +315,7 @@
 				B914 /* SnapshotReliabilityTests.swift */,
 				B915 /* HubNoticePlannerTests.swift */,
 				B916 /* DietFilterTests.swift */,
+				B917 /* RecipePackTests.swift */,
 			);
 			path = FamilyHubTests;
 			sourceTree = "<group>";
@@ -410,6 +419,7 @@
 			files = (
 				A900 /* Assets.xcassets in Resources */,
 				A904 /* RubikWetPaint-Regular.ttf in Resources */,
+				A905 /* SeedRecipes.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -487,6 +497,7 @@
 				A020 /* RecipeCatalog.swift in Sources */,
 				A047 /* RecipeProvider.swift in Sources */,
 				A048 /* DietFilter.swift in Sources */,
+				A049 /* RecipePack.swift in Sources */,
 				A021 /* PlacesSearch.swift in Sources */,
 				A022 /* AmericanKitchen.swift in Sources */,
 				A023 /* RecipeScan.swift in Sources */,
@@ -515,6 +526,7 @@
 				A914 /* SnapshotReliabilityTests.swift in Sources */,
 				A915 /* HubNoticePlannerTests.swift in Sources */,
 				A916 /* DietFilterTests.swift in Sources */,
+				A917 /* RecipePackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

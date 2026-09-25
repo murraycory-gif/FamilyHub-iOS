@@ -44,155 +44,89 @@ protocol RecipeProviding: Sendable {
 }
 
 enum RecipeSources {
-    /// Public https URL of an open-licensed catalog on free Cloudflare R2.
-    /// Nil keeps that source off. No key and no account.
+    /// Public base of our recipe pack on Cloudflare R2, such as https://recipes.example.r2.dev
+    /// Nil uses the bundled seed only. No third-party recipe API.
     static let r2CatalogBase: URL? = nil
+    static let packPath = "recipe-pack.json"
 
-    /// TheMealDB's free public key is the live source. An R2 catalog, when the URL is set, is asked first and MealDB fills the gaps.
     static func make() -> any RecipeProviding {
-        if let base = r2CatalogBase {
-            return RecipeSourceList(primary: R2CatalogProvider(base: base), fallback: MealDBRecipeProvider())
-        }
-        return MealDBRecipeProvider()
+        HubCatalogProvider()
     }
 }
 
-struct MealDBRecipeProvider: RecipeProviding {
-    let id = "themealdb"
-    let displayName = "TheMealDB"
+struct HubCatalogProvider: RecipeProviding {
+    let id = "hub"
+    let displayName = "HUB"
 
     func trending() async throws -> [CatalogRecipe] {
-        if let cached = RecipeProviderCache.load(key: "trending"), cached.fresh {
-            return cached.recipes
-        }
-        do {
-            var seen = Set<String>()
-            var result: [CatalogRecipe] = []
-            for _ in 0..<8 {
-                if let meal = try await MealDB.random(), seen.insert(meal.id).inserted {
-                    result.append(tagged(meal))
-                }
-            }
-            RecipeProviderCache.save(result, key: "trending")
-            return result
-        } catch {
-            if let cached = RecipeProviderCache.load(key: "trending") { return cached.recipes }
-            throw error
-        }
+        let pack = try await catalog()
+        return pack.filter { $0.trendingRank != nil }.sorted { ($0.trendingRank ?? 999) < ($1.trendingRank ?? 999) }
     }
 
     func searchDish(_ query: String) async throws -> [CatalogRecipe] {
-        try await cached("dish-\(query.lowercased())") { try await MealDB.search(query).map(tagged) }
+        try await match(query) { recipe, needle in
+            recipe.name.lowercased().contains(needle)
+        }
     }
 
     func searchIngredient(_ query: String) async throws -> [CatalogRecipe] {
-        try await cached("ingredient-\(query.lowercased())") {
-            let listed = try await MealDB.filterIngredient(query)
-            var full: [CatalogRecipe] = []
-            for item in listed.prefix(12) {
-                if let detail = try await MealDB.lookup(item.id) {
-                    full.append(tagged(detail))
-                } else {
-                    full.append(tagged(item))
-                }
-            }
-            return full
+        try await match(query) { recipe, needle in
+            recipe.ingredients.joined(separator: " ").lowercased().contains(needle)
         }
     }
 
     func searchCuisine(_ query: String) async throws -> [CatalogRecipe] {
-        try await cached("cuisine-\(query.lowercased())") {
-            try await MealDB.filter(area: query).map(tagged)
+        try await match(query) { recipe, needle in
+            recipe.area.lowercased().contains(needle) || recipe.category.lowercased().contains(needle)
         }
     }
 
     func lookup(id: String) async throws -> CatalogRecipe? {
-        let key = "id-\(id)"
-        if let cached = RecipeProviderCache.load(key: key)?.recipes.first { return cached }
-        let found = try await MealDB.lookup(id).map(tagged)
-        if let found { RecipeProviderCache.save([found], key: key) }
-        return found
+        try await catalog().first { $0.id == id }
     }
 
-    private func tagged(_ recipe: CatalogRecipe) -> CatalogRecipe {
-        var copy = recipe
-        if copy.sourceName.isEmpty { copy.sourceName = displayName }
-        return copy
+    private func match(_ query: String, _ test: (CatalogRecipe, String) -> Bool) async throws -> [CatalogRecipe] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return try await catalog().filter { test($0, needle) }
     }
 
-    private func cached(_ key: String, load: () async throws -> [CatalogRecipe]) async throws -> [CatalogRecipe] {
-        if let hit = RecipeProviderCache.load(key: key), hit.fresh { return hit.recipes }
-        do {
-            let batch = try await load()
-            RecipeProviderCache.save(batch, key: key)
-            return batch
-        } catch {
-            if let hit = RecipeProviderCache.load(key: key) { return hit.recipes }
-            throw error
+    private func catalog() async throws -> [CatalogRecipe] {
+        var byID: [String: CatalogRecipe] = [:]
+        for recipe in RecipePackStore.seed().recipes.map({ $0.asCatalogRecipe() }) {
+            byID[recipe.id] = recipe
         }
+        if let cached = RecipePackStore.cached() {
+            for recipe in cached.recipes.map({ $0.asCatalogRecipe() }) {
+                byID[recipe.id] = recipe
+            }
+        }
+        if let remote = try? await RecipePackStore.refresh() {
+            for recipe in remote.recipes.map({ $0.asCatalogRecipe() }) {
+                byID[recipe.id] = recipe
+            }
+        }
+        return Array(byID.values)
     }
 }
 
-enum RecipeProviderCache {
-    struct Entry: Codable {
-        var savedAt: Date
-        var recipes: [CatalogRecipe]
-        var fresh: Bool {
-            Date().timeIntervalSince(savedAt) < 60 * 60 * 24 * 7
-        }
+enum RecipePackStore {
+    static func seed() -> RecipePack {
+        guard let url = Bundle.main.url(forResource: "SeedRecipes", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let pack = try? JSONDecoder().decode(RecipePack.self, from: data),
+              pack.validate().isEmpty
+        else { return RecipePack(version: 1, recipes: []) }
+        return pack
     }
 
-    static func load(key: String) -> Entry? {
-        guard let url = file(key), let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(Entry.self, from: data)
+    static func cached() -> RecipePack? {
+        guard let url = cacheFile, let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(RecipePack.self, from: data)
     }
 
-    static func save(_ recipes: [CatalogRecipe], key: String) {
-        guard let url = file(key) else { return }
-        let entry = Entry(savedAt: Date(), recipes: recipes)
-        if let data = try? JSONEncoder().encode(entry) {
-            try? data.write(to: url, options: .atomic)
-        }
-    }
-
-    private static func file(_ key: String) -> URL? {
-        guard let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
-        let folder = dir.appendingPathComponent("RecipeProviderV1", isDirectory: true)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        var hash: UInt64 = 5381
-        for byte in key.utf8 { hash = ((hash << 5) &+ hash) &+ UInt64(byte) }
-        return folder.appendingPathComponent(String(hash, radix: 16) + ".json")
-    }
-}
-
-/// Open-licensed JSON on a public R2 URL. No key. Off until `RecipeSources.r2CatalogBase` is set.
-struct R2CatalogProvider: RecipeProviding {
-    let base: URL
-    var id: String { "r2" }
-    var displayName: String { "HUB catalog" }
-
-    func trending() async throws -> [CatalogRecipe] {
-        try await fetch("trending.json")
-    }
-
-    func searchDish(_ query: String) async throws -> [CatalogRecipe] {
-        try await fetch("dish/\(slug(query)).json")
-    }
-
-    func searchIngredient(_ query: String) async throws -> [CatalogRecipe] {
-        try await fetch("ingredient/\(slug(query)).json")
-    }
-
-    func searchCuisine(_ query: String) async throws -> [CatalogRecipe] {
-        try await fetch("cuisine/\(slug(query)).json")
-    }
-
-    func lookup(id: String) async throws -> CatalogRecipe? {
-        try await fetch("id/\(slug(id)).json").first
-    }
-
-    private func fetch(_ path: String) async throws -> [CatalogRecipe] {
-        guard let url = URL(string: path, relativeTo: base)?.absoluteURL else { return [] }
+    static func refresh() async throws -> RecipePack? {
+        guard let base = RecipeSources.r2CatalogBase else { return nil }
+        guard let url = URL(string: RecipeSources.packPath, relativeTo: base)?.absoluteURL else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 12)
         let data: Data
         let response: URLResponse
@@ -204,32 +138,17 @@ struct R2CatalogProvider: RecipeProviding {
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw RecipeProviderError.unavailable
         }
-        return (try? JSONDecoder().decode([CatalogRecipe].self, from: data)) ?? []
+        let pack = try JSONDecoder().decode(RecipePack.self, from: data)
+        let problems = pack.validate()
+        if problems.isEmpty == false { throw RecipeProviderError.unavailable }
+        if let file = cacheFile { try? data.write(to: file, options: .atomic) }
+        return pack
     }
 
-    private func slug(_ raw: String) -> String {
-        raw.lowercased().addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? raw
-    }
-}
-
-struct RecipeSourceList: RecipeProviding {
-    let primary: any RecipeProviding
-    let fallback: any RecipeProviding
-    var id: String { primary.id }
-    var displayName: String { primary.displayName }
-
-    func trending() async throws -> [CatalogRecipe] { try await first { try await $0.trending() } }
-    func searchDish(_ query: String) async throws -> [CatalogRecipe] { try await first { try await $0.searchDish(query) } }
-    func searchIngredient(_ query: String) async throws -> [CatalogRecipe] { try await first { try await $0.searchIngredient(query) } }
-    func searchCuisine(_ query: String) async throws -> [CatalogRecipe] { try await first { try await $0.searchCuisine(query) } }
-
-    func lookup(id: String) async throws -> CatalogRecipe? {
-        if let hit = try? await primary.lookup(id: id) { return hit }
-        return try await fallback.lookup(id: id)
-    }
-
-    private func first(_ load: (any RecipeProviding) async throws -> [CatalogRecipe]) async throws -> [CatalogRecipe] {
-        if let batch = try? await load(primary), batch.isEmpty == false { return batch }
-        return try await load(fallback)
+    private static var cacheFile: URL? {
+        guard let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        let folder = dir.appendingPathComponent("RecipePackV1", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder.appendingPathComponent("recipe-pack.json")
     }
 }
