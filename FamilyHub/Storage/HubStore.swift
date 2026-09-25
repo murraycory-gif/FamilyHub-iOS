@@ -48,8 +48,10 @@ final class HubStore: ObservableObject {
 
     private let fileManager: FileManager
     private let snapshotURL: URL
-    /// A failed decode must not be overwritten by a later save.
-    private var loadFailed = false
+    /// A failed decode must not be overwritten by a later save, and must not look like an empty house.
+    @Published private(set) var loadFailed = false
+    @Published private(set) var loadFailureDetail: String?
+    var remote: any HouseholdRemote = HouseholdCloudClient()
     private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
     private var memberPhotoFolder: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("member-photos", isDirectory: true) }
 
@@ -546,7 +548,12 @@ final class HubStore: ObservableObject {
         rememberIssued(joinCode)
         persist()
         let retired = previous
-        Task { await Self.deleteSharedRecord(code: retired) }
+        Task { @MainActor in
+            let failed = await self.deletePublicCodes([retired])
+            if !failed.isEmpty {
+                self.errorMessage = "Could not delete the old shared record \(retired). It is still on iCloud."
+            }
+        }
     }
 
     func knownShareCodes() -> [String] {
@@ -558,29 +565,37 @@ final class HubStore: ObservableObject {
 
     /// Owner-triggered only. Deletes every hub-&lt;code&gt; this device has issued, including the current one.
     func removeOldSharedRecords() async -> String {
-        let codes = knownShareCodes()
-        guard !codes.isEmpty else { return "No shared records on this device." }
-        var failed = 0
-        for code in codes {
-            if await Self.deleteSharedRecord(code: code) == false { failed += 1 }
+        let failed = await deletePublicCodes(knownShareCodes(), attempts: 3)
+        if failed.isEmpty {
+            let count = knownShareCodes().count
+            return "Removed \(count) shared record\(count == 1 ? "" : "s"). Publish again if family should rejoin."
         }
-        let removed = codes.count - failed
-        if failed == 0 {
-            return "Removed \(removed) shared record\(removed == 1 ? "" : "s"). Publish again if family should rejoin."
-        }
-        return "Removed \(removed). \(failed) could not be deleted. Check iCloud and try again."
+        let message = "Could not delete old shared records (\(failed.joined(separator: ", "))). They are still on iCloud."
+        errorMessage = message
+        return message
     }
 
-    @discardableResult
-    private static func deleteSharedRecord(code: String) async -> Bool {
-        let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-        guard clean.count == 6 else { return true }
-        do {
-            try await HouseholdCloud.delete(code: clean)
-            return true
-        } catch {
-            return false
+    /// Retries transient iCloud errors. Returns the codes that still failed. Never treats a failure as success.
+    func deletePublicCodes(_ codes: [String], attempts: Int = 3) async -> [String] {
+        var failed: [String] = []
+        for code in codes {
+            let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
+            guard clean.count == 6 else { continue }
+            var removed = false
+            for attempt in 0..<max(1, attempts) {
+                do {
+                    try await remote.deletePublicCode(clean)
+                    removed = true
+                    break
+                } catch {
+                    let retry = HouseholdCloud.isTransient(error) && attempt < attempts - 1
+                    if !retry { break }
+                    try? await Task.sleep(for: .milliseconds(50 * (attempt + 1)))
+                }
+            }
+            if !removed { failed.append(clean) }
         }
+        return failed
     }
 
     private func rememberIssued(_ code: String) {
@@ -1137,9 +1152,7 @@ final class HubStore: ObservableObject {
             let backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-\(stamp).json")
             try? fileManager.copyItem(at: snapshotURL, to: backup)
             loadFailed = true
-            householdName = ""
-            recipes = []
-            errorMessage = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
+            loadFailureDetail = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
         }
     }
 
@@ -1237,6 +1250,7 @@ final class HubStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
+            writeTimestampedBackup(data)
             rememberAccount()
             scheduleCloudPublish(data)
             publishWidgets()
@@ -1312,7 +1326,9 @@ final class HubStore: ObservableObject {
             guard !Task.isCancelled else { return }
             do {
                 try await HouseholdCloud.publish(data: data)
-                await self?.retirePublicRecordsOnce()
+                if let note = await self?.retirePublicRecordsOnce() {
+                    await MainActor.run { self?.errorMessage = note }
+                }
             } catch {
                 await MainActor.run { self?.errorMessage = error.localizedDescription }
             }
@@ -1322,14 +1338,17 @@ final class HubStore: ObservableObject {
     private static let publicCleanupKey = "familyhub.publicHubCleanup.v1"
 
     /// After the private-zone save succeeds, delete old public hub-<code> records one time.
-    func retirePublicRecordsOnce() async {
-        guard !UserDefaults.standard.bool(forKey: Self.publicCleanupKey) else { return }
-        let codes = knownShareCodes()
-        for code in codes {
-            let removed = await Self.deleteSharedRecord(code: code)
-            if !removed { return }
+    @discardableResult
+    func retirePublicRecordsOnce() async -> String? {
+        guard !UserDefaults.standard.bool(forKey: Self.publicCleanupKey) else { return nil }
+        let failed = await deletePublicCodes(knownShareCodes(), attempts: 3)
+        if !failed.isEmpty {
+            let message = "Could not delete old shared records (\(failed.joined(separator: ", "))). They are still on iCloud."
+            errorMessage = message
+            return message
         }
         UserDefaults.standard.set(true, forKey: Self.publicCleanupKey)
+        return nil
     }
 
     func currentHouseholdData() -> Data? {
@@ -1341,8 +1360,7 @@ final class HubStore: ObservableObject {
         guard let data = currentHouseholdData() else { return "Nothing to share yet." }
         do {
             try await HouseholdCloud.publish(data: data)
-            await retirePublicRecordsOnce()
-            return nil
+            return await retirePublicRecordsOnce()
         } catch {
             return error.localizedDescription
         }
@@ -1352,7 +1370,9 @@ final class HubStore: ObservableObject {
         guard let data = currentHouseholdData() else { throw HouseholdCloudError.missingHouse }
         let title = householdName.isEmpty ? "HUB Circle" : householdName
         let share = try await HouseholdCloud.makeShare(data: data, title: title)
-        await retirePublicRecordsOnce()
+        if let note = await retirePublicRecordsOnce() {
+            errorMessage = note
+        }
         return share
     }
 
@@ -1403,8 +1423,62 @@ final class HubStore: ObservableObject {
         }
     }
 
-    func resetAsNewDownload() {
-        let codes = knownShareCodes()
+    /// Deletes the private-zone record and CKShare first. Local data stays if iCloud does not confirm.
+    func eraseHousehold() async -> String? {
+        do {
+            try await remote.deletePrivateHouseholdAndShare()
+        } catch {
+            let message = "Could not erase the iCloud copy. This HUB is still on this device. \(error.localizedDescription)"
+            errorMessage = message
+            return message
+        }
+        let failed = await deletePublicCodes(knownShareCodes(), attempts: 3)
+        if !failed.isEmpty {
+            let message = "Could not delete old shared records (\(failed.joined(separator: ", "))). This HUB is still on this device."
+            errorMessage = message
+            return message
+        }
+        clearLocalHouse()
+        return nil
+    }
+
+    func restoreNewestBackup() -> String? {
+        let folder = snapshotURL.deletingLastPathComponent()
+        let files = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" } ?? []
+        let ordered = files.sorted { lhs, rhs in
+            let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return left > right
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        for file in ordered {
+            guard let data = try? Data(contentsOf: file),
+                  (try? decoder.decode(HubSnapshot.self, from: data)) != nil
+            else { continue }
+            do {
+                try data.write(to: snapshotURL, options: [.atomic])
+            } catch {
+                return "Could not restore the backup. \(error.localizedDescription)"
+            }
+            loadFailed = false
+            loadFailureDetail = nil
+            if let snapshot = try? decoder.decode(HubSnapshot.self, from: data) {
+                apply(snapshot)
+            }
+            return nil
+        }
+        return "No readable backup was found. The original file is still untouched."
+    }
+
+    private func writeTimestampedBackup(_ data: Data) {
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        let backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-\(stamp).json")
+        try? data.write(to: backup, options: [.atomic])
+    }
+
+    private func clearLocalHouse() {
         UserDefaults.standard.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.synchronize()
@@ -1412,17 +1486,13 @@ final class HubStore: ObservableObject {
         try? fileManager.removeItem(at: familyPhotoURL)
         try? fileManager.removeItem(at: memberPhotoFolder)
         loadFailed = false
+        loadFailureDetail = nil
         apply(Self.emptySnapshot())
         setupCompleted = false
         issuedJoinCodes = []
         familyPhotoData = nil
         memberPhotos = [:]
         persistNow()
-        Task {
-            for code in codes {
-                await Self.deleteSharedRecord(code: code)
-            }
-        }
     }
 
     static func emptySnapshot() -> HubSnapshot {

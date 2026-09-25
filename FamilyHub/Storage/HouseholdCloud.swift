@@ -2,16 +2,23 @@ import CloudKit
 import Foundation
 import SwiftUI
 
-enum HouseholdCloudError: LocalizedError {
+enum HouseholdCloudError: LocalizedError, Equatable {
     case missingHouse
     case iCloud
+    case transient
 
     var errorDescription: String? {
         switch self {
         case .missingHouse: return "No family share is on this iCloud account yet. The owner shares HUB from Settings → Invite."
         case .iCloud: return "Sign this device into iCloud, then try again."
+        case .transient: return "iCloud did not respond. Try again."
         }
     }
+}
+
+protocol HouseholdRemote: AnyObject {
+    func deletePrivateHouseholdAndShare() async throws
+    func deletePublicCode(_ code: String) async throws
 }
 
 enum HouseholdCloud {
@@ -78,6 +85,39 @@ enum HouseholdCloud {
         throw HouseholdCloudError.missingHouse
     }
 
+    /// Deletes the private-zone household record and its CKShare. Missing records count as already gone.
+    static func deletePrivateHouseholdAndShare() async throws {
+        let householdID = CKRecord.ID(recordName: recordName, zoneID: ownerZoneID)
+        do {
+            let record = try await privateDB.record(for: householdID)
+            if let shareID = record.share?.recordID {
+                try await deleteIgnoringMissing(privateDB, shareID)
+            }
+            try await deleteIgnoringMissing(privateDB, householdID)
+        } catch let error as CKError where error.code == .unknownItem || error.code == .zoneNotFound {
+            return
+        }
+    }
+
+    private static func deleteIgnoringMissing(_ database: CKDatabase, _ id: CKRecord.ID) async throws {
+        do {
+            try await database.deleteRecord(withID: id)
+        } catch let error as CKError where error.code == .unknownItem || error.code == .zoneNotFound {
+            return
+        }
+    }
+
+    static func isTransient(_ error: Error) -> Bool {
+        if let cloud = error as? HouseholdCloudError, cloud == .transient { return true }
+        guard let ck = error as? CKError else { return false }
+        switch ck.code {
+        case .networkUnavailable, .networkFailure, .serviceUnavailable, .requestRateLimited, .zoneBusy, .serverResponseLost:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Public database is only for retiring the old hub-<code> records.
     static func delete(code: String) async throws {
         let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
@@ -88,6 +128,27 @@ enum HouseholdCloud {
         } catch let error as CKError where error.code == .unknownItem {
             return
         }
+    }
+}
+
+final class HouseholdCloudClient: HouseholdRemote {
+    func deletePrivateHouseholdAndShare() async throws {
+        try await HouseholdCloud.deletePrivateHouseholdAndShare()
+    }
+
+    func deletePublicCode(_ code: String) async throws {
+        try await HouseholdCloud.delete(code: code)
+    }
+}
+
+enum HubLaunchScreen: Equatable {
+    case splash, corrupt, setup, home
+
+    static func choose(splash: Bool, loadFailed: Bool, needsSetup: Bool) -> HubLaunchScreen {
+        if splash { return .splash }
+        if loadFailed { return .corrupt }
+        if needsSetup { return .setup }
+        return .home
     }
 }
 

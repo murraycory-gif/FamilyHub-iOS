@@ -16,10 +16,15 @@ struct RootView: View {
         ZStack {
             AppTheme.bg.ignoresSafeArea()
 
-            if showSplash {
+            switch HubLaunchScreen.choose(splash: showSplash, loadFailed: store.loadFailed, needsSetup: needsSetup) {
+            case .splash:
                 LaunchSplashView()
                     .zIndex(3)
-            } else if needsSetup {
+            case .corrupt:
+                CorruptHouseView()
+                    .transition(.opacity)
+                    .zIndex(4)
+            case .setup:
                 OnboardingView {
                     store.markSetupComplete()
                     withAnimation(.easeInOut(duration: 0.35)) {
@@ -28,7 +33,7 @@ struct RootView: View {
                 }
                 .transition(.opacity)
                 .zIndex(2)
-            } else {
+            case .home:
                 MainHubView()
                     .transition(.opacity)
                     .zIndex(1)
@@ -58,6 +63,60 @@ struct RootView: View {
                     showSplash = false
                 }
             }
+        }
+    }
+}
+
+struct CorruptHouseView: View {
+    @EnvironmentObject private var store: HubStore
+    @State private var note: String?
+    @State private var confirmErase = false
+    @State private var eraseError: String?
+    @State private var showRetry = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("This HUB could not be read")
+                .font(.title.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+            Text(store.loadFailureDetail ?? "The saved file is still on this device. It was not replaced with an empty house.")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            Button("Restore from backup") {
+                note = store.restoreNewestBackup()
+            }
+            .buttonStyle(.borderedProminent)
+            if let note {
+                Text(note)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.chore)
+            }
+            Button("Erase") { confirmErase = true }
+                .foregroundStyle(AppTheme.chore)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.bg.ignoresSafeArea())
+        .alert("This destroys the only copy", isPresented: $confirmErase) {
+            Button("Erase the only copy", role: .destructive) {
+                Task { await runErase() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Erase deletes the iCloud share and then removes the unreadable file and its backup. If this file is the only copy, it cannot be brought back.")
+        }
+        .alert("Erase did not finish", isPresented: $showRetry) {
+            Button("Retry") { Task { await runErase() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(eraseError ?? "iCloud did not confirm the delete. This HUB is still on this device.")
+        }
+    }
+
+    private func runErase() async {
+        if let error = await store.eraseHousehold() {
+            eraseError = error
+            showRetry = true
         }
     }
 }

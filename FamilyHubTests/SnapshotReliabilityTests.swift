@@ -139,7 +139,7 @@ final class SnapshotReliabilityTests: XCTestCase {
         XCTAssertEqual(after, original)
         XCTAssertEqual(store.recipes, [])
         XCTAssertFalse(store.recipes.contains(where: { $0.name == "Tacos" }))
-        XCTAssertNotNil(store.errorMessage)
+        XCTAssertTrue(store.loadFailed)
         let copies = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
             .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.lastPathComponent.hasSuffix(".json") }
         XCTAssertEqual(copies.count, 1)

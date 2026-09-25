@@ -246,6 +246,8 @@ struct InviteSettingsView: View {
     @State private var publishNote: String?
     @State private var confirmReset = false
     @State private var confirmCleanup = false
+    @State private var eraseError: String?
+    @State private var showEraseRetry = false
     @State private var cloudShare: HouseholdShareItem?
 
     var body: some View {
@@ -322,14 +324,36 @@ struct InviteSettingsView: View {
         .hubConfirm(
             "Erase this HUB on this device?",
             isPresented: $confirmReset,
-            message: "Profiles, meals, chores, and the saved house on this device are removed. The shared iCloud record is deleted and the join code is cleared from iCloud. Photos that live only on this device will not come back.",
+            message: "HUB deletes the private iCloud record and the share first. This device is cleared only after iCloud confirms. If iCloud fails, nothing here is erased and you can retry. Photos that live only on this device will not come back.",
             confirm: "Erase",
             confirmColor: AppTheme.chore,
             cancel: "Cancel"
         ) {
-            store.resetAsNewDownload()
-            tours = ""
-            onboardingCompleted = false
+            Task {
+                if let error = await store.eraseHousehold() {
+                    eraseError = error
+                    showEraseRetry = true
+                } else {
+                    tours = ""
+                    onboardingCompleted = false
+                }
+            }
+        }
+        .alert("Erase did not finish", isPresented: $showEraseRetry) {
+            Button("Retry") {
+                Task {
+                    if let error = await store.eraseHousehold() {
+                        eraseError = error
+                        showEraseRetry = true
+                    } else {
+                        tours = ""
+                        onboardingCompleted = false
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(eraseError ?? "iCloud did not confirm the delete. This HUB is still on this device.")
         }
         .sheet(item: $cloudShare) { share in
             HouseholdShareSheet(share: share.share)

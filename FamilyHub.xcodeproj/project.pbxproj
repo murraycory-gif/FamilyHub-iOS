@@ -73,6 +73,7 @@
 		A915 /* HubNoticePlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B915 /* HubNoticePlannerTests.swift */; };
 		A916 /* DietFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B916 /* DietFilterTests.swift */; };
 		A917 /* RecipePackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B917 /* RecipePackTests.swift */; };
+		A918 /* RiskReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B918 /* RiskReviewTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -163,6 +164,7 @@
 		B915 /* HubNoticePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubNoticePlannerTests.swift; sourceTree = "<group>"; };
 		B916 /* DietFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietFilterTests.swift; sourceTree = "<group>"; };
 		B917 /* RecipePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipePackTests.swift; sourceTree = "<group>"; };
+		B918 /* RiskReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskReviewTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -319,6 +321,7 @@
 				B915 /* HubNoticePlannerTests.swift */,
 				B916 /* DietFilterTests.swift */,
 				B917 /* RecipePackTests.swift */,
+				B918 /* RiskReviewTests.swift */,
 			);
 			path = FamilyHubTests;
 			sourceTree = "<group>";
@@ -531,6 +534,7 @@
 				A915 /* HubNoticePlannerTests.swift in Sources */,
 				A916 /* DietFilterTests.swift in Sources */,
 				A917 /* RecipePackTests.swift in Sources */,
+				A918 /* RiskReviewTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
