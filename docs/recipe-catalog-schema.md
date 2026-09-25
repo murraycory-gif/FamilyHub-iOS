@@ -1,65 +1,64 @@
-# HUB Circle recipe catalog schema
+# HUB recipe catalog schema
 
-Schema version **1.0.0**. Machine-readable copy: [`tools/recipe-catalog/schema/recipe-catalog-1.0.0.schema.json`](../tools/recipe-catalog/schema/recipe-catalog-1.0.0.schema.json).
+This is the catalog the app loads. Publish `recipe-pack.json` at the root of our Cloudflare R2 bucket. The app also ships `FamilyHub/Resources/SeedRecipes.json` in this same shape for first launch and offline use.
 
-No app-side `RecipeProvider` schema was in `docs/` or the models when this catalog was defined. `CatalogRecipe` in the app is still the older MealDB-shaped struct (`id`, `name`, `category`, `area`, `thumb`, `instructions`, `ingredients`, `sourceURL`). A provider can map this catalog onto that struct:
+Codable types: `RecipePack` and `RecipePackItem` in `FamilyHub/Models/RecipePack.swift`. `RecipePack.validate()` is the check. A pack that fails is not cached.
 
-| Catalog field | App `CatalogRecipe` |
-| --- | --- |
-| `id` | `id` |
-| `title` | `name` |
-| `mealType` | `category` |
-| `cuisine` | `area` |
-| `images[0].hostedPath` | `thumb` (resolve against the R2 public base) |
-| `steps` joined with newlines | `instructions` |
-| `ingredients[].text` | `ingredients` |
-| `source.pageURL` | `sourceURL` |
+## File
 
-## Document
+```json
+{
+  "version": 1,
+  "recipes": [
+    {
+      "id": "hub-tacos",
+      "name": "Weeknight tacos",
+      "category": "Tex-Mex",
+      "cuisine": "Mexican",
+      "ingredients": ["1 lb ground beef", "8 corn tortillas"],
+      "instructions": "Brown the beef. Warm the tortillas.",
+      "imageURL": "https://recipes.example.r2.dev/images/hub-tacos.jpg",
+      "diets": ["glutenFree"],
+      "trendingRank": 1,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Ingredient lines shortened for the card",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Weeknight_Tacos"
+    }
+  ]
+}
+```
 
-`catalog.json` is a single JSON object:
+## Fields
 
-- `schemaVersion` — `"1.0.0"`.
-- `catalogId` — stable id for this catalog (`hub-circle-wikibooks`).
-- `generatedAt` — UTC timestamp. Not part of the content hash.
-- `contentHash` — `sha256:` plus the hex SHA-256 of the canonical `recipes` array (`sort_keys`, compact separators, UTF-8).
-- `source` — Wikibooks Cookbook provenance and the text license (CC BY-SA 4.0).
-- `recipeCount` — length of `recipes`.
-- `recipes` — array of recipe objects, sorted by `id`.
+| Field | Rule |
+|---|---|
+| `version` | Integer. `1` is the only version the app reads today. |
+| `recipes` | Array. Ids must be unique. |
+| `id` | Not empty. Stable across republishes. |
+| `name` | Not empty. The dish name. Shown on the name tile when there is no photo. |
+| `category` | Free text. Meal style, such as Tex-Mex or Weeknight. |
+| `cuisine` | Free text. Search-by-cuisine matches this. |
+| `ingredients` | Array of strings. One line per ingredient. Diet tags are trusted when present. An empty list does not pass a diet filter. |
+| `instructions` | The method, as one string. |
+| `imageURL` | Empty, or `https` on our bucket for a photo of this exact dish. Empty shows the name tile. Do not put Unsplash, TheMealDB, or a Wikimedia file URL here. Those are rejected. |
+| `diets` | Zero or more of the tokens below. |
+| `trendingRank` | Omitted, `null`, or an integer `1` or higher. Lower numbers come first on Trending now. `null` means not trending. |
+| `sourceName` | Not empty. The work the text came from. |
+| `license` | Not empty. The license name, such as `CC BY-SA 4.0` or `HUB original`. |
+| `changes` | What we changed. Use `None` when the text is unchanged. |
+| `sourceURL` | Page for the source. Empty string when there is no page. |
 
-## Recipe
+The recipe screen shows one line: `sourceName · license · changes`.
 
-- `id` — `wikibooks-` plus a slug of the title.
-- `title` — dish name, without the `Cookbook:` prefix.
-- `cuisine` — string, empty when the page does not say.
-- `mealType` — one of `breakfast`, `soup`, `salad`, `snack`, `side`, `drink`, `bread`, `dessert`, `dinner`.
-- `servings` — string as written (`"8"` or `"8–10"`).
-- `totalTimeMinutes` — integer minutes when the summary states a time, otherwise `null`.
-- `totalTimeText` — original time string.
-- `ingredients` — objects `{text, quantity, unit, item, note}`. `text` is the display line. The other fields are best-effort structure.
-- `steps` — ordered strings.
-- `images` — one dish photo. `hostedPath` is relative to the catalog root (`images/<id>.jpg`, max edge 1200px, under 250 KB). `attribution` holds the Commons author, license, license URL, and file page URL.
-- `source.pageURL` — Wikibooks page.
-- `source.license` / `licenseURL` — CC BY-SA 4.0 for the text.
-- `source.authorHistoryURL` — page history (the author list).
-- `source.changesMade` — what HUB Circle changed.
-- `attributionLine` — the single line `Source: … · License: CC BY-SA 4.0 · Changes: …`.
-- `dietLabels` — see below. `dietCompatible` lists label ids whose status is not `not_compatible`.
-- `nutrition` — omitted. Low-sodium and lower-sugar are not tagged without it.
+## Diet tokens
 
-## Diet labels
+`vegan`, `vegetarian`, `pescatarian`, `keto`, `paleo`, `glutenFree`, `dairyFree`, `nutFree`, `eggFree`, `soyFree`, `halal`, `kosher`, `lowSodium`, `lowCarb`, `diabeticFriendly`.
 
-Each entry is `{id, status, disclaimer?, note?}`.
+`halal` and `kosher` mean the ingredients look compatible. They are not a certification.
 
-`status` is `compatible`, `not_compatible`, or `ingredients_compatible_not_certified` (halal and kosher only, and only when the ingredient screen passes).
+`glutenFree`, `dairyFree`, `nutFree`, `eggFree`, and `soyFree` are ingredient screens. The app tells people to check labels.
 
-Ids: `vegan`, `vegetarian`, `pescatarian`, `gluten-free`, `dairy-free`, `egg-free`, `soy-free`, `peanut-free`, `tree-nut-free`, `keto`, `paleo`, `halal`, `kosher`.
+## Photos
 
-`peanut-free` and `tree-nut-free` include a check-labels disclaimer when compatible. Coconut and nutmeg are not treated as tree nuts. Butter beans are not dairy.
-
-## Sidecars
-
-- `trending.json` — `editorPicks` (ids) and `seasonal` entries tagged `fall` and `october`.
-- `credits.json` — text license block, per-photo attribution, and the per-recipe Source · License · Changes line.
-
-Photos must be CC0, public domain, CC BY, or CC BY-SA. NC, ND, fair use, GFDL-only, and unknown licenses are dropped.
+Only a real photo of that dish, hosted on our bucket. No stock photo, no map, no generated stand-in. When the pipeline has no such photo, set `imageURL` to `""`.

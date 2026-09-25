@@ -456,7 +456,7 @@ struct MemberProfileView: View {
             Text("Diet and allergies")
                 .font(.headline.weight(.bold))
                 .foregroundStyle(AppTheme.text)
-            Text("Dinner search uses these for \(member.name). Pick more than one. They stay on this device’s household file.")
+            Text("Dinner search uses these for \(member.name). Pick more than one. They stay on this device’s household file. Allergen filters: check labels. Halal and kosher mean ingredients compatible, not certified.")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.textSecondary)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {

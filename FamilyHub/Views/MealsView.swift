@@ -1103,6 +1103,10 @@ private struct CatalogRecipePicker: View {
             }
             .padding(.vertical, 4)
         }
+        Text("Allergen filters: check labels. Halal and kosher mean ingredients compatible, not certified.")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(AppTheme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func saveDiets() {
@@ -1165,8 +1169,8 @@ private struct CatalogRecipeDetail: View {
                     Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.blue)
-                    if recipe.sourceName.isEmpty == false {
-                        Text("Source · \(recipe.sourceName)")
+                    if recipe.sourceName.isEmpty == false || recipe.licenseName.isEmpty == false {
+                        Text(recipe.attributionLine)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.textSecondary)
                     }

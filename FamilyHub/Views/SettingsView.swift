@@ -498,6 +498,42 @@ private extension WeatherSettingsForm {
     }
 }
 
+struct CreditsSettingsView: View {
+    private var recipes: [RecipePackItem] { RecipePackStore.seed().recipes }
+
+    var body: some View {
+        SettingsPageShell(tail: "Credits", symbol: "doc.text", title: "Credits and licenses") {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Each recipe shows Source · License · Changes. Photos are that dish, hosted with the catalog. A recipe with no photo shows its name.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                Text("Halal and kosher tags mean the ingredients look compatible. They are not a certification. Allergen tags mean check the labels on what you buy.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                ForEach(recipes, id: \.id) { recipe in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recipe.name)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text(recipe.asCatalogRecipe().attributionLine)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        if recipe.sourceURL.isEmpty == false {
+                            Text(recipe.sourceURL)
+                                .font(.caption2)
+                                .foregroundStyle(AppTheme.textTertiary)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+        }
+    }
+}
+
 struct NotifySettingsView: View {
     @EnvironmentObject private var store: HubStore
     @State private var testNote: String?

@@ -2,7 +2,7 @@ import SwiftUI
 
 enum HubSection: String, CaseIterable, Identifiable, Hashable {
     case today, calendar, chores, lists, shopping, meals
-    case profiles, device, invite, calendars, bills, allowance, weather, widgets, notify
+    case profiles, device, invite, calendars, bills, allowance, weather, widgets, notify, credits
     case settings, family, looks, plus, more
 
     var id: String { rawValue }
@@ -30,7 +30,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     }
 
     static var settingsItems: [HubSection] {
-        [.profiles, .invite, .calendars, .widgets, .notify, .looks]
+        [.profiles, .invite, .calendars, .widgets, .notify, .looks, .credits]
     }
 
     var title: String {
@@ -53,6 +53,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .weather: return "Weather"
         case .widgets: return "Widgets"
         case .notify: return "Notifications"
+        case .credits: return "Credits"
         case .more: return "More"
         }
     }
@@ -77,6 +78,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .weather: return "cloud.sun.fill"
         case .widgets: return "square.grid.2x2.fill"
         case .notify: return "bell.fill"
+        case .credits: return "doc.text"
         case .more: return "ellipsis.circle.fill"
         }
     }
@@ -286,6 +288,7 @@ struct MainHubView: View {
         case .calendars: CalendarSourcesView().hubChrome(showBack: true)
         case .bills, .weather, .widgets: HubWidgetPicker().hubChrome(showBack: true)
         case .notify: NotifySettingsView().hubChrome(showBack: true)
+        case .credits: CreditsSettingsView().hubChrome(showBack: true)
         }
     }
 }
@@ -360,6 +363,7 @@ struct MoreHubView: View {
         case .calendars: CalendarSourcesView()
         case .bills, .weather, .widgets: HubWidgetPicker()
         case .notify: NotifySettingsView()
+        case .credits: CreditsSettingsView()
         default: EmptyView()
         }
     }

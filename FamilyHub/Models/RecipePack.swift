@@ -29,16 +29,23 @@ struct RecipePackItem: Codable, Equatable {
     var diets: [DietFlag]
     var trendingRank: Int?
     var sourceName: String
+    var license: String
+    var changes: String
+    var sourceURL: String
 
     func validate() -> [String] {
         var problems: [String] = []
         if id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { problems.append("id is empty") }
         if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { problems.append("name is empty") }
         if sourceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { problems.append("sourceName is empty") }
+        if license.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { problems.append("license is empty") }
         if let trendingRank, trendingRank < 1 { problems.append("trendingRank must be 1 or higher") }
         let image = imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        if image.isEmpty == false, image.hasPrefix("https://") == false {
-            problems.append("imageURL must be an https URL on our catalog")
+        if image.isEmpty == false {
+            let host = URL(string: image)?.host?.lowercased() ?? ""
+            if image.hasPrefix("https://") == false || host.contains("unsplash.com") || host.contains("wikimedia.org") || host.contains("themealdb.com") {
+                problems.append("imageURL must be an https photo of this dish on our catalog, or empty")
+            }
         }
         return problems
     }
@@ -55,6 +62,8 @@ struct RecipePackItem: Codable, Equatable {
             sourceURL: nil,
             youtubeURL: nil,
             sourceName: sourceName,
+            licenseName: license,
+            changesNote: changes,
             dietTags: diets,
             trendingRank: trendingRank
         )

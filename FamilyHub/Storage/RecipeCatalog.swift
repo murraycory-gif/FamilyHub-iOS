@@ -11,8 +11,17 @@ struct CatalogRecipe: Identifiable, Hashable, Codable {
     var sourceURL: URL?
     var youtubeURL: URL?
     var sourceName: String = ""
+    var licenseName: String = ""
+    var changesNote: String = ""
     var dietTags: [DietFlag] = []
     var trendingRank: Int? = nil
+
+    var attributionLine: String {
+        let source = sourceName.isEmpty ? "HUB" : sourceName
+        let license = licenseName.isEmpty ? "See Credits" : licenseName
+        let changes = changesNote.isEmpty ? "None" : changesNote
+        return "\(source) · \(license) · \(changes)"
+    }
 
     func asHubRecipe(kind: RecipeKind = .recipe) -> Recipe {
         Recipe.make(

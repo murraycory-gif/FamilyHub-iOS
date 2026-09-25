@@ -19,8 +19,8 @@ final class RecipePackTests: XCTestCase {
     func testRejectsBadImageAndDuplicateID() throws {
         let raw = """
         {"version":1,"recipes":[
-          {"id":"a","name":"A","category":"","cuisine":"","ingredients":[],"instructions":"","imageURL":"http://cdn.example/a.jpg","diets":[],"trendingRank":0,"sourceName":""},
-          {"id":"a","name":"B","category":"","cuisine":"","ingredients":[],"instructions":"","imageURL":"","diets":[],"sourceName":"HUB"}
+          {"id":"a","name":"A","category":"","cuisine":"","ingredients":[],"instructions":"","imageURL":"http://cdn.example/a.jpg","diets":[],"trendingRank":0,"sourceName":"","license":"","changes":"None","sourceURL":""},
+          {"id":"a","name":"B","category":"","cuisine":"","ingredients":[],"instructions":"","imageURL":"","diets":[],"sourceName":"HUB","license":"HUB original","changes":"None","sourceURL":""}
         ]}
         """
         let pack = try JSONDecoder().decode(RecipePack.self, from: Data(raw.utf8))
@@ -42,9 +42,13 @@ final class RecipePackTests: XCTestCase {
             imageURL: "",
             diets: [.vegan, .nutFree],
             trendingRank: nil,
-            sourceName: "HUB"
+            sourceName: "HUB kitchen",
+            license: "HUB original",
+            changes: "Written for HUB",
+            sourceURL: ""
         )
         let recipe = item.asCatalogRecipe()
+        XCTAssertEqual(recipe.attributionLine, "HUB kitchen · HUB original · Written for HUB")
         XCTAssertTrue(DietMatch.allows(recipe, flags: [.vegan, .nutFree]))
         XCTAssertFalse(DietMatch.allows(recipe, flags: [.keto]))
     }

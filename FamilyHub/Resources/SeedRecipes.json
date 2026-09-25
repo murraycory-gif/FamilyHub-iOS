@@ -6,48 +6,94 @@
       "name": "Weeknight tacos",
       "category": "Tex-Mex",
       "cuisine": "Mexican",
-      "ingredients": ["1 lb ground beef", "8 corn tortillas", "lettuce", "tomato", "cheddar"],
+      "ingredients": [
+        "1 lb ground beef",
+        "8 corn tortillas",
+        "lettuce",
+        "tomato",
+        "cheddar"
+      ],
       "instructions": "Brown the beef. Warm the tortillas. Set out lettuce, tomato, and cheese.",
       "imageURL": "",
       "diets": [],
       "trendingRank": 1,
-      "sourceName": "HUB"
+      "sourceName": "HUB kitchen",
+      "license": "HUB original",
+      "changes": "Written for HUB",
+      "sourceURL": ""
     },
     {
       "id": "hub-pasta",
       "name": "Tomato pasta",
       "category": "Italian",
       "cuisine": "Italian",
-      "ingredients": ["12 oz pasta", "1 can crushed tomato", "garlic", "olive oil", "basil"],
+      "ingredients": [
+        "12 oz pasta",
+        "1 can crushed tomato",
+        "garlic",
+        "olive oil",
+        "basil"
+      ],
       "instructions": "Boil the pasta. Simmer garlic, oil, and tomato. Toss and finish with basil.",
       "imageURL": "",
-      "diets": ["vegetarian"],
+      "diets": [
+        "vegetarian"
+      ],
       "trendingRank": 2,
-      "sourceName": "HUB"
+      "sourceName": "HUB kitchen",
+      "license": "HUB original",
+      "changes": "Written for HUB",
+      "sourceURL": ""
     },
     {
       "id": "hub-salmon",
       "name": "Sheet-pan salmon",
       "category": "Fish",
       "cuisine": "American",
-      "ingredients": ["4 salmon fillets", "broccoli", "olive oil", "lemon", "salt"],
-      "instructions": "Toss broccoli with oil. Roast with salmon at 425°F for 14 minutes. Finish with lemon.",
+      "ingredients": [
+        "4 salmon fillets",
+        "broccoli",
+        "olive oil",
+        "lemon",
+        "salt"
+      ],
+      "instructions": "Toss broccoli with oil. Roast with salmon at 425\u00b0F for 14 minutes. Finish with lemon.",
       "imageURL": "",
-      "diets": ["glutenFree", "pescatarian", "dairyFree"],
+      "diets": [
+        "glutenFree",
+        "pescatarian",
+        "dairyFree"
+      ],
       "trendingRank": 3,
-      "sourceName": "HUB"
+      "sourceName": "HUB kitchen",
+      "license": "HUB original",
+      "changes": "Written for HUB",
+      "sourceURL": ""
     },
     {
       "id": "hub-beans",
       "name": "Rice and beans",
       "category": "Weeknight",
       "cuisine": "American",
-      "ingredients": ["2 cups rice", "2 cans black beans", "cumin", "onion", "salt"],
+      "ingredients": [
+        "2 cups rice",
+        "2 cans black beans",
+        "cumin",
+        "onion",
+        "salt"
+      ],
       "instructions": "Simmer the rice. Warm beans with onion and cumin. Serve together.",
       "imageURL": "",
-      "diets": ["vegan", "dairyFree", "nutFree"],
+      "diets": [
+        "vegan",
+        "dairyFree",
+        "nutFree"
+      ],
       "trendingRank": null,
-      "sourceName": "HUB"
+      "sourceName": "HUB kitchen",
+      "license": "HUB original",
+      "changes": "Written for HUB",
+      "sourceURL": ""
     }
   ]
 }

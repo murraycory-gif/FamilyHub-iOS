@@ -19,6 +19,17 @@ enum DietFlag: String, Codable, CaseIterable, Identifiable, Hashable {
 
     var id: String { rawValue }
 
+    var note: String? {
+        switch self {
+        case .halal, .kosher:
+            return "Ingredients compatible, not certified"
+        case .glutenFree, .dairyFree, .nutFree, .eggFree, .soyFree:
+            return "Check labels"
+        default:
+            return nil
+        }
+    }
+
     var title: String {
         switch self {
         case .vegan: return "Vegan"
