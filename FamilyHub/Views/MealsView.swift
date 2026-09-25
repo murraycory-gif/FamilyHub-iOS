@@ -1081,6 +1081,7 @@ private struct CatalogRecipePicker: View {
         }
     }
 
+    @ViewBuilder
     private var dietChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {

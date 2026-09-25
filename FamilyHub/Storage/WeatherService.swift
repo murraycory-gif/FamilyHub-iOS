@@ -145,6 +145,9 @@ private enum WeatherKitMap {
             case .mph: return .milesPerHour
             }
         }()
+        let nowChance = weather.hourlyForecast.forecast.min {
+            abs($0.date.timeIntervalSinceNow) < abs($1.date.timeIntervalSinceNow)
+        }
         let now = WeatherNow(
             temp: Int(current.temperature.converted(to: tempUnit).value.rounded()),
             feelsLike: Int(current.apparentTemperature.converted(to: tempUnit).value.rounded()),
@@ -153,7 +156,7 @@ private enum WeatherKitMap {
             humidity: Int((current.humidity * 100).rounded()),
             windMph: Int(current.wind.speed.converted(to: speedUnit).value.rounded()),
             uv: current.uvIndex.value,
-            precip: Int(current.precipitationIntensity.converted(to: units.precipitation == .mm ? UnitLength.millimeters : .inches).value.rounded())
+            precip: Int(((nowChance?.precipitationChance ?? 0) * 100).rounded())
         )
         let start = Date().addingTimeInterval(-30 * 60)
         let hours: [WeatherHour] = weather.hourlyForecast.forecast.prefix(384).compactMap { hour in
@@ -181,8 +184,8 @@ private enum WeatherKitMap {
                 precip: Int((day.precipitationChance * 100).rounded()),
                 uv: day.uvIndex.value,
                 windMph: Int(day.wind.speed.converted(to: speedUnit).value.rounded()),
-                sunrise: day.sun?.sunrise,
-                sunset: day.sun?.sunset
+                sunrise: day.sun.sunrise,
+                sunset: day.sun.sunset
             )
         }
         return WeatherBundle(now: now, hours: hours, days: days)

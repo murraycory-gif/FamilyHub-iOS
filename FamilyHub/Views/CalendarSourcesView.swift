@@ -98,6 +98,8 @@ struct CalendarSourcesView: View {
                     .font(.headline)
                 Text(ingest.isAuthorized
                      ? "FamilyHub can read calendars already signed into the Calendar app — iCloud, Google, Outlook, Exchange."
+                     : ingest.isWriteOnly
+                     ? "Access is write-only. Turn on Full Access so HUB can read the calendars on this iPad."
                      : "Allow Calendar access, then any iCloud, Google, or Outlook account on this iPad can be turned on below.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.textSecondary)

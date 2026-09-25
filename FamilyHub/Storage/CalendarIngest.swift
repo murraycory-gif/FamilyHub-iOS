@@ -24,11 +24,19 @@ final class CalendarIngestor: ObservableObject {
     private var pendingSync: Task<Void, Never>?
     private weak var hub: HubStore?
 
+    /// Full read access. Write-only is not enough to list or sync calendars.
     var isAuthorized: Bool {
         if #available(iOS 17.0, *) {
-            return authorization == .fullAccess || authorization == .authorized
+            return authorization == .fullAccess
         }
         return authorization == .authorized
+    }
+
+    var isWriteOnly: Bool {
+        if #available(iOS 17.0, *) {
+            return authorization == .writeOnly
+        }
+        return false
     }
 
     func refreshStatus(resetStore: Bool = false) {
@@ -54,6 +62,8 @@ final class CalendarIngestor: ObservableObject {
                 message = available.isEmpty
                     ? "No calendars on this device yet. Add iCloud, Google, Outlook, Yahoo, Exchange, or CalDAV in Settings → Calendar → Accounts."
                     : "Found \(available.count) calendars on this device."
+            } else if isWriteOnly {
+                message = "Calendar access is write-only. Turn on Full Access in Settings so HUB can read iCloud, Google, Outlook, and the other calendars on this device."
             } else {
                 message = "Calendar access is off. Turn it on in Settings to pull in iCloud, Google, Outlook, Yahoo, and other accounts."
             }

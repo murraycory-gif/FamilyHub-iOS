@@ -131,7 +131,7 @@ enum RecipePackStore {
     static func refresh() async throws -> RecipePack? {
         guard let base = RecipeSources.r2CatalogBase else { return nil }
         guard let url = URL(string: RecipeSources.packPath, relativeTo: base)?.absoluteURL else { return nil }
-        var request = URLRequest(url: url, timeoutInterval: 12)
+        let request = URLRequest(url: url, timeoutInterval: 12)
         let data: Data
         let response: URLResponse
         do {
