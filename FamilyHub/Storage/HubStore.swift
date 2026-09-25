@@ -1215,8 +1215,6 @@ final class HubStore: ObservableObject {
             ownerID: ownerID,
             joinCode: joinCode,
             signedInMemberID: signedInMemberID,
-            issuedJoinCodes: issuedJoinCodes,
-            schemaVersion: HubSnapshot.currentSchema,
             notifyPrefs: notifyPrefs.strippingSecrets(),
             whiteboardNote: whiteboardNote,
             hubWidgetLimit: hubWidgetLimit,
@@ -1229,7 +1227,9 @@ final class HubStore: ObservableObject {
             custodyHouses: custodyHouses,
             quietHours: quietHours,
             recapPhotos: recapPhotos,
-            choreProofs: choreProofs
+            choreProofs: choreProofs,
+            schemaVersion: HubSnapshot.currentSchema,
+            issuedJoinCodes: issuedJoinCodes
         )
         do {
             let encoder = JSONEncoder()
