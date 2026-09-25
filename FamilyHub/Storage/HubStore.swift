@@ -1,5 +1,7 @@
+import CloudKit
 import CoreLocation
 import Foundation
+import os
 import UIKit
 import WidgetKit
 
@@ -25,6 +27,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var packages: [TrackedPackage]
     @Published private(set) var ownerID: UUID?
     @Published private(set) var joinCode: String
+    @Published private(set) var issuedJoinCodes: [String]
     @Published private(set) var signedInMemberID: UUID?
     @Published private(set) var notifyPrefs: HubNotifyPrefs
     @Published private(set) var whiteboardNote: String
@@ -45,6 +48,13 @@ final class HubStore: ObservableObject {
 
     private let fileManager: FileManager
     private let snapshotURL: URL
+    /// A failed decode must not be overwritten by a later save, and must not look like an empty house.
+    @Published private(set) var loadFailed = false
+    @Published private(set) var loadFailureDetail: String?
+    var remote: any HouseholdRemote = HouseholdCloudClient()
+    /// False after this device joins someone else's share. Erase then only leaves that share.
+    /// Restored from device-role.json so a relaunch does not treat a participant as the owner.
+    var ownsPrivateZone = true
     private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
     private var memberPhotoFolder: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("member-photos", isDirectory: true) }
 
@@ -75,6 +85,7 @@ final class HubStore: ObservableObject {
         packages = []
         ownerID = nil
         joinCode = Self.makeJoinCode()
+        issuedJoinCodes = []
         signedInMemberID = nil
         notifyPrefs = .off
         whiteboardNote = ""
@@ -82,10 +93,15 @@ final class HubStore: ObservableObject {
         setupCompleted = false
         appearance = .system
         familyPhotoData = nil
+        loadDeviceRole()
         loadOrSeed()
-        familyPhotoData = try? Data(contentsOf: familyPhotoURL)
-        loadMemberPhotos()
+        roleLoaded = true
+        let photoURL = familyPhotoURL
+        let folder = memberPhotoFolder
+        HubAccess.store = self
+        Task { await loadPhotos(photoURL: photoURL, folder: folder) }
         Task { await restoreAccountIfNeeded() }
+        LaunchTiming.mark("store ready")
     }
 
     private static func defaultRoot() -> URL {
@@ -444,16 +460,24 @@ final class HubStore: ObservableObject {
         }
     }
 
-    private func loadMemberPhotos() {
-        guard let files = try? fileManager.contentsOfDirectory(at: memberPhotoFolder, includingPropertiesForKeys: nil) else { return }
-        var loaded: [UUID: Data] = [:]
-        for file in files where file.pathExtension.lowercased() == "jpg" {
-            if let id = UUID(uuidString: file.deletingPathExtension().lastPathComponent),
-               let data = try? Data(contentsOf: file) {
-                loaded[id] = data
+    private func loadPhotos(photoURL: URL, folder: URL) async {
+        let started = CFAbsoluteTimeGetCurrent()
+        let loaded: (Data?, [UUID: Data]) = await Task.detached(priority: .userInitiated) {
+            let family = try? Data(contentsOf: photoURL)
+            var photos: [UUID: Data] = [:]
+            let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+            for file in files where file.pathExtension.lowercased() == "jpg" {
+                if let id = UUID(uuidString: file.deletingPathExtension().lastPathComponent),
+                   let data = try? Data(contentsOf: file) {
+                    photos[id] = data
+                }
             }
-        }
-        memberPhotos = loaded
+            return (family, photos)
+        }.value
+        familyPhotoData = loaded.0
+        memberPhotos = loaded.1
+        let ms = Int((CFAbsoluteTimeGetCurrent() - started) * 1000)
+        Logger(subsystem: "com.corymurray.FamilyHub", category: "launch").info("photos \(ms, privacy: .public) ms")
     }
 
     /// In-memory only — persist after the finger lifts so the hub does not hitch.
@@ -523,8 +547,70 @@ final class HubStore: ObservableObject {
     }
 
     func refreshJoinCode() {
+        let previous = joinCode
+        rememberIssued(previous)
         joinCode = Self.makeJoinCode()
+        rememberIssued(joinCode)
         persist()
+        let retired = previous
+        Task { @MainActor in
+            let failed = await self.deletePublicCodes([retired])
+            if !failed.isEmpty {
+                self.errorMessage = "Could not delete the old shared record \(retired). It is still on iCloud."
+            }
+        }
+    }
+
+    func knownShareCodes() -> [String] {
+        var codes = issuedJoinCodes
+        rememberIssued(joinCode)
+        if !codes.contains(joinCode) { codes.append(joinCode) }
+        return codes
+    }
+
+    /// Owner-triggered only. Deletes every hub-&lt;code&gt; this device has issued, including the current one.
+    func removeOldSharedRecords() async -> String {
+        let failed = await deletePublicCodes(knownShareCodes(), attempts: 3)
+        if failed.isEmpty {
+            let count = knownShareCodes().count
+            return "Removed \(count) shared record\(count == 1 ? "" : "s"). Publish again if family should rejoin."
+        }
+        let message = "Could not delete old shared records (\(failed.joined(separator: ", "))). They are still on iCloud."
+        errorMessage = message
+        return message
+    }
+
+    /// Retries transient iCloud errors. Returns the codes that still failed. Never treats a failure as success.
+    func deletePublicCodes(_ codes: [String], attempts: Int = 3) async -> [String] {
+        var failed: [String] = []
+        for code in codes {
+            let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
+            guard clean.count == 6 else { continue }
+            var removed = false
+            for attempt in 0..<max(1, attempts) {
+                do {
+                    try await remote.deletePublicCode(clean)
+                    removed = true
+                    break
+                } catch {
+                    if HouseholdCloud.isForeignPublicRecord(error, participant: !ownsPrivateZone) {
+                        removed = true
+                        break
+                    }
+                    let retry = HouseholdCloud.isTransient(error) && attempt < attempts - 1
+                    if !retry { break }
+                    try? await Task.sleep(for: .milliseconds(50 * (attempt + 1)))
+                }
+            }
+            if !removed { failed.append(clean) }
+        }
+        return failed
+    }
+
+    private func rememberIssued(_ code: String) {
+        let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
+        guard clean.count == 6 else { return }
+        if !issuedJoinCodes.contains(clean) { issuedJoinCodes.append(clean) }
     }
 
     var isOwnerDevice: Bool {
@@ -696,6 +782,7 @@ final class HubStore: ObservableObject {
                 calendarSources[idx].use = .billsDue
             }
         }
+        guard !discovered.isEmpty else { return }
         let liveIDs = Set(discovered.map(\.eventKitID))
         let stale = calendarSources.filter { source in
             guard let eventKitID = source.eventKitID else { return false }
@@ -710,7 +797,8 @@ final class HubStore: ObservableObject {
     }
 
     func addICSSource(title: String, url: String, brand: CalendarBrand = .ics) {
-        var source = CalendarSource.make(brand: brand, title: title.isEmpty ? "Calendar link" : title, icsURL: url)
+        let stored = ICSLink.normalize(url)
+        var source = CalendarSource.make(brand: brand, title: title.isEmpty ? "Calendar link" : title, icsURL: stored)
         source.isEnabled = true
         calendarSources.append(source)
         persist()
@@ -1057,18 +1145,30 @@ final class HubStore: ObservableObject {
     private func loadOrSeed() {
         guard fileManager.fileExists(atPath: snapshotURL.path) else {
             apply(Self.emptySnapshot())
-            persist()
             return
         }
+        let started = CFAbsoluteTimeGetCurrent()
         do {
             let data = try Data(contentsOf: snapshotURL)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let decoded = try decoder.decode(HubSnapshot.self, from: data)
             apply(decoded)
+            let ms = Int((CFAbsoluteTimeGetCurrent() - started) * 1000)
+            Logger(subsystem: "com.corymurray.FamilyHub", category: "launch").info("hub.json \(data.count, privacy: .public) bytes \(ms, privacy: .public) ms")
         } catch {
-            errorMessage = "Could not load FamilyHub data: \(error.localizedDescription)"
-            apply(SampleFamily.snapshot())
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let stamp = formatter.string(from: Date()).replacingOccurrences(of: ":", with: "-")
+            var backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("corrupt-hub-\(stamp).json")
+            if fileManager.fileExists(atPath: backup.path) {
+                backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("corrupt-hub-\(stamp)-\(UUID().uuidString).json")
+            }
+            try? fileManager.copyItem(at: snapshotURL, to: backup)
+            try? fileManager.setAttributes([.modificationDate: Date()], ofItemAtPath: backup.path)
+            pruneCorruptCopies(keeping: 3, protecting: backup.lastPathComponent)
+            loadFailed = true
+            loadFailureDetail = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
         }
     }
 
@@ -1087,15 +1187,18 @@ final class HubStore: ObservableObject {
         let widgets = snapshot.hubWidgets ?? []
         hubWidgets = HubWidget.migrated(widgets)
         calendarSources = snapshot.calendarSources ?? []
-        recipes = snapshot.recipes ?? SampleFamily.starterRecipes
+        recipes = snapshot.recipes ?? []
         dinners = snapshot.dinners ?? []
         shoppingItems = snapshot.shoppingItems ?? []
         flights = snapshot.flights ?? []
         packages = snapshot.packages ?? []
         ownerID = snapshot.ownerID ?? snapshot.members.first(where: { $0.role == .parent })?.id
         joinCode = (snapshot.joinCode?.isEmpty == false) ? (snapshot.joinCode ?? Self.makeJoinCode()) : Self.makeJoinCode()
+        issuedJoinCodes = snapshot.issuedJoinCodes ?? []
+        rememberIssued(joinCode)
         signedInMemberID = snapshot.signedInMemberID ?? ownerID
         notifyPrefs = snapshot.notifyPrefs ?? .off
+        HubKeychain.deleteTwilio()
         whiteboardNote = snapshot.whiteboardNote ?? ""
         hubWidgetLimit = min(4, max(3, snapshot.hubWidgetLimit ?? 4))
         setupCompleted = snapshot.setupCompleted ?? !snapshot.members.isEmpty
@@ -1108,13 +1211,17 @@ final class HubStore: ObservableObject {
         quietHours = snapshot.quietHours ?? []
         recapPhotos = snapshot.recapPhotos ?? []
         choreProofs = snapshot.choreProofs ?? []
-        if snapshot.joinCode == nil {
-            persist()
+        let missingCode = snapshot.joinCode == nil
+        let missingHistory = !(snapshot.issuedJoinCodes ?? []).contains(joinCode)
+        let oldSchema = snapshot.schemaVersion != HubSnapshot.currentSchema
+        if missingCode || missingHistory || oldSchema {
+            persistNow()
         }
         rememberAccount()
     }
 
-    private func persist() {
+    private func writeSnapshot() {
+        guard !loadFailed else { return }
         let snapshot = HubSnapshot(
             householdName: householdName,
             members: members,
@@ -1137,7 +1244,7 @@ final class HubStore: ObservableObject {
             ownerID: ownerID,
             joinCode: joinCode,
             signedInMemberID: signedInMemberID,
-            notifyPrefs: notifyPrefs,
+            notifyPrefs: notifyPrefs.strippingSecrets(),
             whiteboardNote: whiteboardNote,
             hubWidgetLimit: hubWidgetLimit,
             setupCompleted: setupCompleted,
@@ -1149,14 +1256,17 @@ final class HubStore: ObservableObject {
             custodyHouses: custodyHouses,
             quietHours: quietHours,
             recapPhotos: recapPhotos,
-            choreProofs: choreProofs
+            choreProofs: choreProofs,
+            schemaVersion: HubSnapshot.currentSchema,
+            issuedJoinCodes: issuedJoinCodes
         )
         do {
             let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.outputFormatting = [.sortedKeys]
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
+            writeTimestampedBackup(data)
             rememberAccount()
             scheduleCloudPublish(data)
             publishWidgets()
@@ -1165,9 +1275,45 @@ final class HubStore: ObservableObject {
         }
     }
 
+    private var persistTask: Task<Void, Never>?
+
+    private func persist() {
+        persistTask?.cancel()
+        persistTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            writeSnapshot()
+        }
+    }
+
+    private func persistNow() {
+        persistTask?.cancel()
+        writeSnapshot()
+        if roleLoaded && writingRole { saveDeviceRole() }
+    }
+
     private func publishWidgets() {
         let day = Date()
         let next = events.filter { $0.startAt > Date() }.sorted { $0.startAt < $1.startAt }.first
+        writeWidgetSnapshot(day: day, next: next, travelMinutes: LeaveByETA.fallbackMinutes)
+        guard let next, let lat = next.latitude, let lon = next.longitude, let home = weatherPlace else { return }
+        let eventID = next.id
+        let title = next.title
+        let start = next.startAt
+        let origin = CLLocationCoordinate2D(latitude: home.latitude, longitude: home.longitude)
+        let destination = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        Task { @MainActor in
+            let minutes = await LeaveByETA.driveMinutes(from: origin, to: destination) ?? LeaveByETA.fallbackMinutes
+            guard events.contains(where: { $0.id == eventID && $0.startAt == start }) else { return }
+            writeWidgetSnapshot(day: Date(), next: events.first { $0.id == eventID }, travelMinutes: minutes)
+            #if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
+            LeaveByLive.publish(title: title, eventID: eventID.uuidString, startAt: start, travelMinutes: minutes)
+            #endif
+        }
+    }
+
+    private func writeWidgetSnapshot(day: Date, next: CalendarEvent?, travelMinutes: Int) {
+        let minutes = max(1, travelMinutes)
         WidgetBridge.write(WidgetBridge.Snapshot(
             household: householdName.isEmpty ? "HUB Circle" : householdName,
             agendaTitle: next?.title ?? "Nothing on the calendar",
@@ -1175,14 +1321,14 @@ final class HubStore: ObservableObject {
             dinnerName: dinnerTitle(on: day) ?? "Nothing planned",
             dinnerSide: dinnerSide(on: day)?.name ?? "",
             leaveTitle: next?.title ?? "",
-            leaveAt: next.map { $0.startAt.addingTimeInterval(-20 * 60) },
+            leaveAt: next.map { $0.startAt.addingTimeInterval(TimeInterval(-minutes * 60)) },
             eventStart: next?.startAt,
             updatedAt: Date()
         ))
         WidgetCenter.shared.reloadAllTimelines()
-        #if canImport(ActivityKit)
+        #if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
         if let next {
-            LeaveByLive.publish(title: next.title, eventID: next.id.uuidString, startAt: next.startAt)
+            LeaveByLive.publish(title: next.title, eventID: next.id.uuidString, startAt: next.startAt, travelMinutes: minutes)
         }
         #endif
     }
@@ -1190,43 +1336,85 @@ final class HubStore: ObservableObject {
     private var cloudPublishTask: Task<Void, Never>?
 
     private func scheduleCloudPublish(_ data: Data) {
+        guard !Self.runningUnitTests else { return }
         guard signedInMemberID != nil, signedInMemberID == ownerID else { return }
         cloudPublishTask?.cancel()
-        let code = joinCode
         cloudPublishTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1.2))
             guard !Task.isCancelled else { return }
             do {
-                try await HouseholdCloud.publish(code: code, data: data)
+                try await HouseholdCloud.publish(data: data)
+                if let note = await self?.retirePublicRecordsOnce() {
+                    await MainActor.run { self?.errorMessage = note }
+                }
             } catch {
                 await MainActor.run { self?.errorMessage = error.localizedDescription }
             }
         }
     }
 
+    private static let publicCleanupKey = "familyhub.publicHubCleanup.v1"
+
+    /// After the private-zone save succeeds, delete old public hub-<code> records one time.
+    @discardableResult
+    func retirePublicRecordsOnce() async -> String? {
+        guard !UserDefaults.standard.bool(forKey: Self.publicCleanupKey) else { return nil }
+        let failed = await deletePublicCodes(knownShareCodes(), attempts: 3)
+        if !failed.isEmpty {
+            let message = "Could not delete old shared records (\(failed.joined(separator: ", "))). They are still on iCloud."
+            errorMessage = message
+            return message
+        }
+        UserDefaults.standard.set(true, forKey: Self.publicCleanupKey)
+        return nil
+    }
+
+    func currentHouseholdData() -> Data? {
+        guard let raw = try? Data(contentsOf: snapshotURL) else { return nil }
+        return raw
+    }
+
     func publishHouseholdNow() async -> String? {
-        guard let data = try? Data(contentsOf: snapshotURL) else { return "Nothing to share yet." }
+        guard let data = currentHouseholdData() else { return "Nothing to share yet." }
         do {
-            try await HouseholdCloud.publish(code: joinCode, data: data)
-            return nil
+            try await HouseholdCloud.publish(data: data)
+            return await retirePublicRecordsOnce()
         } catch {
             return error.localizedDescription
         }
     }
 
-    func joinRemoteHousehold(code: String) async throws {
-        let data = try await HouseholdCloud.fetch(code: code)
+    func prepareHouseholdShare() async throws -> CKShare {
+        guard let data = currentHouseholdData() else { throw HouseholdCloudError.missingHouse }
+        let title = householdName.isEmpty ? "HUB Circle" : householdName
+        let share = try await HouseholdCloud.makeShare(data: data, title: title)
+        ownsPrivateZone = true
+        saveDeviceRole()
+        if let note = await retirePublicRecordsOnce() {
+            errorMessage = note
+        }
+        return share
+    }
+
+    func joinSharedHousehold() async throws {
+        guard !Self.runningUnitTests, remote is HouseholdCloudClient else {
+            throw HouseholdCloudError.missingHouse
+        }
+        let fetched = try await HouseholdCloud.fetchShared()
+        let data = fetched.data
+        ownsPrivateZone = fetched.ownedHere
+        saveDeviceRole()
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let snapshot = try decoder.decode(HubSnapshot.self, from: data)
         apply(snapshot)
         signedInMemberID = nil
-        persist()
+        persistNow()
     }
 
     func markSetupComplete() {
         setupCompleted = true
-        persist()
+        persistNow()
     }
 
     func setAppearance(_ value: HubAppearance) {
@@ -1241,9 +1429,15 @@ final class HubStore: ObservableObject {
         NSUbiquitousKeyValueStore.default.synchronize()
     }
 
-    private static let accountKey = "familyhub.account.join"
+    static let accountKey = "familyhub.account.join"
+    static var runningUnitTests: Bool {
+        let env = ProcessInfo.processInfo.environment
+        return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
+    }
 
     func restoreAccountIfNeeded() async {
+        guard !Self.runningUnitTests else { return }
+        guard !loadFailed else { return }
         if setupCompleted || !members.isEmpty {
             rememberAccount()
             return
@@ -1252,7 +1446,7 @@ final class HubStore: ObservableObject {
             ?? UserDefaults.standard.string(forKey: Self.accountKey)
         guard let saved, saved.count == 6 else { return }
         do {
-            try await joinRemoteHousehold(code: saved)
+            try await joinSharedHousehold()
             setupCompleted = true
             persist()
         } catch {
@@ -1260,17 +1454,207 @@ final class HubStore: ObservableObject {
         }
     }
 
-    func resetAsNewDownload() {
+    /// Owner deletes the private-zone record and CKShare. A participant only leaves the share.
+    /// Local data stays if iCloud does not confirm.
+    func eraseHousehold() async -> String? {
+        do {
+            if ownsPrivateZone {
+                try await remote.deletePrivateHouseholdAndShare()
+            } else {
+                try await remote.leaveShare()
+            }
+        } catch {
+            let message = "Could not erase the iCloud copy. This HUB is still on this device. \(error.localizedDescription)"
+            errorMessage = message
+            return message
+        }
+        let failed = await deletePublicCodes(knownShareCodes(), attempts: 3)
+        if !failed.isEmpty {
+            let message = "Could not delete old shared records (\(failed.joined(separator: ", "))). This HUB is still on this device."
+            errorMessage = message
+            return message
+        }
+        clearLocalHouse()
+        return nil
+    }
+
+    func restoreNewestBackup() async -> String? {
+        let folder = snapshotURL.deletingLastPathComponent()
+        let data = await Task.detached(priority: .userInitiated) {
+            Self.newestDecodableBackup(in: folder)
+        }.value
+        guard let data else {
+            return "No readable backup was found. The original file is still untouched."
+        }
+        do {
+            try data.write(to: snapshotURL, options: [.atomic])
+        } catch {
+            return "Could not restore the backup. \(error.localizedDescription)"
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let snapshot = try? decoder.decode(HubSnapshot.self, from: data) else {
+            return "No readable backup was found. The original file is still untouched."
+        }
+        loadFailed = false
+        loadFailureDetail = nil
+        apply(snapshot)
+        return nil
+    }
+
+    nonisolated static func newestDecodableBackup(in folder: URL) -> Data? {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" } ?? []
+        let ordered = files.sorted { lhs, rhs in
+            let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return left > right
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        for file in ordered {
+            guard let data = try? Data(contentsOf: file),
+                  (try? decoder.decode(HubSnapshot.self, from: data)) != nil
+            else { continue }
+            return data
+        }
+        return nil
+    }
+
+    private var writingBackup = true
+    private var writingRole = true
+    /// Stays false through the launch `persistNow()`, so that save cannot invent an owner role file.
+    private var roleLoaded = false
+
+    private func writeTimestampedBackup(_ data: Data) {
+        guard writingBackup else { return }
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        let folder = snapshotURL.deletingLastPathComponent()
+        let backup = folder.appendingPathComponent("hub-\(stamp).json")
+        try? data.write(to: backup, options: [.atomic])
+        pruneBackups(keeping: 5)
+    }
+
+    private var roleURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("device-role.json") }
+    private var legacyRoleURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-role.json") }
+
+    private struct DeviceRole: Codable {
+        var ownsPrivateZone: Bool
+    }
+
+    private func loadDeviceRole() {
+        if !fileManager.fileExists(atPath: roleURL.path), fileManager.fileExists(atPath: legacyRoleURL.path) {
+            try? fileManager.moveItem(at: legacyRoleURL, to: roleURL)
+        }
+        guard let data = try? Data(contentsOf: roleURL),
+              let role = try? JSONDecoder().decode(DeviceRole.self, from: data) else { return }
+        ownsPrivateZone = role.ownsPrivateZone
+    }
+
+    private func saveDeviceRole() {
+        guard let data = try? JSONEncoder().encode(DeviceRole(ownsPrivateZone: ownsPrivateZone)) else { return }
+        try? data.write(to: roleURL, options: [.atomic])
+    }
+
+    private func backupFiles(in folder: URL) -> [URL] {
+        (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" } ?? []
+    }
+
+    /// Cap is the 5 newest `hub-*.json` backups plus the newest one that still decodes, when that file is older (at most 6).
+    /// Corrupt copies use the `corrupt-hub-` prefix and are not part of this set.
+    /// Does nothing while hub.json itself is corrupt, so failed launches cannot evict a good copy.
+    private func pruneBackups(keeping limit: Int) {
+        guard !loadFailed else { return }
+        let folder = snapshotURL.deletingLastPathComponent()
+        let ordered = backupFiles(in: folder).sorted { lhs, rhs in
+            let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return left > right
+        }
+        var keep = Set(ordered.prefix(limit).map(\.path))
+        if let protected = Self.newestDecodableBackupURL(in: folder) {
+            keep.insert(protected.path)
+        }
+        for file in ordered where !keep.contains(file.path) {
+            try? fileManager.removeItem(at: file)
+        }
+    }
+
+    nonisolated static func newestDecodableBackupURL(in folder: URL) -> URL? {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" } ?? []
+        let ordered = files.sorted { lhs, rhs in
+            let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return left > right
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        for file in ordered {
+            guard let data = try? Data(contentsOf: file),
+                  (try? decoder.decode(HubSnapshot.self, from: data)) != nil
+            else { continue }
+            return file
+        }
+        return nil
+    }
+
+    /// Failed launches keep the 3 newest corrupt copies, ordered by the timestamp in the filename.
+    /// `protecting` is the copy named on the restore screen and is never deleted.
+    private func pruneCorruptCopies(keeping limit: Int, protecting protectedName: String? = nil) {
+        let folder = snapshotURL.deletingLastPathComponent()
+        let ordered = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?
+            .filter { $0.lastPathComponent.hasPrefix("corrupt-hub-") && $0.pathExtension == "json" } ?? []
+        let sorted = ordered.sorted { Self.corruptStamp($0.lastPathComponent) > Self.corruptStamp($1.lastPathComponent) }
+        var keep = Set(sorted.prefix(limit).map(\.lastPathComponent))
+        if let protectedName { keep.insert(protectedName) }
+        for file in ordered where !keep.contains(file.lastPathComponent) {
+            try? fileManager.removeItem(at: file)
+        }
+    }
+
+    nonisolated static func corruptStamp(_ name: String) -> String {
+        var body = name
+        let prefix = "corrupt-hub-"
+        if body.hasPrefix(prefix) { body.removeFirst(prefix.count) }
+        if body.hasSuffix(".json") { body.removeLast(".json".count) }
+        return body
+    }
+
+    private func deleteAllBackups() {
+        let folder = snapshotURL.deletingLastPathComponent()
+        for file in backupFiles(in: folder) {
+            try? fileManager.removeItem(at: file)
+        }
+        pruneCorruptCopies(keeping: 0)
+    }
+
+    private func clearLocalHouse() {
+        writingBackup = false
+        writingRole = false
+        defer {
+            writingBackup = true
+            writingRole = true
+        }
+        deleteAllBackups()
+        ownsPrivateZone = true
+        try? fileManager.removeItem(at: roleURL)
+        try? fileManager.removeItem(at: legacyRoleURL)
         UserDefaults.standard.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.removeObject(forKey: Self.accountKey)
+        NSUbiquitousKeyValueStore.default.synchronize()
         try? fileManager.removeItem(at: snapshotURL)
         try? fileManager.removeItem(at: familyPhotoURL)
         try? fileManager.removeItem(at: memberPhotoFolder)
+        loadFailed = false
+        loadFailureDetail = nil
         apply(Self.emptySnapshot())
         setupCompleted = false
+        issuedJoinCodes = []
         familyPhotoData = nil
         memberPhotos = [:]
-        persist()
+        persistNow()
     }
 
     static func emptySnapshot() -> HubSnapshot {
@@ -1286,7 +1670,8 @@ final class HubStore: ObservableObject {
             weatherPlace: .chicago,
             weatherFollowsMe: true,
             hubWidgets: HubWidget.defaultSet,
-            recipes: SampleFamily.starterRecipes
+            recipes: [],
+            schemaVersion: HubSnapshot.currentSchema
         )
     }
 }
@@ -1348,65 +1733,3 @@ struct UpcomingItem: Identifiable {
     }
 }
 
-enum SampleFamily {
-    static let starterRecipes: [Recipe] = [
-        .make(name: "Tacos", kind: .recipe, notes: "Beef, shells, toppings"),
-        .make(name: "Spaghetti", kind: .recipe, notes: "Marinara and garlic bread"),
-        .make(name: "Grilled chicken", kind: .cooked),
-        .make(name: "Leftovers", kind: .cooked),
-        .make(name: "Pizza night", kind: .recipe),
-    ]
-
-    static func snapshot(now: Date = Date(), calendar: Calendar = .current) -> HubSnapshot {
-        let cory = FamilyMember.make(name: "Cory", role: .parent, colorHex: "163A5F", symbol: "😎")
-        let alex = FamilyMember.make(name: "Alex", role: .child, colorHex: "2563EB", symbol: "🏃")
-        let sam = FamilyMember.make(name: "Sam", role: .child, colorHex: "EA580C", symbol: "⚽️")
-
-        func day(_ offset: Int, hour: Int, minute: Int = 0) -> Date {
-            let start = calendar.startOfDay(for: now)
-            let shifted = calendar.date(byAdding: .day, value: offset, to: start) ?? start
-            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: shifted) ?? shifted
-        }
-
-        let dishes = Chore.make(title: "Dishes", details: "Load and wipe the counters.", rewardCents: 200, cadence: .daily)
-        let trash = Chore.make(title: "Take out trash", details: "Kitchen + bathrooms.", rewardCents: 150, cadence: .weekly)
-        let room = Chore.make(title: "Clean bedroom", details: "Floor, bed, desk.", rewardCents: 300, cadence: .weekly)
-        let lawn = Chore.make(title: "Mow the lawn", details: "Front and back.", rewardCents: 800, cadence: .weekly)
-
-        let a1 = ChoreAssignment.make(choreID: dishes.id, memberID: alex.id, dueOn: now)
-        let a2 = ChoreAssignment.make(choreID: trash.id, memberID: sam.id, dueOn: now)
-        let a3 = ChoreAssignment.make(choreID: room.id, memberID: alex.id, dueOn: calendar.date(byAdding: .day, value: 2, to: now) ?? now)
-        let a4 = ChoreAssignment.make(choreID: lawn.id, memberID: sam.id, dueOn: calendar.date(byAdding: .day, value: 3, to: now) ?? now)
-
-        return HubSnapshot(
-            householdName: "Murray",
-            members: [cory, alex, sam],
-            events: [
-                .make(title: "Soccer practice", startAt: day(0, hour: 16, minute: 30), endAt: day(0, hour: 18), location: "Lincoln Park field", memberID: sam.id),
-                .make(title: "Family dinner", startAt: day(0, hour: 18, minute: 30), location: "Home"),
-                .make(title: "Dentist", startAt: day(1, hour: 10), location: "Oak Street Dental", memberID: alex.id),
-                .make(title: "Piano", startAt: day(2, hour: 15, minute: 30), location: "Studio B", memberID: alex.id),
-                .make(title: "Game night", startAt: day(5, hour: 19), location: "Home"),
-            ],
-            reminders: [
-                .make(title: "Permission slip for field trip", dueAt: day(1, hour: 8), memberID: alex.id),
-                .make(title: "Trash night", dueAt: day(0, hour: 19), memberID: sam.id),
-                .make(title: "Pay soccer fees", dueAt: day(4, hour: 12), memberID: cory.id),
-            ],
-            todos: [
-                .make(title: "Grocery run", notes: "Milk, berries, sandwich bread", dueAt: day(0, hour: 17), memberID: cory.id),
-                .make(title: "Schedule oil change", dueAt: day(3, hour: 9), memberID: cory.id),
-                .make(title: "Pack gym bag", dueAt: day(0, hour: 15), memberID: sam.id),
-            ],
-            chores: [dishes, trash, room, lawn],
-            assignments: [a1, a2, a3, a4],
-            ledger: [],
-            weatherPlace: .chicago,
-            hubWidgets: HubWidget.defaultSet,
-            recipes: starterRecipes,
-            dinners: [
-                .make(day: now, recipeID: starterRecipes.first(where: { $0.name == "Tacos" })?.id),
-            ]
-        )
-    }
-}

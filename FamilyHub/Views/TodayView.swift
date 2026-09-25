@@ -155,7 +155,8 @@ struct TodayView: View {
             WhiteboardEditor()
                 .environmentObject(store)
         }
-        .task {
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
             await refreshWeatherFromHere()
             while !Task.isCancelled {
                 await weather.load(place: store.weatherPlace ?? .chicago, units: store.units)
@@ -1226,7 +1227,7 @@ struct TodayView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(passed ? Color(hex: "F3F4F6") : Color.white)
+        .background(passed ? AppTheme.tableFill : AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -1970,7 +1971,7 @@ private struct EventScroll: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 8)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.white)
+                            .background(AppTheme.card)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)

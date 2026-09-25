@@ -37,7 +37,7 @@ struct HubWidgetPickSheet: View {
                             .foregroundStyle(current == kind ? .white : AppTheme.text)
                             .frame(maxWidth: .infinity, minHeight: 132)
                             .padding(16)
-                            .background(current == kind ? AppTheme.blue : Color.white)
+                            .background(current == kind ? AppTheme.blue : AppTheme.card)
                             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -92,7 +92,7 @@ struct HubWidgetPicker: View {
                         .buttonStyle(.plain)
                     }
                     .padding(16)
-                    .background(Color.white)
+                    .background(AppTheme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -245,6 +245,7 @@ struct FlightWidget: View {
     let day: Date
     var onAdd: () -> Void
     @Environment(\.hubAccent) private var accent
+    @Environment(\.scenePhase) private var scenePhase
     @State private var opened: TrackedFlight?
     @State private var ping: FlightPing?
 
@@ -309,11 +310,11 @@ struct FlightWidget: View {
             FlightDetailSheet(flight: flight, others: flights)
                 .environmentObject(store)
         }
-        .task(id: flights.first?.code) {
-            guard let flight = flights.first else { ping = nil; return }
+        .task(id: "\(flights.first?.code ?? "")-\(scenePhase == .active)") {
+            guard scenePhase == .active, let flight = flights.first else { ping = nil; return }
             while !Task.isCancelled {
                 ping = await FlightLive.ping(flight)
-                try? await Task.sleep(for: .seconds(20))
+                try? await Task.sleep(for: .seconds(90))
             }
         }
     }
@@ -412,6 +413,7 @@ struct FlightDetailSheet: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     let flight: TrackedFlight
     var others: [TrackedFlight] = []
     @State private var ping: FlightPing?
@@ -482,7 +484,7 @@ struct FlightDetailSheet: View {
                                                 }
                                             }
                                             .padding(12)
-                                            .background(Color.white)
+                                            .background(AppTheme.card)
                                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                                         }
                                         .buttonStyle(.plain)
@@ -496,11 +498,12 @@ struct FlightDetailSheet: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .task(id: watching.code) {
+        .task(id: "\(watching.code)-\(scenePhase == .active)") {
             ping = nil
+            guard scenePhase == .active else { return }
             while !Task.isCancelled {
                 ping = await FlightLive.ping(watching)
-                try? await Task.sleep(for: .seconds(15))
+                try? await Task.sleep(for: .seconds(60))
             }
         }
     }
@@ -565,7 +568,7 @@ struct FlightDetailSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.white)
+        .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
@@ -1111,7 +1114,7 @@ struct WhiteboardEditor: View {
                     .foregroundStyle(AppTheme.textSecondary)
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white)
+                        .fill(AppTheme.card)
                     if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text("Soccer bags by the door…")
                             .font(.title3.weight(.semibold))

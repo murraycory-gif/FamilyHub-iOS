@@ -25,6 +25,7 @@ struct FamilyHubApp: App {
         UINavigationBar.appearance().scrollEdgeAppearance = nav
         UINavigationBar.appearance().compactAppearance = nav
         UINavigationBar.appearance().tintColor = UIColor(red: 0, green: 61 / 255, blue: 165 / 255, alpha: 1)
+        LaunchTiming.mark("app init")
     }
 
     var body: some Scene {

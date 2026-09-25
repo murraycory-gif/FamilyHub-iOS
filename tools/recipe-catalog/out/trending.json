@@ -1,0 +1,588 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedFor": "2026-10",
+  "season": "fall",
+  "editorPicks": [
+    "wikibooks-1-2-3-4-cake",
+    "wikibooks-a-nice-cup-of-tea",
+    "wikibooks-aadun-nigerian-corn-flour-with-palm-oil",
+    "wikibooks-acorn-crusted-salmon",
+    "wikibooks-adobo-chicken-philippine",
+    "wikibooks-affogato",
+    "wikibooks-aji-de-gallina-peruvian-chili-chicken",
+    "wikibooks-akamu-nigerian-pudding",
+    "wikibooks-algerian-mint-tea",
+    "wikibooks-alkubus-nigerian-steamed-bread",
+    "wikibooks-almond-milk-ii",
+    "wikibooks-amala-yoruba-yam-swallow"
+  ],
+  "seasonal": [
+    {
+      "id": "wikibooks-aadun-nigerian-corn-flour-with-palm-oil",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-adobo-chicken-philippine",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-aji-de-gallina-peruvian-chili-chicken",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-akamu-nigerian-pudding",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-ambrosia-fruit-salad",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-apple-cake",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-apple-crisp-i",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-arroz-con-pollo-rice-and-chicken",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-asian-grilled-duck-breasts",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-asun-goat-in-pepper-sauce",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-au-jus-sandwich",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-baba-ganoush",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-baingan-bartha-south-indian-eggplant-with-coconut-and-chili-i",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-barbecue-ribs",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-barbecued-spare-ribs",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-beef-heart-kabobs-anticuchos",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-beef-stew-i",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-bell-pepper-chili",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-binagoongan-sauteed-pork-with-shrimp-paste",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-boeuf-bourguignon",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-broccoli-salad",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-bryndzove-halusky-slovak-dumplings-with-cheese",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-bubble-tea",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-bulgarian-tripe-soup-shkembe-chorba",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-bulgogi",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-cabbage-kimchi",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-chewy-ginger-cookies",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-chicken-biryani",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-chokladboll-swedish-chocolate-balls",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-cioppino-italian-seafood-stew",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-coleslaw-i",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-crispy-gingerbread-cookies",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-dal-makhani-black-gram-with-cream",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-dinuguan-pork-blood-stew",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-dry-rub-barbecue-ribs",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-dutch-apple-fritters-oliebollen",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-east-frisian-tea",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-egg-butter",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-egyptian-lentil-soup",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-flaky-pie-crust",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-french-fries",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-fried-chicken-and-fried-potatoes",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-gajjar-halwa-carrot-pudding",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-ghavoot-iranian-nut-and-seed-powder",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-huevos-rancheros",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-imitation-cheese-vegan",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-kunun-tsamiya-nigerian-powdered-millet-and-tsamiya-drink",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-lapis-legit-many-layered-spiced-cake",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-malpua-south-asian-sweet-pancake",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-mango-chutney-chunky",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-miso-soup",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-molasses-cookies",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nigerian-bean-porridge",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nigerian-egg-roll",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nigerian-egg-stew",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nigerian-fruit-skewer",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nigerian-jollof-rice",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nigerian-puff-puff",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nigerian-roasted-plantain",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nigerian-roasted-yam",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nigerian-tiger-nut-milk-kunun-aya",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nilagang-baka-boiled-beef-and-vegetables-in-broth",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-nicoise-salad",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-ofe-onugbu-bitter-leaf-soup",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-pad-thai",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-pork-spare-rib-soup-bah-kut-teh",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-potato-and-cauliflower-curry-aloo-gobi",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-potato-samosas-aloo-pies",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-pumpkin-pie-i",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-red-lentil-soup",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-roasted-pork-with-potatoes-and-onions-schweinsbraten",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-ropa-vieja-caribbean-shredded-beef",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-semolina-pudding",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-simple-tarragon-quiche",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-spanakopita",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-spelt-burger",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-stargazy-pie",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-strawberry-and-yogurt-eton-mess",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-sukiyaki",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-summer-pudding",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    },
+    {
+      "id": "wikibooks-thai-green-curry-with-chicken",
+      "tags": [
+        "fall",
+        "october"
+      ]
+    }
+  ]
+}

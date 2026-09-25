@@ -24,11 +24,19 @@ final class CalendarIngestor: ObservableObject {
     private var pendingSync: Task<Void, Never>?
     private weak var hub: HubStore?
 
+    /// Full read access. Write-only is not enough to list or sync calendars.
     var isAuthorized: Bool {
         if #available(iOS 17.0, *) {
-            return authorization == .fullAccess || authorization == .authorized
+            return authorization == .fullAccess
         }
         return authorization == .authorized
+    }
+
+    var isWriteOnly: Bool {
+        if #available(iOS 17.0, *) {
+            return authorization == .writeOnly
+        }
+        return false
     }
 
     func refreshStatus(resetStore: Bool = false) {
@@ -54,6 +62,8 @@ final class CalendarIngestor: ObservableObject {
                 message = available.isEmpty
                     ? "No calendars on this device yet. Add iCloud, Google, Outlook, Yahoo, Exchange, or CalDAV in Settings → Calendar → Accounts."
                     : "Found \(available.count) calendars on this device."
+            } else if isWriteOnly {
+                message = "Calendar access is write-only. Turn on Full Access in Settings so HUB can read iCloud, Google, Outlook, and the other calendars on this device."
             } else {
                 message = "Calendar access is off. Turn it on in Settings to pull in iCloud, Google, Outlook, Yahoo, and other accounts."
             }
@@ -174,9 +184,12 @@ final class CalendarIngestor: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
         var imported = 0
+        let deviceCalendars = EventKitBridge.list(store: ekStore)
         for source in hub.calendarSources {
             if let eventKitID = source.eventKitID, ekStore.calendar(withIdentifier: eventKitID) == nil {
-                hub.removeCalendarSource(source.id)
+                if !deviceCalendars.isEmpty {
+                    hub.removeCalendarSource(source.id)
+                }
                 continue
             }
             guard source.isEnabled else { continue }
@@ -189,9 +202,12 @@ final class CalendarIngestor: ObservableObject {
                         sourceID: source.id,
                         memberID: source.memberID
                     )
-                } else if let urlString = source.icsURL, let url = URL(string: urlString) {
-                    let data = try await URLSession.shared.data(from: url).0
-                    let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
+                } else if let urlString = source.icsURL, let url = ICSLink.httpsURL(from: urlString) {
+                    let (status, data) = try await HubHTTP.response(from: url)
+                    guard let text = ICSLink.calendarText(status: status, data: data) else {
+                        if !quiet { message = "Could not sync \(source.title)." }
+                        continue
+                    }
                     events = ICSParser.parse(text, sourceID: source.id, memberID: source.memberID)
                 } else {
                     continue

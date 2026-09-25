@@ -380,7 +380,6 @@ struct MealChoiceSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "What's For", tail: "Dinner") {
                 HubHeaderPill(title: "Close") {
-                    router.open(.today)
                     onComplete()
                 }
             }
@@ -439,15 +438,15 @@ struct MealChoiceSheet: View {
         case .eatOut(let mode):
             EatOutPicker(day: day, mode: mode, onClose: { DispatchQueue.main.async { route = nil } }, onDone: finish)
         case .family:
-            FamilyRecipePicker(day: day) { go(.sides) }
+            FamilyRecipePicker(day: day, onClose: { DispatchQueue.main.async { route = nil } }) { go(.sides) }
         case .recipes:
             CatalogRecipePicker(day: day, onClose: { DispatchQueue.main.async { route = nil } }, onDone: { go(.sides) })
         case .manual:
-            ManualMealSheet(day: day) { go(.sides) }
+            ManualMealSheet(day: day, onClose: { DispatchQueue.main.async { route = nil } }) { go(.sides) }
         case .sides:
-            SidePicker(day: day) { go(.review) }
+            SidePicker(day: day, onBack: { DispatchQueue.main.async { route = nil } }) { go(.review) }
         case .review:
-            DinnerReviewView(day: day, onDone: finish)
+            DinnerReviewView(day: day, onBack: { go(.sides) }, onDone: finish)
         }
     }
 
@@ -740,6 +739,7 @@ private struct EatOutPicker: View {
 private struct FamilyRecipePicker: View {
     @EnvironmentObject private var store: HubStore
     let day: Date
+    var onClose: () -> Void = {}
     var onDone: () -> Void
     @State private var showAdd = false
     @State private var showScan = false
@@ -771,6 +771,7 @@ private struct FamilyRecipePicker: View {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: "Family", tail: "Recipes") {
                     HStack(spacing: 8) {
+                        HubHeaderPill(title: "Back") { onClose() }
                         Button { showScan = true } label: {
                             Text("Scan")
                                 .font(.headline.weight(.bold))
@@ -796,10 +797,18 @@ private struct FamilyRecipePicker: View {
                     .padding(.bottom, 8)
                 ScrollView {
                     if familyRecipes.isEmpty {
-                        Text("Nothing saved yet.")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
-                            .padding(20)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Nothing saved yet.")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Button("Add a family recipe") { showAdd = true }
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                            Button("Paste a link") { showLink = true }
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                        }
+                        .padding(20)
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
                             ForEach(familyRecipes) { recipe in
@@ -983,6 +992,9 @@ private struct CatalogRecipePicker: View {
             HubStickyHeader(lead: "All", tail: "Recipes") {
                 HubHeaderPill(title: "Close") { onClose() }
             }
+            searchKindPicker
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
             searchBar
                 .onChange(of: catalog.query) { _, value in
                     Task {
@@ -993,6 +1005,8 @@ private struct CatalogRecipePicker: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 8)
+            dietChips
+                .padding(.horizontal, 20)
             chips
                 .padding(.horizontal, 20)
             if let message = catalog.message {
@@ -1001,6 +1015,29 @@ private struct CatalogRecipePicker: View {
                     .padding(.horizontal, 20)
             }
             ScrollView {
+                if catalog.trending.isEmpty == false {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Trending now")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text(catalog.sourceTitle)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(catalog.trending.filter { DietMatch.allows($0, flags: catalog.diets) }) { recipe in
+                                    Button { opened = recipe } label: {
+                                        recipeTile(recipe)
+                                            .frame(width: 220)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
                     ForEach(Array(catalog.recipes.prefix(80))) { recipe in
                         Button {
@@ -1017,12 +1054,70 @@ private struct CatalogRecipePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .onAppear {
+            if let member = store.member(id: store.signedInMemberID ?? store.ownerID ?? UUID()) {
+                catalog.diets = Set(member.diets)
+            }
             Task { await catalog.load() }
         }
     }
 
+    private var searchKindPicker: some View {
+        HStack(spacing: 8) {
+            ForEach(RecipeSearchKind.allCases) { kind in
+                let on = catalog.searchKind == kind
+                Button {
+                    catalog.searchKind = kind
+                    Task { await catalog.search() }
+                } label: {
+                    Text(kind.title)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(on ? .white : AppTheme.text)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(on ? AppTheme.blue : AppTheme.card, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var dietChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(DietFlag.allCases) { flag in
+                    let on = catalog.diets.contains(flag)
+                    Button {
+                        if on { catalog.diets.remove(flag) } else { catalog.diets.insert(flag) }
+                        saveDiets()
+                        Task { await catalog.search() }
+                    } label: {
+                        Text(flag.title)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(on ? .white : AppTheme.blue)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(on ? AppTheme.blue : AppTheme.blueSoft, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        Text("Allergen filters: check labels. Halal and kosher mean ingredients compatible, not certified.")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(AppTheme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func saveDiets() {
+        guard var member = store.member(id: store.signedInMemberID ?? store.ownerID ?? UUID()) else { return }
+        member.diets = DietFlag.allCases.filter { catalog.diets.contains($0) }
+        store.updateMember(member)
+    }
+
     private var searchBar: some View {
-        HubSearchBar(text: $catalog.query, placeholder: "Burger, chili, tacos…", isLoading: catalog.isLoading) {
+        HubSearchBar(text: $catalog.query, placeholder: catalog.searchKind.placeholder, isLoading: catalog.isLoading) {
             Task { await catalog.search() }
         }
     }
@@ -1041,7 +1136,7 @@ private struct CatalogRecipePicker: View {
                             .foregroundStyle(on ? .white : AppTheme.blue)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(on ? AppTheme.blue : Color.white, in: Capsule())
+                            .background(on ? AppTheme.blue : AppTheme.card, in: Capsule())
                             .overlay(Capsule().stroke(AppTheme.blue.opacity(on ? 0 : 0.25), lineWidth: 1.5))
                     }
                     .buttonStyle(.plain)
@@ -1075,9 +1170,14 @@ private struct CatalogRecipeDetail: View {
                     Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.blue)
+                    if recipe.sourceName.isEmpty == false || recipe.licenseName.isEmpty == false {
+                        Text(recipe.attributionLine)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
                 }
                 .padding(14)
-                .background(Color.white)
+                .background(AppTheme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -1117,6 +1217,7 @@ private struct CatalogRecipeDetail: View {
 private struct SidePicker: View {
     @EnvironmentObject private var store: HubStore
     let day: Date
+    var onBack: () -> Void = {}
     var onDone: () -> Void
     @StateObject private var catalog = SideCatalog()
     @State private var opened: CatalogRecipe?
@@ -1137,9 +1238,12 @@ private struct SidePicker: View {
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: "All", tail: "Sides") {
+                    HStack(spacing: 8) {
+                    HubHeaderPill(title: "Back") { onBack() }
                     HubHeaderPill(title: "Skip side") {
                         store.setDinnerSide(on: day, recipeID: nil)
                         DispatchQueue.main.async { onDone() }
+                    }
                     }
                 }
                 HubSearchBar(text: $catalog.query, placeholder: "Mashed potatoes, slaw, fries…") {
@@ -1167,7 +1271,7 @@ private struct SidePicker: View {
                                     .foregroundStyle(on ? .white : AppTheme.blue)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
-                                    .background(on ? AppTheme.blue : Color.white, in: Capsule())
+                                    .background(on ? AppTheme.blue : AppTheme.card, in: Capsule())
                                     .overlay(Capsule().stroke(AppTheme.blue.opacity(on ? 0 : 0.25), lineWidth: 1.5))
                             }
                             .buttonStyle(.plain)
@@ -1261,6 +1365,7 @@ private struct DinnerReviewView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var router: HubRouter
     let day: Date
+    var onBack: () -> Void = {}
     var onDone: () -> Void
     @State private var picked: Set<String> = []
 
@@ -1276,7 +1381,9 @@ private struct DinnerReviewView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Dinner", tail: "Is set")
+            HubStickyHeader(lead: "Dinner", tail: "Is set") {
+                HubHeaderPill(title: "Back") { onBack() }
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("\(people). Tap an ingredient to add or skip it.")
@@ -1677,12 +1784,12 @@ private func hubFoodTile(name: String, category: String, url: URL? = nil) -> som
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
-        .background(Color.white)
+        .background(AppTheme.card)
     }
     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     .overlay(
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+            .stroke(AppTheme.cardBorder, lineWidth: 1)
     )
     .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
 }
@@ -1715,26 +1822,36 @@ private func placeTile(_ place: NearbyPlace, mode: PlaceMode) -> some View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
-        .background(Color.white)
+        .background(AppTheme.card)
     }
     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     .overlay(
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+            .stroke(AppTheme.cardBorder, lineWidth: 1)
     )
     .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
 }
 
 struct DinnerDayPhoto: View {
+    @EnvironmentObject private var store: HubStore
     let plan: DinnerPlan?
     var recipe: Recipe?
     var title: String?
     var quality: RecipePhotoLoader.Quality = .card
 
+    private var home: CLLocation? {
+        guard let place = store.weatherPlace else { return nil }
+        let seeded = place.label == WeatherPlace.chicago.label
+            && place.latitude == WeatherPlace.chicago.latitude
+            && place.longitude == WeatherPlace.chicago.longitude
+        if seeded { return nil }
+        return CLLocation(latitude: place.latitude, longitude: place.longitude)
+    }
+
     var body: some View {
         if let recipe {
             RecipePhoto(
-                url: URL(string: recipe.imageURL),
+                url: RecipeThumbs.owned(recipe.imageURL),
                 searchName: recipe.name,
                 category: recipe.notes,
                 quality: quality,
@@ -1742,12 +1859,12 @@ struct DinnerDayPhoto: View {
             )
         } else if let title, title.isEmpty == false, plan?.placeName == nil {
             RecipePhoto(
-                url: RecipeThumbs.url(for: title),
+                url: nil,
                 searchName: title,
                 quality: quality,
                 crop: true
             )
-        } else if let plan, let place = NearbyPlace(plan: plan) {
+        } else if let plan, let place = NearbyPlace(plan: plan, origin: home) {
             PlacePhoto(place: place)
         } else {
             ZStack {
@@ -1768,6 +1885,10 @@ struct RecipePhoto: View {
     var crop: Bool = true
     @State private var image: UIImage?
 
+    private var owned: URL? {
+        url.flatMap { RecipeThumbs.owned($0.absoluteString) }
+    }
+
     var body: some View {
         ZStack {
             AppTheme.blueSoft
@@ -1784,127 +1905,26 @@ struct RecipePhoto: View {
                         .scaledToFit()
                 }
             } else {
-                Image(systemName: RecipeLook.symbol(searchName, category: category))
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(AppTheme.blue.opacity(0.7))
+                Text(searchName.isEmpty ? "Recipe" : searchName)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .padding(10)
             }
         }
         .clipped()
         .contentShape(Rectangle())
-        .onAppear { image = RecipePhotoLoader.cached(name: searchName, quality: quality) }
-        .task(id: searchName + String(describing: quality)) {
-            if image == nil { image = RecipePhotoLoader.cached(name: searchName, quality: quality) }
-            if let found = await RecipePhotoLoader.image(name: searchName, quality: quality) {
+        .onAppear { image = owned.flatMap { RecipePhotoLoader.cached(url: $0) } }
+        .task(id: owned?.absoluteString ?? "") {
+            image = nil
+            guard let owned else { return }
+            if let cached = RecipePhotoLoader.cached(url: owned) {
+                image = cached
+            }
+            if let found = await RecipePhotoLoader.image(from: owned) {
                 image = found
             }
-        }
-    }
-}
-
-private enum RecipeLook {
-    static func symbol(_ name: String, category: String = "") -> String {
-        let blob = "\(name) \(category)".lowercased()
-        let rules: [(String, String)] = [
-            ("cheeseburger", "fork.knife.circle.fill"),
-            ("smash burger", "fork.knife.circle.fill"),
-            ("hamburger", "fork.knife.circle.fill"),
-            ("sloppy", "fork.knife.circle.fill"),
-            ("baby back", "flame.fill"),
-            ("rib", "flame.fill"),
-            ("brisket", "flame.fill"),
-            ("pulled pork", "flame.fill"),
-            ("pulled chicken", "flame.fill"),
-            ("bbq", "flame.fill"),
-            ("buffalo", "flame.fill"),
-            ("wing", "flame.fill"),
-            ("fried chicken", "flame.fill"),
-            ("chicken fried", "flame.fill"),
-            ("pot pie", "oven.fill"),
-            ("casserole", "oven.fill"),
-            ("meatloaf", "oven.fill"),
-            ("lasagna", "oven.fill"),
-            ("ziti", "oven.fill"),
-            ("pizza", "oven.fill"),
-            ("roast chicken", "oven.fill"),
-            ("pot roast", "oven.fill"),
-            ("macaroni", "fork.knife.circle.fill"),
-            ("grilled cheese", "fork.knife.circle.fill"),
-            ("cheesesteak", "fork.knife.circle.fill"),
-            ("club", "fork.knife.circle.fill"),
-            ("blt", "fork.knife.circle.fill"),
-            ("sandwich", "fork.knife.circle.fill"),
-            ("po' boy", "fork.knife.circle.fill"),
-            ("melt", "fork.knife.circle.fill"),
-            ("taco", "takeoutbag.and.cup.and.straw.fill"),
-            ("enchilada", "takeoutbag.and.cup.and.straw.fill"),
-            ("quesadilla", "takeoutbag.and.cup.and.straw.fill"),
-            ("burrito", "takeoutbag.and.cup.and.straw.fill"),
-            ("nacho", "takeoutbag.and.cup.and.straw.fill"),
-            ("fajita", "takeoutbag.and.cup.and.straw.fill"),
-            ("carnitas", "takeoutbag.and.cup.and.straw.fill"),
-            ("orange chicken", "takeoutbag.and.cup.and.straw.fill"),
-            ("general tso", "takeoutbag.and.cup.and.straw.fill"),
-            ("stir fry", "takeoutbag.and.cup.and.straw.fill"),
-            ("teriyaki", "takeoutbag.and.cup.and.straw.fill"),
-            ("spaghetti", "fork.knife.circle.fill"),
-            ("alfredo", "fork.knife.circle.fill"),
-            ("pasta", "fork.knife.circle.fill"),
-            ("meatball", "fork.knife.circle.fill"),
-            ("chili", "cup.and.saucer.fill"),
-            ("soup", "cup.and.saucer.fill"),
-            ("chowder", "cup.and.saucer.fill"),
-            ("stew", "cup.and.saucer.fill"),
-            ("gumbo", "cup.and.saucer.fill"),
-            ("jambalaya", "cup.and.saucer.fill"),
-            ("grits", "cup.and.saucer.fill"),
-            ("dumplings", "cup.and.saucer.fill"),
-            ("red beans", "cup.and.saucer.fill"),
-            ("salad", "leaf.fill"),
-            ("green bean", "leaf.fill"),
-            ("broccoli", "leaf.fill"),
-            ("asparagus", "leaf.fill"),
-            ("collard", "leaf.fill"),
-            ("salmon", "fish.fill"),
-            ("tuna", "fish.fill"),
-            ("fish", "fish.fill"),
-            ("catfish", "fish.fill"),
-            ("crab", "fish.fill"),
-            ("lobster", "fish.fill"),
-            ("shrimp", "fish.fill"),
-            ("scampi", "fish.fill"),
-            ("steak", "flame.fill"),
-            ("grill", "flame.fill"),
-            ("hot dog", "fork.knife.circle.fill"),
-            ("coney", "fork.knife.circle.fill"),
-            ("brat", "fork.knife.circle.fill"),
-            ("pancake", "birthday.cake.fill"),
-            ("french toast", "birthday.cake.fill"),
-            ("waffle", "birthday.cake.fill"),
-            ("biscuit", "birthday.cake.fill"),
-            ("egg", "fork.knife.circle.fill"),
-            ("huevos", "fork.knife.circle.fill"),
-            ("rice", "takeoutbag.and.cup.and.straw.fill"),
-            ("bowl", "takeoutbag.and.cup.and.straw.fill"),
-            ("potato", "oven.fill"),
-            ("tater", "oven.fill"),
-            ("fries", "fork.knife.circle.fill"),
-            ("corn", "leaf.fill"),
-            ("bread", "oven.fill"),
-            ("roll", "oven.fill"),
-            ("bean", "leaf.fill"),
-        ]
-        for (key, symbol) in rules where blob.contains(key) { return symbol }
-        switch category.lowercased() {
-        case "bbq": return "flame.fill"
-        case "diner": return "fork.knife.circle.fill"
-        case "southern": return "oven.fill"
-        case "comfort": return "oven.fill"
-        case "tex-mex", "mexican": return "takeoutbag.and.cup.and.straw.fill"
-        case "italian": return "fork.knife.circle.fill"
-        case "asian", "chinese", "japanese", "thai": return "takeoutbag.and.cup.and.straw.fill"
-        case "holiday": return "oven.fill"
-        case "weeknight": return "fork.knife.circle.fill"
-        default: return "fork.knife.circle.fill"
         }
     }
 }
@@ -1912,14 +1932,6 @@ private enum RecipeLook {
 struct PlacePhoto: View {
     let place: NearbyPlace
     @State private var image: UIImage?
-
-    private var fallback: String {
-        switch place.mode {
-        case .delivery: return "DinnerDelivery"
-        case .takeout: return "DinnerTakeout"
-        default: return "DinnerEatOut"
-        }
-    }
 
     var body: some View {
         Color.clear
@@ -1929,9 +1941,24 @@ struct PlacePhoto: View {
                         .resizable()
                         .scaledToFill()
                 } else {
-                    Image(fallback)
-                        .resizable()
-                        .scaledToFill()
+                    VStack(spacing: 6) {
+                        Image(systemName: "storefront.fill")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                        Text(place.name)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(3)
+                        if let miles = place.distanceLabel {
+                            Text(miles)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(AppTheme.blueSoft)
                 }
             }
             .clipped()
@@ -2004,13 +2031,16 @@ private struct PlaceInfoView: View {
 private struct ManualMealSheet: View {
     @EnvironmentObject private var store: HubStore
     let day: Date
+    var onClose: () -> Void = {}
     var onDone: () -> Void
     @State private var name = ""
     @State private var notes = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Enter", tail: "Meal")
+            HubStickyHeader(lead: "Enter", tail: "Meal") {
+                HubHeaderPill(title: "Back") { onClose() }
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Image("DinnerManual")

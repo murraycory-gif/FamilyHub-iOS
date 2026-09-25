@@ -36,17 +36,18 @@ enum FlightParse {
         )
     }
 
-    private static let codeRegex = try! NSRegularExpression(
+    private static let codeRegex = try? NSRegularExpression(
         pattern: #"\b(?:FLIGHT\s+)?([A-Z]{2})\s*-?\s*(\d{2,4})\b"#
     )
-    private static let airportRegex = try! NSRegularExpression(
+    private static let airportRegex = try? NSRegularExpression(
         pattern: #"\b([A-Z]{3})\s*(?:TO|-|–|—|/|→)\s*([A-Z]{3})\b"#
     )
 
     static func flightCode(in text: String) -> (airline: String, number: String)? {
         let upper = text.uppercased()
         let range = NSRange(upper.startIndex..., in: upper)
-        guard let match = codeRegex.firstMatch(in: upper, range: range),
+        guard let codeRegex,
+              let match = codeRegex.firstMatch(in: upper, range: range),
               let a = Range(match.range(at: 1), in: upper),
               let n = Range(match.range(at: 2), in: upper)
         else { return nil }
@@ -56,7 +57,8 @@ enum FlightParse {
     static func airports(in text: String) -> (origin: String, dest: String)? {
         let upper = text.uppercased()
         let range = NSRange(upper.startIndex..., in: upper)
-        guard let match = airportRegex.firstMatch(in: upper, range: range),
+        guard let airportRegex,
+              let match = airportRegex.firstMatch(in: upper, range: range),
               let a = Range(match.range(at: 1), in: upper),
               let b = Range(match.range(at: 2), in: upper)
         else { return nil }
@@ -139,71 +141,7 @@ struct FlightPing: Equatable {
 }
 
 enum FlightLive {
-    private static let icao: [String: String] = [
-        "UA": "UAL", "AA": "AAL", "DL": "DAL", "WN": "SWA",
-        "B6": "JBU", "AS": "ASA", "NK": "NKS", "F9": "FFT",
-        "G4": "AAY", "HA": "HAL", "SY": "SCX", "AC": "ACA",
-        "BA": "BAW", "LH": "DLH", "AF": "AFR", "EK": "UAE",
-        "QR": "QTR", "TK": "THY", "LX": "SWR", "IB": "IBE",
-        "KL": "KLM", "VS": "VIR", "AM": "AMX",
-    ]
-
-    static func callsigns(for flight: TrackedFlight) -> [String] {
-        let n = flight.number.trimmingCharacters(in: CharacterSet.whitespaces)
-        var signs = ["\(flight.airline)\(n)"]
-        if let prefix = icao[flight.airline.uppercased()] {
-            signs.insert("\(prefix)\(n)", at: 0)
-        }
-        return signs
-    }
-
     static func ping(_ flight: TrackedFlight) async -> FlightPing? {
-        for sign in callsigns(for: flight) {
-            if let hit = await fetch(sign) { return hit }
-        }
-        return nil
-    }
-
-    private static func fetch(_ callsign: String) async -> FlightPing? {
-        let encoded = callsign.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? callsign
-        let urls = [
-            "https://api.adsb.lol/v2/callsign/\(encoded)",
-            "https://opendata.adsb.fi/api/v2/callsign/\(encoded)",
-        ]
-        for raw in urls {
-            guard let url = URL(string: raw) else { continue }
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 8
-            request.setValue("FamilyHub/1.0", forHTTPHeaderField: "User-Agent")
-            guard let data = try? await URLSession.shared.data(for: request).0,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-            else { continue }
-            let rows = json["ac"] as? [[String: Any]] ?? []
-            guard let row = rows.first else { continue }
-            let lat = number(row["lat"])
-            let lon = number(row["lon"])
-            guard let lat, let lon else { continue }
-            let alt = number(row["alt_baro"]) ?? number(row["alt_geom"])
-            let speed = number(row["gs"])
-            let heading = number(row["true_heading"]) ?? number(row["track"])
-            let ground = (row["alt_baro"] as? String)?.lowercased() == "ground" || (alt ?? 1) <= 0
-            return FlightPing(
-                latitude: lat,
-                longitude: lon,
-                altitudeFt: alt.map { Int($0) },
-                speedKts: speed.map { Int($0) },
-                heading: heading,
-                onGround: ground
-            )
-        }
-        return nil
-    }
-
-    private static func number(_ value: Any?) -> Double? {
-        if let n = value as? Double { return n }
-        if let n = value as? Int { return Double(n) }
-        if let n = value as? NSNumber { return n.doubleValue }
-        if let s = value as? String { return Double(s) }
-        return nil
+        nil
     }
 }

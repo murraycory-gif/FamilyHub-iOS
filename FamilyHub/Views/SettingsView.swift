@@ -105,7 +105,7 @@ struct ProfilesSettingsView: View {
                             .background(on ? AppTheme.blue : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(on ? AppTheme.blue : Color.black.opacity(0.05), lineWidth: 1)
+                                    .stroke(on ? AppTheme.blue : AppTheme.cardBorder, lineWidth: 1)
                             )
                             .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
                         }
@@ -154,7 +154,7 @@ struct ProfilesSettingsView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                            .stroke(AppTheme.cardBorder, lineWidth: 1)
                     )
                     .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
                 }
@@ -227,7 +227,7 @@ struct DeviceSettingsView: View {
                             .background(on ? AppTheme.blue : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(on ? AppTheme.blue : Color.black.opacity(0.05), lineWidth: 1)
+                                    .stroke(on ? AppTheme.blue : AppTheme.cardBorder, lineWidth: 1)
                             )
                             .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
                         }
@@ -244,11 +244,16 @@ struct InviteSettingsView: View {
     @AppStorage("familyhub.onboarding.completed.v4") private var onboardingCompleted = false
     @AppStorage("familyhub.tours.v2") private var tours = ""
     @State private var publishNote: String?
+    @State private var confirmReset = false
+    @State private var confirmCleanup = false
+    @State private var eraseError: String?
+    @State private var showEraseRetry = false
+    @State private var cloudShare: HouseholdShareItem?
 
     var body: some View {
         SettingsPageShell(tail: "Invite", symbol: "person.badge.plus", title: "Invite to this HUB") {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Family uses this code on a new install, then picks their profile. Both devices need iCloud on.")
+                Text("Share this HUB with Apple’s share sheet. Family accepts the invite in Messages or Mail. The house stays in your private iCloud, not a public record.")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
                 Text(store.joinCode)
@@ -273,10 +278,15 @@ struct InviteSettingsView: View {
                 }
                 Button {
                     Task {
-                        publishNote = await store.publishHouseholdNow() ?? "HUB is live for that code."
+                        do {
+                            cloudShare = HouseholdShareItem(share: try await store.prepareHouseholdShare())
+                            publishNote = "Choose who can open this HUB."
+                        } catch {
+                            publishNote = error.localizedDescription
+                        }
                     }
                 } label: {
-                    Text("Publish this HUB now")
+                    Text("Share this HUB")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -289,14 +299,64 @@ struct InviteSettingsView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.textSecondary)
                 }
-                Button("Start as a new download") {
-                    store.resetAsNewDownload()
+                Text("Danger zone")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.chore)
+                    .padding(.top, 8)
+                Button("Remove old shared records") { confirmCleanup = true }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.chore)
+                Button("Start as a new download") { confirmReset = true }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.chore)
+            }
+        }
+        .hubConfirm(
+            "Remove old shared records?",
+            isPresented: $confirmCleanup,
+            message: "This deletes the current hub code and every earlier hub code this device has issued from iCloud. Your house stays on this device. Family will need you to publish again before they can rejoin. This does not run on its own.",
+            confirm: "Remove",
+            confirmColor: AppTheme.chore,
+            cancel: "Cancel"
+        ) {
+            Task { publishNote = await store.removeOldSharedRecords() }
+        }
+        .hubConfirm(
+            "Erase this HUB on this device?",
+            isPresented: $confirmReset,
+            message: "HUB deletes the private iCloud record and the share first. This device is cleared only after iCloud confirms. If iCloud fails, nothing here is erased and you can retry. Photos that live only on this device will not come back.",
+            confirm: "Erase",
+            confirmColor: AppTheme.chore,
+            cancel: "Cancel"
+        ) {
+            Task {
+                if let error = await store.eraseHousehold() {
+                    eraseError = error
+                    showEraseRetry = true
+                } else {
                     tours = ""
                     onboardingCompleted = false
                 }
-                .font(.headline.weight(.bold))
-                .foregroundStyle(AppTheme.chore)
             }
+        }
+        .alert("Erase did not finish", isPresented: $showEraseRetry) {
+            Button("Retry") {
+                Task {
+                    if let error = await store.eraseHousehold() {
+                        eraseError = error
+                        showEraseRetry = true
+                    } else {
+                        tours = ""
+                        onboardingCompleted = false
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(eraseError ?? "iCloud did not confirm the delete. This HUB is still on this device.")
+        }
+        .sheet(item: $cloudShare) { share in
+            HouseholdShareSheet(share: share.share)
         }
     }
 }
@@ -354,7 +414,7 @@ struct WeatherSettingsForm: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                            .stroke(AppTheme.cardBorder, lineWidth: 1)
                     )
                     .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
                 }
@@ -457,8 +517,10 @@ struct WeatherSettingsForm: View {
                 .environmentObject(weather)
         }
     }
+}
 
-    private func measureRow<V: View>(_ title: String, @ViewBuilder chips: () -> V) -> some View {
+private extension WeatherSettingsForm {
+    func measureRow<V: View>(_ title: String, @ViewBuilder chips: () -> V) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.subheadline.weight(.bold))
@@ -470,7 +532,7 @@ struct WeatherSettingsForm: View {
         }
     }
 
-    private func unitChip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+    func unitChip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.bold))
@@ -480,6 +542,42 @@ struct WeatherSettingsForm: View {
                 .background(on ? AppTheme.blue : AppTheme.blueSoft, in: Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct CreditsSettingsView: View {
+    private var recipes: [RecipePackItem] { RecipePackStore.seed().recipes }
+
+    var body: some View {
+        SettingsPageShell(tail: "Credits", symbol: "doc.text", title: "Credits and licenses") {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Each recipe shows Source · License · Changes. Photos are that dish, hosted with the catalog. A recipe with no photo shows its name.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                Text("Halal and kosher tags mean the ingredients look compatible. They are not a certification. Allergen tags mean check the labels on what you buy.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                ForEach(recipes, id: \.id) { recipe in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recipe.name)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text(recipe.asCatalogRecipe().attributionLine)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        if recipe.sourceURL.isEmpty == false {
+                            Text(recipe.sourceURL)
+                                .font(.caption2)
+                                .foregroundStyle(AppTheme.textTertiary)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+        }
     }
 }
 
@@ -518,7 +616,7 @@ struct NotifySettingsView: View {
                 }
                 .tint(AppTheme.blue)
                 .padding(14)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
 
                 Button("Send a test ping") {
@@ -651,7 +749,7 @@ struct NotifySettingsView: View {
             }
         }
         .padding(14)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
     }
 

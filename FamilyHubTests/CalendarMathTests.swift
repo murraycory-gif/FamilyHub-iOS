@@ -1,7 +1,20 @@
 import XCTest
 @testable import FamilyHub
 
+@MainActor
 final class CalendarMathTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        UserDefaults.standard.removeObject(forKey: HubStore.accountKey)
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: HubStore.accountKey)
+    }
+
+    override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: HubStore.accountKey)
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: HubStore.accountKey)
+        super.tearDown()
+    }
+
     func testFamilyFilterIncludesEveryone() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -86,6 +99,16 @@ final class CalendarMathTests: XCTestCase {
         XCTAssertEqual(parsed.first?.location, "Lincoln Park")
         XCTAssertEqual(parsed.first?.sourceID, source)
         XCTAssertTrue(parsed.allSatisfy(\.isImported))
+    }
+
+    func testICSLinkRewritesWebcalAndRequiresCalendarBody() {
+        XCTAssertEqual(ICSLink.normalize("webcal://example.com/cal.ics"), "https://example.com/cal.ics")
+        XCTAssertEqual(ICSLink.normalize("webcals://example.com/cal.ics"), "https://example.com/cal.ics")
+        XCTAssertEqual(ICSLink.httpsURL(from: "webcal://example.com/cal.ics")?.scheme, "https")
+        let body = Data("BEGIN:VCALENDAR\nEND:VCALENDAR".utf8)
+        XCTAssertNotNil(ICSLink.calendarText(status: 200, data: body))
+        XCTAssertNil(ICSLink.calendarText(status: 500, data: body))
+        XCTAssertNil(ICSLink.calendarText(status: 200, data: Data("<html>nope</html>".utf8)))
     }
 
     func testICSParserAllDayDate() {
