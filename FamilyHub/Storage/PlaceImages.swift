@@ -3,7 +3,7 @@ import MapKit
 import UIKit
 
 enum PlaceImages {
-    /// Place photos come only from MapKit Look Around. There is no Bing, DuckDuckGo, or other scrape.
+    /// Place photos come only from MapKit Look Around.
     /// Callers show a name tile when Look Around has no scene.
     @MainActor
     static func photo(name: String, address: String?, coordinate: CLLocationCoordinate2D? = nil, website: URL? = nil) async -> UIImage? {

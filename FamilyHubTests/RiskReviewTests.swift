@@ -86,9 +86,9 @@ final class RiskReviewTests: XCTestCase {
 
         remote.publicError = nil
         remote.transientFailuresRemaining = 2
-        let failed = await store.deletePublicCodes(["AB12CD"], attempts: 3)
+        let failed = await store.deletePublicCodes(["AB23CD"], attempts: 3)
         XCTAssertEqual(failed, [])
-        XCTAssertEqual(remote.publicDeletes.filter { $0 == "AB12CD" }.count, 3)
+        XCTAssertEqual(remote.publicDeletes.filter { $0 == "AB23CD" }.count, 3)
     }
 
     func testBackupPruneKeepsFiveNewest() throws {
@@ -255,7 +255,7 @@ final class RiskReviewTests: XCTestCase {
         let role = #"{"ownsPrivateZone":false}"#
         try Data(role.utf8).write(to: root.appendingPathComponent("device-role.json"))
         let old = """
-        {"householdName":"Joined","members":[],"events":[],"reminders":[],"todos":[],"chores":[],"assignments":[],"ledger":[],"schemaVersion":0,"joinCode":"AB12CD","issuedJoinCodes":["AB12CD"]}
+        {"householdName":"Joined","members":[],"events":[],"reminders":[],"todos":[],"chores":[],"assignments":[],"ledger":[],"schemaVersion":0,"joinCode":"AB23CD","issuedJoinCodes":["AB23CD"]}
         """
         try Data(old.utf8).write(to: root.appendingPathComponent("hub.json"))
 

@@ -1191,8 +1191,6 @@ final class HubStore: ObservableObject {
         ownerID = snapshot.ownerID ?? snapshot.members.first(where: { $0.role == .parent })?.id
         if let existing = snapshot.joinCode, HubJoinCode.isAcceptable(existing) {
             joinCode = HubJoinCode.normalized(existing)
-        } else if snapshot.joinCode?.isEmpty == false {
-            joinCode = snapshot.joinCode ?? HubJoinCode.make()
         } else {
             joinCode = HubJoinCode.make()
         }
@@ -1269,6 +1267,9 @@ final class HubStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
+            // Live hub.json stays in backup so a device restore still has the household.
+            // device-role.json stays too, so a participant is not restored as the owner.
+            // Only hub-*.json, corrupt-hub-*.json, and the places cache are excluded.
             HubFilePrivacy.protectUntilFirstUnlock(snapshotURL)
             writeTimestampedBackup(data)
             rememberAccount()

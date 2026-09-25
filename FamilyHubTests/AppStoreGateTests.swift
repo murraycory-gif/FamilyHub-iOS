@@ -8,7 +8,7 @@ final class AppStoreGateTests: XCTestCase {
         XCTAssertEqual(code.count, HubJoinCode.length)
         XCTAssertTrue(HubJoinCode.isAcceptable(code))
         XCTAssertNotEqual(HubJoinCode.make(), code)
-        XCTAssertTrue(HubJoinCode.isAcceptable("AB12CD"))
+        XCTAssertTrue(HubJoinCode.isAcceptable("AB23CD"))
         XCTAssertFalse(HubJoinCode.isAcceptable("ABC"))
         XCTAssertFalse(HubJoinCode.isAcceptable("AB12C0"))
     }
@@ -34,14 +34,14 @@ final class AppStoreGateTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         var snapshot = HubStore.emptySnapshot()
         snapshot.householdName = "Murray"
-        snapshot.joinCode = "AB12CD"
-        snapshot.issuedJoinCodes = ["AB12CD"]
+        snapshot.joinCode = "AB23CD"
+        snapshot.issuedJoinCodes = ["AB23CD"]
         snapshot.schemaVersion = HubSnapshot.currentSchema
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         try encoder.encode(snapshot).write(to: root.appendingPathComponent("hub.json"))
         let store = HubStore(rootURL: root)
-        XCTAssertEqual(store.joinCode, "AB12CD")
+        XCTAssertEqual(store.joinCode, "AB23CD")
     }
 
     func testHTTPSOnlyLinksAndBackupExclusion() throws {
@@ -95,14 +95,14 @@ final class AppStoreGateTests: XCTestCase {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         var snapshot = HubStore.emptySnapshot()
         snapshot.householdName = "Murray"
-        snapshot.joinCode = "AB12CD"
-        snapshot.issuedJoinCodes = ["AB12CD"]
+        snapshot.joinCode = "AB23CD"
+        snapshot.issuedJoinCodes = ["AB23CD"]
         snapshot.schemaVersion = HubSnapshot.currentSchema
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         try? encoder.encode(snapshot).write(to: root.appendingPathComponent("hub.json"))
         let store = HubStore(rootURL: root)
-        XCTAssertEqual(store.joinCode, "AB12CD")
+        XCTAssertEqual(store.joinCode, "AB23CD")
         let remote = GateRemote()
         store.remote = remote
 
@@ -110,8 +110,8 @@ final class AppStoreGateTests: XCTestCase {
 
         XCTAssertNil(note)
         XCTAssertEqual(store.joinCode.count, HubJoinCode.length)
-        XCTAssertNotEqual(store.joinCode, "AB12CD")
-        XCTAssertTrue(remote.publicDeletes.contains("AB12CD"))
+        XCTAssertNotEqual(store.joinCode, "AB23CD")
+        XCTAssertTrue(remote.publicDeletes.contains("AB23CD"))
         let rotated = store.joinCode
         store.refreshJoinCode()
         XCTAssertEqual(store.joinCode, rotated)
@@ -129,8 +129,8 @@ final class AppStoreGateTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         var snapshot = HubStore.emptySnapshot()
         snapshot.householdName = "Murray"
-        snapshot.joinCode = "AB12CD"
-        snapshot.issuedJoinCodes = ["AB12CD"]
+        snapshot.joinCode = "AB23CD"
+        snapshot.issuedJoinCodes = ["AB23CD"]
         snapshot.schemaVersion = HubSnapshot.currentSchema
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -143,10 +143,10 @@ final class AppStoreGateTests: XCTestCase {
         let blocked = await store.retirePublicRecordsOnce()
 
         XCTAssertNotNil(blocked)
-        XCTAssertEqual(store.joinCode, "AB12CD")
+        XCTAssertEqual(store.joinCode, "AB23CD")
         XCTAssertFalse(UserDefaults.standard.bool(forKey: HubStore.publicCleanupKey))
         let still = try String(contentsOf: root.appendingPathComponent("hub.json"), encoding: .utf8)
-        XCTAssertTrue(still.contains("AB12CD"))
+        XCTAssertTrue(still.contains("AB23CD"))
 
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
         let saved = await store.retirePublicRecordsOnce()
@@ -155,16 +155,16 @@ final class AppStoreGateTests: XCTestCase {
         XCTAssertTrue(UserDefaults.standard.bool(forKey: HubStore.publicCleanupKey))
         let written = try String(contentsOf: root.appendingPathComponent("hub.json"), encoding: .utf8)
         XCTAssertTrue(written.contains(store.joinCode))
-        XCTAssertFalse(written.contains("\"joinCode\":\"AB12CD\""))
+        XCTAssertFalse(written.contains("\"joinCode\":\"AB23CD\""))
         UserDefaults.standard.removeObject(forKey: HubStore.publicCleanupKey)
     }
 
     func testLegacyCodesAreRejectedAfterCutoffExceptOnDelete() async {
         let before = HubJoinCode.legacyCutoff.addingTimeInterval(-60)
         let after = HubJoinCode.legacyCutoff.addingTimeInterval(60)
-        XCTAssertTrue(HubJoinCode.isAcceptable("AB12CD", now: before))
-        XCTAssertFalse(HubJoinCode.isAcceptable("AB12CD", now: after))
-        XCTAssertTrue(HubJoinCode.isDeletable("AB12CD"))
+        XCTAssertTrue(HubJoinCode.isAcceptable("AB23CD", now: before))
+        XCTAssertFalse(HubJoinCode.isAcceptable("AB23CD", now: after))
+        XCTAssertTrue(HubJoinCode.isDeletable("AB23CD"))
         let modern = HubJoinCode.make()
         XCTAssertTrue(HubJoinCode.isAcceptable(modern, now: after))
 
@@ -174,20 +174,20 @@ final class AppStoreGateTests: XCTestCase {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         var snapshot = HubStore.emptySnapshot()
         snapshot.householdName = "Murray"
-        snapshot.joinCode = "AB12CD"
-        snapshot.issuedJoinCodes = ["AB12CD"]
+        snapshot.joinCode = "AB23CD"
+        snapshot.issuedJoinCodes = ["AB23CD"]
         snapshot.schemaVersion = HubSnapshot.currentSchema
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         try? encoder.encode(snapshot).write(to: root.appendingPathComponent("hub.json"))
         let store = HubStore(rootURL: root)
         XCTAssertEqual(store.joinCode.count, HubJoinCode.length)
-        XCTAssertNotEqual(store.joinCode, "AB12CD")
+        XCTAssertNotEqual(store.joinCode, "AB23CD")
         let remote = GateRemote()
         store.remote = remote
-        let failed = await store.deletePublicCodes(["AB12CD"])
+        let failed = await store.deletePublicCodes(["AB23CD"])
         XCTAssertEqual(failed, [])
-        XCTAssertEqual(remote.publicDeletes, ["AB12CD"])
+        XCTAssertEqual(remote.publicDeletes, ["AB23CD"])
     }
 
     private func sourceRoot() -> URL {
