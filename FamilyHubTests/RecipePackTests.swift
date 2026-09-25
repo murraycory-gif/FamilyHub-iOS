@@ -13,7 +13,17 @@ final class RecipePackTests: XCTestCase {
         XCTAssertEqual(pack.version, 1)
         XCTAssertGreaterThanOrEqual(pack.recipes.count, 3)
         XCTAssertTrue(pack.recipes.contains { $0.trendingRank == 1 })
-        XCTAssertTrue(pack.recipes.allSatisfy { $0.imageURL.isEmpty || $0.imageURL.hasPrefix("https://") })
+        for recipe in pack.recipes {
+            XCTAssertEqual(recipe.validate(), [], recipe.id)
+            let image = recipe.imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            if image.hasPrefix("bundle:") {
+                let name = String(image.dropFirst("bundle:".count))
+                let base = (name as NSString).deletingPathExtension
+                let ext = (name as NSString).pathExtension
+                let file = Bundle.main.url(forResource: base, withExtension: ext, subdirectory: "RecipePhotos")
+                XCTAssertNotNil(file, "\(recipe.id) missing \(name) in the app bundle")
+            }
+        }
     }
 
     func testRejectsBadImageAndDuplicateID() throws {
