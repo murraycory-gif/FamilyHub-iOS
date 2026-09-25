@@ -26,6 +26,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var packages: [TrackedPackage]
     @Published private(set) var ownerID: UUID?
     @Published private(set) var joinCode: String
+    @Published private(set) var issuedJoinCodes: [String]
     @Published private(set) var signedInMemberID: UUID?
     @Published private(set) var notifyPrefs: HubNotifyPrefs
     @Published private(set) var whiteboardNote: String
@@ -46,6 +47,8 @@ final class HubStore: ObservableObject {
 
     private let fileManager: FileManager
     private let snapshotURL: URL
+    /// A failed decode must not be overwritten by a later save.
+    private var loadFailed = false
     private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
     private var memberPhotoFolder: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("member-photos", isDirectory: true) }
 
@@ -76,6 +79,7 @@ final class HubStore: ObservableObject {
         packages = []
         ownerID = nil
         joinCode = Self.makeJoinCode()
+        issuedJoinCodes = []
         signedInMemberID = nil
         notifyPrefs = .off
         whiteboardNote = ""
@@ -535,8 +539,53 @@ final class HubStore: ObservableObject {
     }
 
     func refreshJoinCode() {
+        let previous = joinCode
+        rememberIssued(previous)
         joinCode = Self.makeJoinCode()
+        rememberIssued(joinCode)
         persist()
+        let retired = previous
+        Task { await Self.deleteSharedRecord(code: retired) }
+    }
+
+    func knownShareCodes() -> [String] {
+        var codes = issuedJoinCodes
+        rememberIssued(joinCode)
+        if !codes.contains(joinCode) { codes.append(joinCode) }
+        return codes
+    }
+
+    /// Owner-triggered only. Deletes every hub-&lt;code&gt; this device has issued, including the current one.
+    func removeOldSharedRecords() async -> String {
+        let codes = knownShareCodes()
+        guard !codes.isEmpty else { return "No shared records on this device." }
+        var failed = 0
+        for code in codes {
+            if await Self.deleteSharedRecord(code: code) == false { failed += 1 }
+        }
+        let removed = codes.count - failed
+        if failed == 0 {
+            return "Removed \(removed) shared record\(removed == 1 ? "" : "s"). Publish again if family should rejoin."
+        }
+        return "Removed \(removed). \(failed) could not be deleted. Check iCloud and try again."
+    }
+
+    @discardableResult
+    private static func deleteSharedRecord(code: String) async -> Bool {
+        let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
+        guard clean.count == 6 else { return true }
+        do {
+            try await HouseholdCloud.delete(code: clean)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func rememberIssued(_ code: String) {
+        let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
+        guard clean.count == 6 else { return }
+        if !issuedJoinCodes.contains(clean) { issuedJoinCodes.append(clean) }
     }
 
     var isOwnerDevice: Bool {
@@ -708,6 +757,7 @@ final class HubStore: ObservableObject {
                 calendarSources[idx].use = .billsDue
             }
         }
+        guard !discovered.isEmpty else { return }
         let liveIDs = Set(discovered.map(\.eventKitID))
         let stale = calendarSources.filter { source in
             guard let eventKitID = source.eventKitID else { return false }
@@ -722,7 +772,8 @@ final class HubStore: ObservableObject {
     }
 
     func addICSSource(title: String, url: String, brand: CalendarBrand = .ics) {
-        var source = CalendarSource.make(brand: brand, title: title.isEmpty ? "Calendar link" : title, icsURL: url)
+        let stored = ICSLink.normalize(url)
+        var source = CalendarSource.make(brand: brand, title: title.isEmpty ? "Calendar link" : title, icsURL: stored)
         source.isEnabled = true
         calendarSources.append(source)
         persist()
@@ -1081,12 +1132,13 @@ final class HubStore: ObservableObject {
             let ms = Int((CFAbsoluteTimeGetCurrent() - started) * 1000)
             Logger(subsystem: "com.corymurray.FamilyHub", category: "launch").info("hub.json \(data.count, privacy: .public) bytes \(ms, privacy: .public) ms")
         } catch {
-            let backup = snapshotURL.deletingPathExtension().appendingPathExtension("broken.json")
-            try? fileManager.removeItem(at: backup)
+            let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+            let backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-\(stamp).json")
             try? fileManager.copyItem(at: snapshotURL, to: backup)
-            errorMessage = "Saved data could not be read. A copy is kept as hub.broken.json. The house starts empty instead of sample people."
-            apply(Self.emptySnapshot())
-            persistNow()
+            loadFailed = true
+            householdName = ""
+            recipes = []
+            errorMessage = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
         }
     }
 
@@ -1105,24 +1157,18 @@ final class HubStore: ObservableObject {
         let widgets = snapshot.hubWidgets ?? []
         hubWidgets = HubWidget.migrated(widgets)
         calendarSources = snapshot.calendarSources ?? []
-        recipes = snapshot.recipes ?? SampleFamily.starterRecipes
+        recipes = snapshot.recipes ?? []
         dinners = snapshot.dinners ?? []
         shoppingItems = snapshot.shoppingItems ?? []
         flights = snapshot.flights ?? []
         packages = snapshot.packages ?? []
         ownerID = snapshot.ownerID ?? snapshot.members.first(where: { $0.role == .parent })?.id
         joinCode = (snapshot.joinCode?.isEmpty == false) ? (snapshot.joinCode ?? Self.makeJoinCode()) : Self.makeJoinCode()
+        issuedJoinCodes = snapshot.issuedJoinCodes ?? []
+        rememberIssued(joinCode)
         signedInMemberID = snapshot.signedInMemberID ?? ownerID
-        var prefs = snapshot.notifyPrefs ?? .off
-        if prefs.hasEmbeddedSecrets {
-            HubKeychain.saveTwilio(HubKeychain.Twilio(sid: prefs.twilioSID, token: prefs.twilioToken, from: prefs.twilioFrom))
-        } else {
-            let saved = HubKeychain.loadTwilio()
-            prefs.twilioSID = saved.sid
-            prefs.twilioToken = saved.token
-            prefs.twilioFrom = saved.from
-        }
-        notifyPrefs = prefs
+        notifyPrefs = snapshot.notifyPrefs ?? .off
+        HubKeychain.deleteTwilio()
         whiteboardNote = snapshot.whiteboardNote ?? ""
         hubWidgetLimit = min(4, max(3, snapshot.hubWidgetLimit ?? 4))
         setupCompleted = snapshot.setupCompleted ?? !snapshot.members.isEmpty
@@ -1135,13 +1181,17 @@ final class HubStore: ObservableObject {
         quietHours = snapshot.quietHours ?? []
         recapPhotos = snapshot.recapPhotos ?? []
         choreProofs = snapshot.choreProofs ?? []
-        if snapshot.joinCode == nil || (snapshot.notifyPrefs?.hasEmbeddedSecrets ?? false) {
+        let missingCode = snapshot.joinCode == nil
+        let missingHistory = !(snapshot.issuedJoinCodes ?? []).contains(joinCode)
+        let oldSchema = snapshot.schemaVersion != HubSnapshot.currentSchema
+        if missingCode || missingHistory || oldSchema {
             persistNow()
         }
         rememberAccount()
     }
 
     private func writeSnapshot() {
+        guard !loadFailed else { return }
         let snapshot = HubSnapshot(
             householdName: householdName,
             members: members,
@@ -1164,6 +1214,8 @@ final class HubStore: ObservableObject {
             ownerID: ownerID,
             joinCode: joinCode,
             signedInMemberID: signedInMemberID,
+            issuedJoinCodes: issuedJoinCodes,
+            schemaVersion: HubSnapshot.currentSchema,
             notifyPrefs: notifyPrefs.strippingSecrets(),
             whiteboardNote: whiteboardNote,
             hubWidgetLimit: hubWidgetLimit,
@@ -1178,11 +1230,6 @@ final class HubStore: ObservableObject {
             recapPhotos: recapPhotos,
             choreProofs: choreProofs
         )
-        HubKeychain.saveTwilio(HubKeychain.Twilio(
-            sid: notifyPrefs.twilioSID,
-            token: notifyPrefs.twilioToken,
-            from: notifyPrefs.twilioFrom
-        ))
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.sortedKeys]
@@ -1319,6 +1366,7 @@ final class HubStore: ObservableObject {
     private static let accountKey = "familyhub.account.join"
 
     func restoreAccountIfNeeded() async {
+        guard !loadFailed else { return }
         if setupCompleted || !members.isEmpty {
             rememberAccount()
             return
@@ -1336,16 +1384,25 @@ final class HubStore: ObservableObject {
     }
 
     func resetAsNewDownload() {
+        let codes = knownShareCodes()
         UserDefaults.standard.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.removeObject(forKey: Self.accountKey)
+        NSUbiquitousKeyValueStore.default.synchronize()
         try? fileManager.removeItem(at: snapshotURL)
         try? fileManager.removeItem(at: familyPhotoURL)
         try? fileManager.removeItem(at: memberPhotoFolder)
+        loadFailed = false
         apply(Self.emptySnapshot())
         setupCompleted = false
+        issuedJoinCodes = []
         familyPhotoData = nil
         memberPhotos = [:]
         persistNow()
+        Task {
+            for code in codes {
+                await Self.deleteSharedRecord(code: code)
+            }
+        }
     }
 
     static func emptySnapshot() -> HubSnapshot {
@@ -1361,7 +1418,8 @@ final class HubStore: ObservableObject {
             weatherPlace: .chicago,
             weatherFollowsMe: true,
             hubWidgets: HubWidget.defaultSet,
-            recipes: SampleFamily.starterRecipes
+            recipes: [],
+            schemaVersion: HubSnapshot.currentSchema
         )
     }
 }
@@ -1423,12 +1481,3 @@ struct UpcomingItem: Identifiable {
     }
 }
 
-enum SampleFamily {
-    static let starterRecipes: [Recipe] = [
-        .make(name: "Tacos", kind: .recipe, notes: "Beef, shells, toppings"),
-        .make(name: "Spaghetti", kind: .recipe, notes: "Marinara and garlic bread"),
-        .make(name: "Grilled chicken", kind: .cooked),
-        .make(name: "Leftovers", kind: .cooked),
-        .make(name: "Pizza night", kind: .recipe),
-    ]
-}

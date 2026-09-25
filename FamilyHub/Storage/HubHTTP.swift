@@ -12,11 +12,43 @@ enum HubHTTP {
     }()
 
     static func data(from url: URL) async throws -> Data {
-        var request = URLRequest(url: url, timeoutInterval: 12)
-        let (data, response) = try await session.data(for: request)
-        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+        let (status, data) = try await response(from: url)
+        if !(200...299).contains(status) {
             throw URLError(.badServerResponse)
         }
         return data
+    }
+
+    static func response(from url: URL) async throws -> (Int, Data) {
+        let request = URLRequest(url: url, timeoutInterval: 12)
+        let (data, response) = try await session.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        return (status, data)
+    }
+}
+
+enum ICSLink {
+    static func normalize(_ raw: String) -> String {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = text.lowercased()
+        if lower.hasPrefix("webcal://") {
+            return "https://" + text.dropFirst("webcal://".count)
+        }
+        if lower.hasPrefix("webcals://") {
+            return "https://" + text.dropFirst("webcals://".count)
+        }
+        return text
+    }
+
+    static func httpsURL(from raw: String) -> URL? {
+        URL(string: normalize(raw))
+    }
+
+    /// Only a successful calendar body may replace imported events.
+    static func calendarText(status: Int, data: Data) -> String? {
+        guard (200...299).contains(status) else { return nil }
+        let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
+        guard text.contains("BEGIN:VCALENDAR") else { return nil }
+        return text
     }
 }

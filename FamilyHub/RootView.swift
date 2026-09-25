@@ -42,6 +42,14 @@ struct RootView: View {
                 HubPinger.shared.refresh(store)
             }
         }
+        .alert("HUB", isPresented: Binding(
+            get: { store.errorMessage != nil },
+            set: { if !$0 { store.errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { store.errorMessage = nil }
+        } message: {
+            Text(store.errorMessage ?? "")
+        }
         .onAppear {
             LaunchTiming.mark("first frame")
                 HubPinger.shared.refresh(store)

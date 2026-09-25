@@ -26,10 +26,6 @@ final class HubPinger: ObservableObject {
         }
     }
 
-    func sendTestText(_ store: HubStore) async {
-        await sendRemoteSMS(store, body: "HUB: this is a test. If you got this, texts are working.")
-    }
-
     func markConnected() {
         phoneVerified = true
         UserDefaults.standard.set(true, forKey: verifiedKey)
@@ -39,52 +35,6 @@ final class HubPinger: ObservableObject {
     func clearPhoneLink() {
         phoneVerified = false
         UserDefaults.standard.set(false, forKey: verifiedKey)
-    }
-
-    func sendRemoteSMS(_ store: HubStore, body: String) async {
-        lastError = nil
-        sending = true
-        defer { sending = false }
-        let prefs = store.notifyPrefs
-        guard prefs.textReady else {
-            lastError = "HUB needs its own sender number once. Apple will not let this iPad text you as HUB."
-            return
-        }
-        guard let to = phones(in: store).first else {
-            lastError = "Enter a 10-digit US phone number."
-            return
-        }
-        guard let from = Self.e164(prefs.twilioFrom) else {
-            lastError = "HUB’s sender number isn’t valid."
-            return
-        }
-        let sid = prefs.twilioSID.trimmingCharacters(in: .whitespacesAndNewlines)
-        let token = prefs.twilioToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: "https://api.twilio.com/2010-04-01/Accounts/\(sid)/Messages.json") else {
-            lastError = "Could not reach the text service."
-            return
-        }
-        var request = URLRequest(url: url, timeoutInterval: 12)
-        request.httpMethod = "POST"
-        let login = Data("\(sid):\(token)".utf8).base64EncodedString()
-        request.setValue("Basic \(login)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = form([
-            "To": to,
-            "From": from,
-            "Body": body
-        ])
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if (200...299).contains(code) {
-                markConnected()
-                return
-            }
-            lastError = twilioMessage(data) ?? "Text did not send (\(code))."
-        } catch {
-            lastError = "Could not send. Check the network and sender setup."
-        }
     }
 
     func schedule(_ store: HubStore) async {
@@ -191,12 +141,6 @@ final class HubPinger: ObservableObject {
         }
     }
 
-    func phones(in store: HubStore) -> [String] {
-        var raw: [String] = [store.notifyPrefs.extraPhone]
-        raw.append(store.signedInMember()?.phone ?? "")
-        return Array(Set(raw.compactMap(Self.e164))).sorted()
-    }
-
     static func e164(_ raw: String) -> String? {
         let digits = raw.filter(\.isNumber)
         if digits.count == 10 { return "+1\(digits)" }
@@ -272,29 +216,6 @@ final class HubPinger: ObservableObject {
         return true
     }
 
-    private func form(_ pairs: [String: String]) -> Data {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
-        let query = pairs.map { key, value in
-            let k = key.addingPercentEncoding(withAllowedCharacters: allowed) ?? key
-            let v = value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
-            return "\(k)=\(v)"
-        }.joined(separator: "&")
-        return Data(query.utf8)
-    }
-
-    private func twilioMessage(_ data: Data) -> String? {
-        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-        let raw = json?["message"] as? String
-        let code = json?["code"] as? Int
-        if code == 21608 || code == 21610 {
-            return "Trial accounts can only text numbers you verify with the text service."
-        }
-        if code == 21211 {
-            return "That phone number isn’t valid."
-        }
-        return raw
-    }
 }
 
 struct HubNoticeSlot: Equatable {

@@ -245,6 +245,7 @@ struct InviteSettingsView: View {
     @AppStorage("familyhub.tours.v2") private var tours = ""
     @State private var publishNote: String?
     @State private var confirmReset = false
+    @State private var confirmCleanup = false
 
     var body: some View {
         SettingsPageShell(tail: "Invite", symbol: "person.badge.plus", title: "Invite to this HUB") {
@@ -294,15 +295,28 @@ struct InviteSettingsView: View {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(AppTheme.chore)
                     .padding(.top, 8)
+                Button("Remove old shared records") { confirmCleanup = true }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.chore)
                 Button("Start as a new download") { confirmReset = true }
                     .font(.headline.weight(.bold))
                     .foregroundStyle(AppTheme.chore)
             }
         }
         .hubConfirm(
+            "Remove old shared records?",
+            isPresented: $confirmCleanup,
+            message: "This deletes the current hub code and every earlier hub code this device has issued from iCloud. Your house stays on this device. Family will need you to publish again before they can rejoin. This does not run on its own.",
+            confirm: "Remove",
+            confirmColor: AppTheme.chore,
+            cancel: "Cancel"
+        ) {
+            Task { publishNote = await store.removeOldSharedRecords() }
+        }
+        .hubConfirm(
             "Erase this HUB on this device?",
             isPresented: $confirmReset,
-            message: "Profiles, meals, chores, and the saved house on this device are removed. This does not delete the iCloud copy until you publish again.",
+            message: "Profiles, meals, chores, and the saved house on this device are removed. The shared iCloud record is deleted and the join code is cleared from iCloud. Photos that live only on this device will not come back.",
             confirm: "Erase",
             confirmColor: AppTheme.chore,
             cancel: "Cancel"

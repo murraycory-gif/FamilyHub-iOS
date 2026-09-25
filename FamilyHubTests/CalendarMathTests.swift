@@ -88,6 +88,16 @@ final class CalendarMathTests: XCTestCase {
         XCTAssertTrue(parsed.allSatisfy(\.isImported))
     }
 
+    func testICSLinkRewritesWebcalAndRequiresCalendarBody() {
+        XCTAssertEqual(ICSLink.normalize("webcal://example.com/cal.ics"), "https://example.com/cal.ics")
+        XCTAssertEqual(ICSLink.normalize("webcals://example.com/cal.ics"), "https://example.com/cal.ics")
+        XCTAssertEqual(ICSLink.httpsURL(from: "webcal://example.com/cal.ics")?.scheme, "https")
+        let body = Data("BEGIN:VCALENDAR\nEND:VCALENDAR".utf8)
+        XCTAssertNotNil(ICSLink.calendarText(status: 200, data: body))
+        XCTAssertNil(ICSLink.calendarText(status: 500, data: body))
+        XCTAssertNil(ICSLink.calendarText(status: 200, data: Data("<html>nope</html>".utf8)))
+    }
+
     func testICSParserAllDayDate() {
         let parsed = ICSParser.parseDate("DTSTART;VALUE=DATE:20260817")
         XCTAssertEqual(parsed?.allDay, true)

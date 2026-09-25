@@ -174,9 +174,12 @@ final class CalendarIngestor: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
         var imported = 0
+        let deviceCalendars = EventKitBridge.list(store: ekStore)
         for source in hub.calendarSources {
             if let eventKitID = source.eventKitID, ekStore.calendar(withIdentifier: eventKitID) == nil {
-                hub.removeCalendarSource(source.id)
+                if !deviceCalendars.isEmpty {
+                    hub.removeCalendarSource(source.id)
+                }
                 continue
             }
             guard source.isEnabled else { continue }
@@ -189,9 +192,12 @@ final class CalendarIngestor: ObservableObject {
                         sourceID: source.id,
                         memberID: source.memberID
                     )
-                } else if let urlString = source.icsURL, let url = URL(string: urlString) {
-                    let data = try await HubHTTP.data(from: url)
-                    let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
+                } else if let urlString = source.icsURL, let url = ICSLink.httpsURL(from: urlString) {
+                    let (status, data) = try await HubHTTP.response(from: url)
+                    guard let text = ICSLink.calendarText(status: status, data: data) else {
+                        if !quiet { message = "Could not sync \(source.title)." }
+                        continue
+                    }
                     events = ICSParser.parse(text, sourceID: source.id, memberID: source.memberID)
                 } else {
                     continue

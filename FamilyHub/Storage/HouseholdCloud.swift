@@ -43,6 +43,17 @@ enum HouseholdCloud {
         _ = try await database.save(record)
     }
 
+    /// Missing records count as already gone.
+    static func delete(code: String) async throws {
+        let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
+        guard clean.count == 6 else { throw HouseholdCloudError.badCode }
+        do {
+            try await database.deleteRecord(withID: recordID(for: clean))
+        } catch let error as CKError where error.code == .unknownItem {
+            return
+        }
+    }
+
     static func fetch(code: String) async throws -> Data {
         let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
         guard clean.count == 6 else { throw HouseholdCloudError.badCode }

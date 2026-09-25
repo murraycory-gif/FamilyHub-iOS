@@ -2,27 +2,21 @@ import XCTest
 @testable import FamilyHub
 
 final class SnapshotReliabilityTests: XCTestCase {
-    func testNotifyPrefsStripTwilioBeforeDisk() {
-        let prefs = HubNotifyPrefs(
-            morningBrief: true,
-            eventPings: false,
-            dinnerPing: true,
-            chorePing: false,
-            shoppingPing: false,
-            billsPing: false,
-            extraPhone: "3125550100",
-            twilioSID: "AC123",
-            twilioToken: "secret-token",
-            twilioFrom: "+13125550199"
-        )
-        let stripped = prefs.strippingSecrets()
-        XCTAssertEqual(stripped.twilioSID, "")
-        XCTAssertEqual(stripped.twilioToken, "")
-        XCTAssertEqual(stripped.twilioFrom, "")
-        XCTAssertEqual(stripped.extraPhone, "3125550100")
-        XCTAssertTrue(stripped.morningBrief)
-        XCTAssertFalse(stripped.textReady)
-        XCTAssertTrue(prefs.textReady)
+    func testNotifyPrefsDropLegacyTwilioOnDecode() throws {
+        let raw = """
+        {"morningBrief":true,"eventPings":false,"dinnerPing":true,"chorePing":false,"shoppingPing":false,"billsPing":false,"channel":"text","who":"me","extraPhone":"3125550100","twilioSID":"AC123","twilioToken":"secret-token","twilioFrom":"+13125550199"}
+        """.data(using: .utf8)!
+        let prefs = try JSONDecoder().decode(HubNotifyPrefs.self, from: raw)
+        XCTAssertEqual(prefs.extraPhone, "3125550100")
+        XCTAssertTrue(prefs.morningBrief)
+        XCTAssertEqual(prefs.channel, .device)
+        let encoded = try JSONEncoder().encode(prefs)
+        let text = String(data: encoded, encoding: .utf8) ?? ""
+        XCTAssertFalse(text.contains("secret-token"))
+        XCTAssertFalse(text.contains("twilioSID"))
+        XCTAssertFalse(text.contains("twilioToken"))
+        XCTAssertFalse(text.contains("twilioFrom"))
+        XCTAssertTrue(HubNotifyPrefs.legacyTwilioPresent(in: raw))
     }
 
     func testWidgetTimelineAsksOnceAnHour() {
@@ -72,10 +66,7 @@ final class SnapshotReliabilityTests: XCTestCase {
             dinnerPing: false,
             chorePing: false,
             shoppingPing: false,
-            extraPhone: "3125550199",
-            twilioSID: "ACexample",
-            twilioToken: "auth-token",
-            twilioFrom: "+13125550100"
+            extraPhone: "3125550199"
         )
         let school = CalendarSource.make(brand: .subscribed, title: "School", icsURL: "https://school.example/secret.ics")
         var snapshot = HubStore.emptySnapshot()
@@ -101,9 +92,8 @@ final class SnapshotReliabilityTests: XCTestCase {
         XCTAssertEqual(cloud.members.map(\.diets), [[], []])
         XCTAssertNil(cloud.members[1].birthday)
         XCTAssertEqual(cloud.members[1].allowanceBalanceCents, 0)
-        XCTAssertEqual(cloud.notifyPrefs?.twilioToken, "")
-        XCTAssertEqual(cloud.notifyPrefs?.twilioSID, "")
         XCTAssertEqual(cloud.notifyPrefs?.extraPhone, "")
+        XCTAssertNil(cloud.issuedJoinCodes)
         XCTAssertEqual(cloud.documents?.map(\.kind), [.school])
         XCTAssertEqual(cloud.calendarSources?.first?.icsURL, nil)
         XCTAssertEqual(cloud.calendarSources?.first?.title, "School")
@@ -112,7 +102,6 @@ final class SnapshotReliabilityTests: XCTestCase {
         XCTAssertEqual(cloud.placePings?.isEmpty, true)
         let encoded = try? JSONEncoder().encode(cloud)
         let text = encoded.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        XCTAssertFalse(text.contains("auth-token"))
         XCTAssertFalse(text.contains("sam@example.com"))
         XCTAssertFalse(text.contains("policy 123"))
         XCTAssertFalse(text.contains("secret.ics"))
@@ -122,6 +111,40 @@ final class SnapshotReliabilityTests: XCTestCase {
         let empty = HubStore.emptySnapshot()
         XCTAssertTrue(empty.members.isEmpty)
         XCTAssertEqual(empty.householdName, "")
-        XCTAssertFalse(empty.recipes?.isEmpty ?? true)
+        XCTAssertEqual(empty.recipes ?? [], [])
+        XCTAssertEqual(empty.schemaVersion, HubSnapshot.currentSchema)
+    }
+
+    func testSnapshotDecodesWithoutNewFields() throws {
+        let raw = """
+        {"householdName":"Murray","members":[],"events":[],"reminders":[],"todos":[],"chores":[],"assignments":[],"ledger":[]}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(HubSnapshot.self, from: raw)
+        XCTAssertEqual(decoded.householdName, "Murray")
+        XCTAssertNil(decoded.schemaVersion)
+        XCTAssertNil(decoded.issuedJoinCodes)
+        XCTAssertNil(decoded.recipes)
+    }
+
+    @MainActor
+    func testCorruptHubFileIsLeftAlone() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let original = Data("{not json".utf8)
+        let url = root.appendingPathComponent("hub.json")
+        try original.write(to: url)
+        let store = HubStore(rootURL: root)
+        let after = try Data(contentsOf: url)
+        XCTAssertEqual(after, original)
+        XCTAssertEqual(store.recipes, [])
+        XCTAssertFalse(store.recipes.contains(where: { $0.name == "Tacos" }))
+        XCTAssertNotNil(store.errorMessage)
+        let copies = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.lastPathComponent.hasSuffix(".json") }
+        XCTAssertEqual(copies.count, 1)
+        XCTAssertEqual(try Data(contentsOf: copies[0]), original)
+        store.setWhiteboardNote("should not overwrite")
+        let still = try Data(contentsOf: url)
+        XCTAssertEqual(still, original)
     }
 }

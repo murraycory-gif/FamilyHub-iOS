@@ -241,7 +241,7 @@ private struct AddICSSheet: View {
         case .outlook:
             return "In Outlook on the web: Settings → View all → Shared calendars → Publish a calendar → ICS."
         case .icloud:
-            return "In Calendar on a Mac: Calendar → Share Calendar → Public Calendar, then copy the webcal link (change webcal to https)."
+            return "In Calendar on a Mac: Calendar → Share Calendar → Public Calendar, then paste the webcal link. HUB fetches it over https."
         default:
             return "Paste any public or secret .ics / webcal link. FamilyHub imports the next six months."
         }

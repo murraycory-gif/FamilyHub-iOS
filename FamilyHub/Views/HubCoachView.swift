@@ -299,7 +299,7 @@ enum HubTours {
         .init(id: "setBills", symbol: "dollarsign.circle.fill", title: "Bills Due", detail: "Pick your bills calendar here. Those dates become Bills Due reminders."),
         .init(id: "setAllow", symbol: "banknote.fill", title: "Allowance", detail: "Kid balances and payouts live on the Chores page."),
         .init(id: "setWeather", symbol: "cloud.sun.fill", title: "Weather", detail: "Set the city and every measurement HUB should use."),
-        .init(id: "setNotify", symbol: "bell.fill", title: "Notifications", detail: "This iPad gets lock-screen pings. To have HUB text your phone, add HUB’s sender once, then tap Text me.")
+        .init(id: "setNotify", symbol: "bell.fill", title: "Notifications", detail: "This iPad gets lock-screen pings.")
     ]
 
     static let family: [CoachStep] = [
