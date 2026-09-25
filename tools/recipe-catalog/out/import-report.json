@@ -1,0 +1,29 @@
+{
+  "recipeCount": 200,
+  "imageCount": 200,
+  "rejectedByLicenseScreen": 7,
+  "skippedDrafts": 0,
+  "skippedIncomplete": 108,
+  "contentHash": "sha256:3b724dd302e8dcc4d05b303f57a2eb2f396aecab7db2c348f65c106019410249",
+  "problems": [
+    "First image-download pass was rate-limited (HTTP 429). A slower resume with retries filled the catalog to 200. The 7 license-screen rejects are from that first pass; the resume added none.",
+    "114 recipes have an empty cuisine because the Wikibooks page did not name one.",
+    "112 recipes have no total time because the recipe summary did not state one.",
+    "skippedIncomplete counts only the resume pass (pages with no usable steps, ingredients, or dish photo)."
+  ],
+  "tagCounts": {
+    "dairy-free": 117,
+    "egg-free": 147,
+    "gluten-free": 118,
+    "halal": 170,
+    "keto": 52,
+    "kosher": 160,
+    "paleo": 43,
+    "peanut-free": 196,
+    "pescatarian": 150,
+    "soy-free": 188,
+    "tree-nut-free": 189,
+    "vegan": 55,
+    "vegetarian": 139
+  }
+}
