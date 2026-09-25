@@ -44,9 +44,16 @@ protocol RecipeProviding: Sendable {
 }
 
 enum RecipeSources {
-    /// Swap this when the owner's provider choice lands. Callers only see `RecipeProviding`.
+    /// Public https URL of an open-licensed catalog on free Cloudflare R2.
+    /// Nil keeps that source off. No key and no account.
+    static let r2CatalogBase: URL? = nil
+
+    /// TheMealDB's free public key is the live source. An R2 catalog, when the URL is set, is asked first and MealDB fills the gaps.
     static func make() -> any RecipeProviding {
-        MealDBRecipeProvider()
+        if let base = r2CatalogBase {
+            return RecipeSourceList(primary: R2CatalogProvider(base: base), fallback: MealDBRecipeProvider())
+        }
+        return MealDBRecipeProvider()
     }
 }
 
@@ -131,7 +138,7 @@ enum RecipeProviderCache {
         var savedAt: Date
         var recipes: [CatalogRecipe]
         var fresh: Bool {
-            Date().timeIntervalSince(savedAt) < 60 * 60 * 12
+            Date().timeIntervalSince(savedAt) < 60 * 60 * 24 * 7
         }
     }
 
@@ -155,5 +162,74 @@ enum RecipeProviderCache {
         var hash: UInt64 = 5381
         for byte in key.utf8 { hash = ((hash << 5) &+ hash) &+ UInt64(byte) }
         return folder.appendingPathComponent(String(hash, radix: 16) + ".json")
+    }
+}
+
+/// Open-licensed JSON on a public R2 URL. No key. Off until `RecipeSources.r2CatalogBase` is set.
+struct R2CatalogProvider: RecipeProviding {
+    let base: URL
+    var id: String { "r2" }
+    var displayName: String { "HUB catalog" }
+
+    func trending() async throws -> [CatalogRecipe] {
+        try await fetch("trending.json")
+    }
+
+    func searchDish(_ query: String) async throws -> [CatalogRecipe] {
+        try await fetch("dish/\(slug(query)).json")
+    }
+
+    func searchIngredient(_ query: String) async throws -> [CatalogRecipe] {
+        try await fetch("ingredient/\(slug(query)).json")
+    }
+
+    func searchCuisine(_ query: String) async throws -> [CatalogRecipe] {
+        try await fetch("cuisine/\(slug(query)).json")
+    }
+
+    func lookup(id: String) async throws -> CatalogRecipe? {
+        try await fetch("id/\(slug(id)).json").first
+    }
+
+    private func fetch(_ path: String) async throws -> [CatalogRecipe] {
+        guard let url = URL(string: path, relativeTo: base)?.absoluteURL else { return [] }
+        var request = URLRequest(url: url, timeoutInterval: 12)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw RecipeProviderError.offline
+        }
+        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            throw RecipeProviderError.unavailable
+        }
+        return (try? JSONDecoder().decode([CatalogRecipe].self, from: data)) ?? []
+    }
+
+    private func slug(_ raw: String) -> String {
+        raw.lowercased().addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? raw
+    }
+}
+
+struct RecipeSourceList: RecipeProviding {
+    let primary: any RecipeProviding
+    let fallback: any RecipeProviding
+    var id: String { primary.id }
+    var displayName: String { primary.displayName }
+
+    func trending() async throws -> [CatalogRecipe] { try await first { try await $0.trending() } }
+    func searchDish(_ query: String) async throws -> [CatalogRecipe] { try await first { try await $0.searchDish(query) } }
+    func searchIngredient(_ query: String) async throws -> [CatalogRecipe] { try await first { try await $0.searchIngredient(query) } }
+    func searchCuisine(_ query: String) async throws -> [CatalogRecipe] { try await first { try await $0.searchCuisine(query) } }
+
+    func lookup(id: String) async throws -> CatalogRecipe? {
+        if let hit = try? await primary.lookup(id: id) { return hit }
+        return try await fallback.lookup(id: id)
+    }
+
+    private func first(_ load: (any RecipeProviding) async throws -> [CatalogRecipe]) async throws -> [CatalogRecipe] {
+        if let batch = try? await load(primary), batch.isEmpty == false { return batch }
+        return try await load(fallback)
     }
 }
