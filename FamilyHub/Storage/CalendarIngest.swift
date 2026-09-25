@@ -22,6 +22,7 @@ final class CalendarIngestor: ObservableObject {
     private var observer: NSObjectProtocol?
     private var foregroundObserver: NSObjectProtocol?
     private var pendingSync: Task<Void, Never>?
+    private var lastQuietSync: Date?
     private weak var hub: HubStore?
 
     var isAuthorized: Bool {
@@ -171,7 +172,9 @@ final class CalendarIngestor: ObservableObject {
     }
 
     func sync(into hub: HubStore, quiet: Bool = false) async {
+        if quiet, let lastQuietSync, Date().timeIntervalSince(lastQuietSync) < 45 { return }
         isSyncing = true
+        if quiet { lastQuietSync = Date() }
         defer { isSyncing = false }
         var imported = 0
         for source in hub.calendarSources {
@@ -190,7 +193,9 @@ final class CalendarIngestor: ObservableObject {
                         memberID: source.memberID
                     )
                 } else if let urlString = source.icsURL, let url = URL(string: urlString) {
-                    let data = try await URLSession.shared.data(from: url).0
+                    var request = URLRequest(url: url)
+                    request.timeoutInterval = 12
+                    let data = try await HubNetwork.session.data(for: request).0
                     let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
                     events = ICSParser.parse(text, sourceID: source.id, memberID: source.memberID)
                 } else {
@@ -397,7 +402,7 @@ enum EventKitBridge {
         case .weekly:
             let days = rule.daysOfTheWeek?.map { weekdayName($0.dayOfTheWeek) }.joined(separator: ", ")
             if interval == 1 {
-                return days?.isEmpty == false ? "Repeats weekly on \(days!)" : "Repeats weekly"
+                return (days?.isEmpty == false) ? "Repeats weekly on \(days ?? "")" : "Repeats weekly"
             }
             return "Repeats every \(interval) weeks"
         case .monthly:
@@ -441,6 +446,20 @@ enum EventKitBridge {
 }
 
 enum ICSParser {
+    private static let utcStamp: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter
+    }()
+
+    private static let localStamp: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        return formatter
+    }()
+
     static func parse(_ raw: String, sourceID: UUID, memberID: UUID? = nil, now: Date = Date()) -> [CalendarEvent] {
         let unfolded = unfold(raw)
         var events: [CalendarEvent] = []
@@ -491,9 +510,7 @@ enum ICSParser {
         let meta = parts.first ?? ""
         let allDay = meta.contains("VALUE=DATE") || (value.count == 8 && !value.contains("T"))
         let cleaned = value.replacingOccurrences(of: "Z", with: "")
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = value.hasSuffix("Z") ? TimeZone(secondsFromGMT: 0) : .current
+        let formatter = value.hasSuffix("Z") ? utcStamp : localStamp
         if allDay {
             formatter.dateFormat = "yyyyMMdd"
         } else if cleaned.count >= 15 {
@@ -573,7 +590,7 @@ enum ICSParser {
                 copy.externalID = (base.externalID ?? "") + "-\(made)"
                 result.append(copy)
             }
-            guard let next = Calendar.current.date(byAdding: component!, value: interval, to: cursor) else { break }
+            guard let component, let next = Calendar.current.date(byAdding: component, value: interval, to: cursor) else { break }
             cursor = next
             made += 1
         }

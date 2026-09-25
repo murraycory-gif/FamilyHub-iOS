@@ -836,9 +836,9 @@ struct TodayView: View {
                         .padding(.vertical, 8)
                 } else {
                     ScrollView {
-                        VStack(spacing: 10) {
-                            ForEach(Array(uniqueItems(items).prefix(16).enumerated()), id: \.offset) { _, item in
-                                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                        TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                            LazyVStack(spacing: 10) {
+                                ForEach(Array(uniqueItems(items).prefix(16).enumerated()), id: \.offset) { _, item in
                                     Button { openAgendaItem(item) } label: {
                                         dayRow(item, now: timeline.date)
                                     }

@@ -104,7 +104,7 @@ struct PlaceDetailView: View {
                         let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
                         item.name = name
                         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
-                    } else if let address, let maps = URL(string: "http://maps.apple.com/?q=\(address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? address)") {
+                    } else if let address, let maps = URL(string: "https://maps.apple.com/?q=\(address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? address)") {
                         openURL(maps)
                     }
                 }

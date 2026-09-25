@@ -447,7 +447,7 @@ struct EventDetailSheet: View {
                                         let item = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)))
                                         item.name = event.title
                                         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
-                                    } else if let maps = URL(string: "http://maps.apple.com/?q=\(event.location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? event.location)") {
+                                    } else if let maps = URL(string: "https://maps.apple.com/?q=\(event.location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? event.location)") {
                                         openURL(maps)
                                     }
                                 }

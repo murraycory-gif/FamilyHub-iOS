@@ -110,6 +110,64 @@ final class CalendarMathTests: XCTestCase {
         XCTAssertFalse(store.events.contains(where: { $0.title == "Imported" }))
     }
 
+    func testWidgetRefreshStaysInsideAnHourUnlessAnEventIsSooner() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var snap = WidgetBridge.Snapshot(
+            household: "HUB",
+            agendaTitle: "Soccer",
+            agendaWhen: "4:30 PM",
+            dinnerName: "Tacos",
+            dinnerSide: "",
+            leaveTitle: "Soccer",
+            leaveAt: nil,
+            eventStart: nil,
+            updatedAt: now
+        )
+        let idle = WidgetBridge.nextRefresh(after: now, snap: snap)
+        XCTAssertEqual(idle.timeIntervalSince(now), 60 * 60, accuracy: 1)
+        snap.leaveAt = now.addingTimeInterval(10 * 60)
+        let soon = WidgetBridge.nextRefresh(after: now, snap: snap)
+        XCTAssertEqual(soon.timeIntervalSince(now), 10 * 60, accuracy: 1)
+        XCTAssertTrue(WidgetBridge.sameContent(snap, snap))
+    }
+
+    func testNotifyPrefsDropSecretsBeforeSave() {
+        var prefs = HubNotifyPrefs.off
+        prefs.twilioSID = "AC123"
+        prefs.twilioToken = "secret-token-value"
+        prefs.twilioFrom = "+15555550100"
+        let data = try? JSONEncoder().encode(prefs.withoutSecrets())
+        let text = String(data: data ?? Data(), encoding: .utf8) ?? ""
+        XCTAssertFalse(text.contains("secret-token-value"))
+        XCTAssertFalse(text.contains("AC123"))
+    }
+
+    func testSnapshotEncodeCompactIsFasterThanPretty() throws {
+        let snapshot = HubSnapshot(
+            householdName: "Murray",
+            members: (0..<8).map { FamilyMember.make(name: "Person \($0)", role: .child, colorHex: "163A5F", symbol: "😎") },
+            events: (0..<120).map { CalendarEvent.make(title: "Event \($0)", startAt: Date().addingTimeInterval(Double($0) * 3600)) },
+            reminders: [],
+            todos: [],
+            chores: [],
+            assignments: [],
+            ledger: []
+        )
+        let pretty = JSONEncoder()
+        pretty.outputFormatting = [.prettyPrinted, .sortedKeys]
+        pretty.dateEncodingStrategy = .iso8601
+        let compact = JSONEncoder()
+        compact.dateEncodingStrategy = .iso8601
+        let prettyStart = ContinuousClock.now
+        let prettyData = try pretty.encode(snapshot)
+        let prettyMs = (ContinuousClock.now - prettyStart).components.seconds * 1000
+        let compactStart = ContinuousClock.now
+        let compactData = try compact.encode(snapshot)
+        let compactMs = (ContinuousClock.now - compactStart).components.seconds * 1000
+        XCTAssertLessThan(compactData.count, prettyData.count)
+        XCTAssertLessThanOrEqual(compactMs, prettyMs + 5)
+    }
+
     @MainActor
     func testDinnerPlanUsesRecipeName() {
         let store = HubStore(rootURL: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))

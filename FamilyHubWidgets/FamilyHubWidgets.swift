@@ -10,9 +10,10 @@ struct Provider: TimelineProvider {
         completion(Entry(date: Date(), snap: WidgetBridge.read()))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
-        let entry = Entry(date: Date(), snap: WidgetBridge.read())
-        let next = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date().addingTimeInterval(900)
-        completion(Timeline(entries: [entry], policy: .after(next)))
+        let now = Date()
+        let snap = WidgetBridge.read()
+        let entry = Entry(date: now, snap: snap)
+        completion(Timeline(entries: [entry], policy: .after(WidgetBridge.nextRefresh(after: now, snap: snap))))
     }
 }
 

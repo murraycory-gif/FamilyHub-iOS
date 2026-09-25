@@ -83,8 +83,7 @@ final class HubStore: ObservableObject {
         appearance = .system
         familyPhotoData = nil
         loadOrSeed()
-        familyPhotoData = try? Data(contentsOf: familyPhotoURL)
-        loadMemberPhotos()
+        Task { await loadPhotosOffMain() }
         Task { await restoreAccountIfNeeded() }
     }
 
@@ -444,16 +443,28 @@ final class HubStore: ObservableObject {
         }
     }
 
-    private func loadMemberPhotos() {
-        guard let files = try? fileManager.contentsOfDirectory(at: memberPhotoFolder, includingPropertiesForKeys: nil) else { return }
-        var loaded: [UUID: Data] = [:]
-        for file in files where file.pathExtension.lowercased() == "jpg" {
-            if let id = UUID(uuidString: file.deletingPathExtension().lastPathComponent),
-               let data = try? Data(contentsOf: file) {
-                loaded[id] = data
+    private func loadPhotosOffMain() async {
+        let familyURL = familyPhotoURL
+        let folder = memberPhotoFolder
+        let started = ContinuousClock.now
+        let loaded = await Task.detached(priority: .userInitiated) { () -> (Data?, [UUID: Data]) in
+            let family = try? Data(contentsOf: familyURL)
+            var photos: [UUID: Data] = [:]
+            if let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) {
+                for file in files where file.pathExtension.lowercased() == "jpg" {
+                    if let id = UUID(uuidString: file.deletingPathExtension().lastPathComponent),
+                       let data = try? Data(contentsOf: file) {
+                        photos[id] = data
+                    }
+                }
             }
-        }
-        memberPhotos = loaded
+            return (family, photos)
+        }.value
+        let elapsed = ContinuousClock.now - started
+        let ms = elapsed.components.seconds * 1000 + Int(elapsed.components.attoseconds / 1_000_000_000_000_000)
+        LaunchLog.mark("photos-off-main \(ms)")
+        familyPhotoData = loaded.0
+        memberPhotos = loaded.1
     }
 
     /// In-memory only — persist after the finger lifts so the hub does not hitch.
@@ -998,7 +1009,7 @@ final class HubStore: ObservableObject {
     func house(on day: Date, kidID: UUID? = nil) -> CustodyHouse? {
         let weekday = Calendar.current.component(.weekday, from: day)
         return custodyHouses.first { house in
-            house.weekdays.contains(weekday) && (kidID == nil || house.kidIDs.contains(kidID!))
+            house.weekdays.contains(weekday) && (kidID.map { house.kidIDs.contains($0) } ?? true)
         }
     }
 
@@ -1061,14 +1072,22 @@ final class HubStore: ObservableObject {
             return
         }
         do {
+            let started = ContinuousClock.now
             let data = try Data(contentsOf: snapshotURL)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let decoded = try decoder.decode(HubSnapshot.self, from: data)
+            let elapsed = ContinuousClock.now - started
+            let ms = elapsed.components.seconds * 1000 + Int(elapsed.components.attoseconds / 1_000_000_000_000_000)
+            LaunchLog.mark("snapshot-decode \(ms)")
             apply(decoded)
         } catch {
-            errorMessage = "Could not load FamilyHub data: \(error.localizedDescription)"
-            apply(SampleFamily.snapshot())
+            let bad = snapshotURL.appendingPathExtension("corrupt")
+            try? fileManager.removeItem(at: bad)
+            try? fileManager.moveItem(at: snapshotURL, to: bad)
+            errorMessage = "Could not load FamilyHub data. The unreadable file was kept beside the hub."
+            apply(Self.emptySnapshot())
+            persist()
         }
     }
 
@@ -1095,7 +1114,9 @@ final class HubStore: ObservableObject {
         ownerID = snapshot.ownerID ?? snapshot.members.first(where: { $0.role == .parent })?.id
         joinCode = (snapshot.joinCode?.isEmpty == false) ? (snapshot.joinCode ?? Self.makeJoinCode()) : Self.makeJoinCode()
         signedInMemberID = snapshot.signedInMemberID ?? ownerID
-        notifyPrefs = snapshot.notifyPrefs ?? .off
+        let filePrefs = snapshot.notifyPrefs ?? .off
+        let hadSecrets = !filePrefs.twilioSID.isEmpty || !filePrefs.twilioToken.isEmpty || !filePrefs.twilioFrom.isEmpty
+        notifyPrefs = Self.prefsWithKeychain(filePrefs)
         whiteboardNote = snapshot.whiteboardNote ?? ""
         hubWidgetLimit = min(4, max(3, snapshot.hubWidgetLimit ?? 4))
         setupCompleted = snapshot.setupCompleted ?? !snapshot.members.isEmpty
@@ -1108,7 +1129,7 @@ final class HubStore: ObservableObject {
         quietHours = snapshot.quietHours ?? []
         recapPhotos = snapshot.recapPhotos ?? []
         choreProofs = snapshot.choreProofs ?? []
-        if snapshot.joinCode == nil {
+        if snapshot.joinCode == nil || hadSecrets {
             persist()
         }
         rememberAccount()
@@ -1137,7 +1158,7 @@ final class HubStore: ObservableObject {
             ownerID: ownerID,
             joinCode: joinCode,
             signedInMemberID: signedInMemberID,
-            notifyPrefs: notifyPrefs,
+            notifyPrefs: notifyPrefs.withoutSecrets(),
             whiteboardNote: whiteboardNote,
             hubWidgetLimit: hubWidgetLimit,
             setupCompleted: setupCompleted,
@@ -1152,8 +1173,12 @@ final class HubStore: ObservableObject {
             choreProofs: choreProofs
         )
         do {
+            HubKeychain.saveTwilio(HubKeychain.Twilio(
+                sid: notifyPrefs.twilioSID,
+                token: notifyPrefs.twilioToken,
+                from: notifyPrefs.twilioFrom
+            ))
             let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
@@ -1165,10 +1190,24 @@ final class HubStore: ObservableObject {
         }
     }
 
+    private var lastWidgetSnap: WidgetBridge.Snapshot?
+    private var widgetReloadTask: Task<Void, Never>?
+
+    private static func prefsWithKeychain(_ prefs: HubNotifyPrefs) -> HubNotifyPrefs {
+        guard prefs.twilioSID.isEmpty, prefs.twilioToken.isEmpty, let saved = HubKeychain.loadTwilio() else {
+            return prefs
+        }
+        var copy = prefs
+        copy.twilioSID = saved.sid
+        copy.twilioToken = saved.token
+        copy.twilioFrom = saved.from
+        return copy
+    }
+
     private func publishWidgets() {
         let day = Date()
         let next = events.filter { $0.startAt > Date() }.sorted { $0.startAt < $1.startAt }.first
-        WidgetBridge.write(WidgetBridge.Snapshot(
+        let snap = WidgetBridge.Snapshot(
             household: householdName.isEmpty ? "HUB Circle" : householdName,
             agendaTitle: next?.title ?? "Nothing on the calendar",
             agendaWhen: next.map { $0.allDay ? "All day" : Date.hubClock($0.startAt) } ?? "Today",
@@ -1178,8 +1217,16 @@ final class HubStore: ObservableObject {
             leaveAt: next.map { $0.startAt.addingTimeInterval(-20 * 60) },
             eventStart: next?.startAt,
             updatedAt: Date()
-        ))
-        WidgetCenter.shared.reloadAllTimelines()
+        )
+        if let lastWidgetSnap, WidgetBridge.sameContent(lastWidgetSnap, snap) { return }
+        lastWidgetSnap = snap
+        WidgetBridge.write(snap)
+        widgetReloadTask?.cancel()
+        widgetReloadTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(800))
+            guard !Task.isCancelled else { return }
+            WidgetCenter.shared.reloadAllTimelines()
+        }
         #if canImport(ActivityKit)
         if let next {
             LeaveByLive.publish(title: next.title, eventID: next.id.uuidString, startAt: next.startAt)
@@ -1356,57 +1403,4 @@ enum SampleFamily {
         .make(name: "Leftovers", kind: .cooked),
         .make(name: "Pizza night", kind: .recipe),
     ]
-
-    static func snapshot(now: Date = Date(), calendar: Calendar = .current) -> HubSnapshot {
-        let cory = FamilyMember.make(name: "Cory", role: .parent, colorHex: "163A5F", symbol: "😎")
-        let alex = FamilyMember.make(name: "Alex", role: .child, colorHex: "2563EB", symbol: "🏃")
-        let sam = FamilyMember.make(name: "Sam", role: .child, colorHex: "EA580C", symbol: "⚽️")
-
-        func day(_ offset: Int, hour: Int, minute: Int = 0) -> Date {
-            let start = calendar.startOfDay(for: now)
-            let shifted = calendar.date(byAdding: .day, value: offset, to: start) ?? start
-            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: shifted) ?? shifted
-        }
-
-        let dishes = Chore.make(title: "Dishes", details: "Load and wipe the counters.", rewardCents: 200, cadence: .daily)
-        let trash = Chore.make(title: "Take out trash", details: "Kitchen + bathrooms.", rewardCents: 150, cadence: .weekly)
-        let room = Chore.make(title: "Clean bedroom", details: "Floor, bed, desk.", rewardCents: 300, cadence: .weekly)
-        let lawn = Chore.make(title: "Mow the lawn", details: "Front and back.", rewardCents: 800, cadence: .weekly)
-
-        let a1 = ChoreAssignment.make(choreID: dishes.id, memberID: alex.id, dueOn: now)
-        let a2 = ChoreAssignment.make(choreID: trash.id, memberID: sam.id, dueOn: now)
-        let a3 = ChoreAssignment.make(choreID: room.id, memberID: alex.id, dueOn: calendar.date(byAdding: .day, value: 2, to: now) ?? now)
-        let a4 = ChoreAssignment.make(choreID: lawn.id, memberID: sam.id, dueOn: calendar.date(byAdding: .day, value: 3, to: now) ?? now)
-
-        return HubSnapshot(
-            householdName: "Murray",
-            members: [cory, alex, sam],
-            events: [
-                .make(title: "Soccer practice", startAt: day(0, hour: 16, minute: 30), endAt: day(0, hour: 18), location: "Lincoln Park field", memberID: sam.id),
-                .make(title: "Family dinner", startAt: day(0, hour: 18, minute: 30), location: "Home"),
-                .make(title: "Dentist", startAt: day(1, hour: 10), location: "Oak Street Dental", memberID: alex.id),
-                .make(title: "Piano", startAt: day(2, hour: 15, minute: 30), location: "Studio B", memberID: alex.id),
-                .make(title: "Game night", startAt: day(5, hour: 19), location: "Home"),
-            ],
-            reminders: [
-                .make(title: "Permission slip for field trip", dueAt: day(1, hour: 8), memberID: alex.id),
-                .make(title: "Trash night", dueAt: day(0, hour: 19), memberID: sam.id),
-                .make(title: "Pay soccer fees", dueAt: day(4, hour: 12), memberID: cory.id),
-            ],
-            todos: [
-                .make(title: "Grocery run", notes: "Milk, berries, sandwich bread", dueAt: day(0, hour: 17), memberID: cory.id),
-                .make(title: "Schedule oil change", dueAt: day(3, hour: 9), memberID: cory.id),
-                .make(title: "Pack gym bag", dueAt: day(0, hour: 15), memberID: sam.id),
-            ],
-            chores: [dishes, trash, room, lawn],
-            assignments: [a1, a2, a3, a4],
-            ledger: [],
-            weatherPlace: .chicago,
-            hubWidgets: HubWidget.defaultSet,
-            recipes: starterRecipes,
-            dinners: [
-                .make(day: now, recipeID: starterRecipes.first(where: { $0.name == "Tacos" })?.id),
-            ]
-        )
-    }
 }

@@ -26,6 +26,33 @@ enum WidgetBridge {
         }
     }
 
+    /// Next widget refresh. Event boundaries can be sooner; otherwise wait an hour
+    /// so Home Screen widgets stay inside the system refresh budget.
+    static func nextRefresh(after now: Date = Date(), snap: Snapshot, calendar: Calendar = .current) -> Date {
+        var refresh = now.addingTimeInterval(60 * 60)
+        if let leave = snap.leaveAt, leave > now {
+            refresh = min(refresh, leave)
+        }
+        if let start = snap.eventStart, start > now {
+            refresh = min(refresh, start.addingTimeInterval(60))
+        }
+        if let midnight = calendar.nextDate(after: now, matching: DateComponents(hour: 0, minute: 1), matchingPolicy: .nextTime) {
+            refresh = min(refresh, midnight)
+        }
+        return refresh
+    }
+
+    static func sameContent(_ lhs: Snapshot, _ rhs: Snapshot) -> Bool {
+        lhs.household == rhs.household
+            && lhs.agendaTitle == rhs.agendaTitle
+            && lhs.agendaWhen == rhs.agendaWhen
+            && lhs.dinnerName == rhs.dinnerName
+            && lhs.dinnerSide == rhs.dinnerSide
+            && lhs.leaveTitle == rhs.leaveTitle
+            && lhs.leaveAt == rhs.leaveAt
+            && lhs.eventStart == rhs.eventStart
+    }
+
     static func read() -> Snapshot {
         guard let data = defaults().data(forKey: key),
               let snap = try? JSONDecoder().decode(Snapshot.self, from: data)

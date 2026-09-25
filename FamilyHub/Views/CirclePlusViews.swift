@@ -14,7 +14,7 @@ struct CirclePlusView: View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "Circle", tail: "Plus")
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     schoolCard
                     placesCard
                     custodyCard
