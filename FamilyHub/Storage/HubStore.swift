@@ -1189,7 +1189,8 @@ final class HubStore: ObservableObject {
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
             rememberAccount()
-            scheduleCloudPublish(data)
+            let cloud = try encoder.encode(snapshot.forPublicDatabase())
+            scheduleCloudPublish(cloud)
             publishWidgets()
         } catch {
             errorMessage = "Could not save: \(error.localizedDescription)"
@@ -1252,7 +1253,14 @@ final class HubStore: ObservableObject {
     }
 
     func publishHouseholdNow() async -> String? {
-        guard let data = try? Data(contentsOf: snapshotURL) else { return "Nothing to share yet." }
+        guard let raw = try? Data(contentsOf: snapshotURL) else { return "Nothing to share yet." }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let snapshot = try? decoder.decode(HubSnapshot.self, from: raw) else { return "Nothing to share yet." }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(snapshot.forPublicDatabase()) else { return "Nothing to share yet." }
         do {
             try await HouseholdCloud.publish(code: joinCode, data: data)
             return nil

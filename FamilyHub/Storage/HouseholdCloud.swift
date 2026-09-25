@@ -27,6 +27,7 @@ enum HouseholdCloud {
         CKRecord.ID(recordName: "hub-\(code.uppercased())")
     }
 
+    /// `data` must already be `HubSnapshot.forPublicDatabase()`. This database is readable by every iCloud user of the app.
     static func publish(code: String, data: Data) async throws {
         let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
         guard clean.count == 6 else { throw HouseholdCloudError.badCode }
