@@ -654,7 +654,7 @@ struct EditMemberSheet: View {
                             .foregroundStyle(AppTheme.blue)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
-                            .background(Color.white, in: Capsule())
+                            .background(AppTheme.card, in: Capsule())
                             .overlay(Capsule().stroke(AppTheme.blue, lineWidth: 1.5))
                     }
                     .buttonStyle(.plain)
@@ -795,11 +795,11 @@ struct EditMemberSheet: View {
             TextField("Name", text: $name)
                 .font(.title3.weight(.semibold))
                 .padding(14)
-                .background(Color.white)
+                .background(AppTheme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
                 )
                 .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
@@ -813,7 +813,7 @@ struct EditMemberSheet: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
                             .frame(maxWidth: .infinity)
-                            .background(role == item ? AppTheme.blue : Color.white, in: Capsule())
+                            .background(role == item ? AppTheme.blue : AppTheme.card, in: Capsule())
                             .overlay(Capsule().stroke(AppTheme.blue.opacity(role == item ? 0 : 0.25), lineWidth: 1.5))
                             .shadow(color: .black.opacity(role == item ? 0.12 : 0.06), radius: 4, y: 2)
                     }
@@ -928,11 +928,11 @@ struct EditMemberSheet: View {
                                 Text(emoji)
                                     .font(.system(size: 26))
                                     .frame(width: 44, height: 44)
-                                    .background(Color.white)
+                                    .background(AppTheme.card)
                                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .stroke(symbol == emoji && photoData == nil ? AppTheme.blue : Color.black.opacity(0.05), lineWidth: symbol == emoji && photoData == nil ? 2.5 : 1)
+                                            .stroke(symbol == emoji && photoData == nil ? AppTheme.blue : AppTheme.cardBorder, lineWidth: symbol == emoji && photoData == nil ? 2.5 : 1)
                                     )
                                     .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
                             }
@@ -949,11 +949,11 @@ struct EditMemberSheet: View {
         content()
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
+            .background(AppTheme.card)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                    .stroke(AppTheme.cardBorder, lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
     }

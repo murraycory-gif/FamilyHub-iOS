@@ -983,7 +983,7 @@ struct WeatherPlacePicker: View {
                         if locating { ProgressView() }
                     }
                     .padding(14)
-                    .background(Color.white)
+                    .background(AppTheme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)

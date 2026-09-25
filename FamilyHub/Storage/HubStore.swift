@@ -86,6 +86,7 @@ final class HubStore: ObservableObject {
         loadOrSeed()
         let photoURL = familyPhotoURL
         let folder = memberPhotoFolder
+        HubAccess.store = self
         Task { await loadPhotos(photoURL: photoURL, folder: folder) }
         Task { await restoreAccountIfNeeded() }
         LaunchTiming.mark("store ready")
@@ -1216,6 +1217,25 @@ final class HubStore: ObservableObject {
     private func publishWidgets() {
         let day = Date()
         let next = events.filter { $0.startAt > Date() }.sorted { $0.startAt < $1.startAt }.first
+        writeWidgetSnapshot(day: day, next: next, travelMinutes: LeaveByETA.fallbackMinutes)
+        guard let next, let lat = next.latitude, let lon = next.longitude, let home = weatherPlace else { return }
+        let eventID = next.id
+        let title = next.title
+        let start = next.startAt
+        let origin = CLLocationCoordinate2D(latitude: home.latitude, longitude: home.longitude)
+        let destination = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        Task { @MainActor in
+            let minutes = await LeaveByETA.driveMinutes(from: origin, to: destination) ?? LeaveByETA.fallbackMinutes
+            guard events.contains(where: { $0.id == eventID && $0.startAt == start }) else { return }
+            writeWidgetSnapshot(day: Date(), next: events.first { $0.id == eventID }, travelMinutes: minutes)
+            #if canImport(ActivityKit)
+            LeaveByLive.publish(title: title, eventID: eventID.uuidString, startAt: start, travelMinutes: minutes)
+            #endif
+        }
+    }
+
+    private func writeWidgetSnapshot(day: Date, next: CalendarEvent?, travelMinutes: Int) {
+        let minutes = max(1, travelMinutes)
         WidgetBridge.write(WidgetBridge.Snapshot(
             household: householdName.isEmpty ? "HUB Circle" : householdName,
             agendaTitle: next?.title ?? "Nothing on the calendar",
@@ -1223,14 +1243,14 @@ final class HubStore: ObservableObject {
             dinnerName: dinnerTitle(on: day) ?? "Nothing planned",
             dinnerSide: dinnerSide(on: day)?.name ?? "",
             leaveTitle: next?.title ?? "",
-            leaveAt: next.map { $0.startAt.addingTimeInterval(-20 * 60) },
+            leaveAt: next.map { $0.startAt.addingTimeInterval(TimeInterval(-minutes * 60)) },
             eventStart: next?.startAt,
             updatedAt: Date()
         ))
         WidgetCenter.shared.reloadAllTimelines()
         #if canImport(ActivityKit)
         if let next {
-            LeaveByLive.publish(title: next.title, eventID: next.id.uuidString, startAt: next.startAt)
+            LeaveByLive.publish(title: next.title, eventID: next.id.uuidString, startAt: next.startAt, travelMinutes: minutes)
         }
         #endif
     }

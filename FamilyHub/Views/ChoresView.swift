@@ -178,11 +178,11 @@ struct ChoresView: View {
         }
         .padding(14)
         .frame(width: 210, alignment: .leading)
-        .background(Color.white)
+        .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(selected ? color : Color.black.opacity(0.05), lineWidth: selected ? 2.5 : 1)
+                .stroke(selected ? color : AppTheme.cardBorder, lineWidth: selected ? 2.5 : 1)
         )
         .shadow(color: .black.opacity(selected ? 0.12 : 0.08), radius: selected ? 10 : 6, y: selected ? 5 : 3)
     }
@@ -267,11 +267,11 @@ struct ChoresView: View {
                                 .background(AppTheme.blue, in: Capsule())
                         }
                         .padding(12)
-                        .background(Color.white)
+                        .background(AppTheme.card)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                                .stroke(AppTheme.cardBorder, lineWidth: 1)
                         )
                         .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
                     }
@@ -337,11 +337,11 @@ struct AssignmentCard: View {
             }
         }
         .padding(14)
-        .background(Color.white)
+        .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
     }

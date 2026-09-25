@@ -105,7 +105,7 @@ struct ProfilesSettingsView: View {
                             .background(on ? AppTheme.blue : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(on ? AppTheme.blue : Color.black.opacity(0.05), lineWidth: 1)
+                                    .stroke(on ? AppTheme.blue : AppTheme.cardBorder, lineWidth: 1)
                             )
                             .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
                         }
@@ -154,7 +154,7 @@ struct ProfilesSettingsView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                            .stroke(AppTheme.cardBorder, lineWidth: 1)
                     )
                     .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
                 }
@@ -227,7 +227,7 @@ struct DeviceSettingsView: View {
                             .background(on ? AppTheme.blue : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(on ? AppTheme.blue : Color.black.opacity(0.05), lineWidth: 1)
+                                    .stroke(on ? AppTheme.blue : AppTheme.cardBorder, lineWidth: 1)
                             )
                             .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
                         }
@@ -244,6 +244,7 @@ struct InviteSettingsView: View {
     @AppStorage("familyhub.onboarding.completed.v4") private var onboardingCompleted = false
     @AppStorage("familyhub.tours.v2") private var tours = ""
     @State private var publishNote: String?
+    @State private var confirmReset = false
 
     var body: some View {
         SettingsPageShell(tail: "Invite", symbol: "person.badge.plus", title: "Invite to this HUB") {
@@ -289,14 +290,26 @@ struct InviteSettingsView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.textSecondary)
                 }
-                Button("Start as a new download") {
-                    store.resetAsNewDownload()
-                    tours = ""
-                    onboardingCompleted = false
-                }
-                .font(.headline.weight(.bold))
-                .foregroundStyle(AppTheme.chore)
+                Text("Danger zone")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.chore)
+                    .padding(.top, 8)
+                Button("Start as a new download") { confirmReset = true }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.chore)
             }
+        }
+        .hubConfirm(
+            "Erase this HUB on this device?",
+            isPresented: $confirmReset,
+            message: "Profiles, meals, chores, and the saved house on this device are removed. This does not delete the iCloud copy until you publish again.",
+            confirm: "Erase",
+            confirmColor: AppTheme.chore,
+            cancel: "Cancel"
+        ) {
+            store.resetAsNewDownload()
+            tours = ""
+            onboardingCompleted = false
         }
     }
 }
@@ -354,7 +367,7 @@ struct WeatherSettingsForm: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                            .stroke(AppTheme.cardBorder, lineWidth: 1)
                     )
                     .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
                 }
@@ -518,7 +531,7 @@ struct NotifySettingsView: View {
                 }
                 .tint(AppTheme.blue)
                 .padding(14)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
 
                 Button("Send a test ping") {
@@ -651,7 +664,7 @@ struct NotifySettingsView: View {
             }
         }
         .padding(14)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
     }
 

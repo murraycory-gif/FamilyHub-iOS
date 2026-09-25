@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var store: HubStore
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("familyhub.onboarding.completed.v4") private var onboardingCompleted = false
     @State private var showSplash = true
 
@@ -36,9 +37,15 @@ struct RootView: View {
         .preferredColorScheme(store.appearance.colorScheme)
         .tint(AppTheme.blue)
         .background(AppTheme.bg.ignoresSafeArea())
-            .onAppear {
-                LaunchTiming.mark("first frame")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active || phase == .background {
+                HubPinger.shared.refresh(store)
+            }
+        }
+        .onAppear {
+            LaunchTiming.mark("first frame")
+                HubPinger.shared.refresh(store)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 withAnimation(.easeInOut(duration: 0.4)) {
                     showSplash = false
                 }

@@ -2,7 +2,7 @@ import Foundation
 import os
 
 enum BuildStamp {
-    static let string = "HUB-0906.7"
+    static let string = "HUB-0906.8"
 }
 
 enum LaunchTiming {

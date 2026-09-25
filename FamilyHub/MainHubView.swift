@@ -3,7 +3,7 @@ import SwiftUI
 enum HubSection: String, CaseIterable, Identifiable, Hashable {
     case today, calendar, chores, lists, shopping, meals
     case profiles, device, invite, calendars, bills, allowance, weather, widgets, notify
-    case settings, family, looks, plus
+    case settings, family, looks, plus, more
 
     var id: String { rawValue }
 
@@ -12,7 +12,21 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     }
 
     static var sectionItems: [HubSection] {
-        [.today, .calendar, .chores, .lists, .shopping, .meals, .plus]
+        var items: [HubSection] = [.today, .calendar, .chores, .lists, .shopping, .meals]
+        if HubFlags.circlePlus { items.append(.plus) }
+        return items
+    }
+
+    /// iPhone tab bar stays at five. Everything else lives under More.
+    static var phoneTabs: [HubSection] {
+        [.today, .calendar, .meals, .shopping, .more]
+    }
+
+    static var moreItems: [HubSection] {
+        var items: [HubSection] = [.chores, .lists]
+        if HubFlags.circlePlus { items.append(.plus) }
+        items.append(contentsOf: settingsItems)
+        return items
     }
 
     static var settingsItems: [HubSection] {
@@ -39,6 +53,7 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .weather: return "Weather"
         case .widgets: return "Widgets"
         case .notify: return "Notifications"
+        case .more: return "More"
         }
     }
 
@@ -62,14 +77,20 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .weather: return "cloud.sun.fill"
         case .widgets: return "square.grid.2x2.fill"
         case .notify: return "bell.fill"
+        case .more: return "ellipsis.circle.fill"
         }
     }
+}
+
+enum HubFlags {
+    /// Circle+ (geofence notes, custody coloring, recap captions) is not ready to ship.
+    static let circlePlus = false
 }
 
 final class HubRouter: ObservableObject {
     @Published var section: HubSection? = .today
     @Published var listKind: ListKind = .reminders
-    @Published var columnVisibility: NavigationSplitViewVisibility = .detailOnly
+    @Published var columnVisibility: NavigationSplitViewVisibility = .all
     @Published var showMenu = false
 
     @Published var calendarFilter: DayFilter = .family
@@ -123,11 +144,10 @@ struct MainHubView: View {
                 } detail: {
                     detail
                 }
-                .navigationSplitViewStyle(.prominentDetail)
-                .toolbar(removing: .sidebarToggle)
+                .navigationSplitViewStyle(.balanced)
             } else {
                 TabView(selection: tabSelection) {
-                    ForEach(HubSection.menu) { item in
+                    ForEach(HubSection.phoneTabs) { item in
                         NavigationStack {
                             view(for: item)
                         }
@@ -154,14 +174,12 @@ struct MainHubView: View {
         }
         .onChange(of: router.section) { _, _ in
             router.showMenu = false
-            guard sizeClass == .regular else { return }
-            router.columnVisibility = .detailOnly
         }
     }
 
     private var tabSelection: Binding<HubSection> {
         Binding(
-            get: { currentSection },
+            get: { HubSection.phoneTabs.contains(currentSection) ? currentSection : .more },
             set: { router.section = $0 }
         )
     }
@@ -184,7 +202,6 @@ struct MainHubView: View {
         .background(AppTheme.bg)
         .navigationBarTitleDisplayMode(.inline)
         .navigationTitle("")
-        .toolbar(removing: .sidebarToggle)
         .toolbarBackground(AppTheme.bg, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
@@ -245,7 +262,6 @@ struct MainHubView: View {
     @ViewBuilder
     private var detail: some View {
         view(for: currentSection)
-            .toolbar(removing: .sidebarToggle)
     }
 
     @ViewBuilder
@@ -257,13 +273,94 @@ struct MainHubView: View {
         case .lists: ListsView().hubChrome(showBack: true)
         case .shopping: ShoppingListView().hubChrome(showBack: true)
         case .meals: MealsView().hubChrome(showBack: true)
-        case .plus: CirclePlusView().hubChrome(showBack: true)
+        case .plus:
+            if HubFlags.circlePlus {
+                CirclePlusView().hubChrome(showBack: true)
+            } else {
+                MoreHubView()
+            }
+        case .more: MoreHubView()
         case .settings, .family, .profiles, .device: ProfilesSettingsView().hubChrome(showBack: true)
         case .looks: HubLooksView().hubChrome(showBack: true)
         case .invite: InviteSettingsView().hubChrome(showBack: true)
         case .calendars: CalendarSourcesView().hubChrome(showBack: true)
         case .bills, .weather, .widgets: HubWidgetPicker().hubChrome(showBack: true)
         case .notify: NotifySettingsView().hubChrome(showBack: true)
+        }
+    }
+}
+
+struct MoreHubView: View {
+    @EnvironmentObject private var router: HubRouter
+
+    private var pushed: HubSection? {
+        guard let section = router.section, HubSection.phoneTabs.contains(section) == false, section != .more else { return nil }
+        return section
+    }
+
+    var body: some View {
+        if let pushed {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Button {
+                        router.section = .more
+                    } label: {
+                        Label("More", systemImage: "chevron.left")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                destination(pushed)
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                HubStickyHeader(lead: "More", tail: "")
+                List {
+                    Section("House") {
+                        ForEach(HubSection.moreItems.filter { HubSection.settingsItems.contains($0) == false }) { item in
+                            moreRow(item)
+                        }
+                    }
+                    Section("Settings") {
+                        ForEach(HubSection.settingsItems) { item in
+                            moreRow(item)
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+        }
+    }
+
+    private func moreRow(_ item: HubSection) -> some View {
+        Button {
+            router.open(item)
+        } label: {
+            Label(item.title, systemImage: item.symbol)
+                .foregroundStyle(AppTheme.text)
+        }
+    }
+
+    @ViewBuilder
+    private func destination(_ section: HubSection) -> some View {
+        switch section {
+        case .chores, .allowance: ChoresView()
+        case .lists: ListsView()
+        case .plus: CirclePlusView()
+        case .settings, .family, .profiles, .device: ProfilesSettingsView()
+        case .looks: HubLooksView()
+        case .invite: InviteSettingsView()
+        case .calendars: CalendarSourcesView()
+        case .bills, .weather, .widgets: HubWidgetPicker()
+        case .notify: NotifySettingsView()
+        default: EmptyView()
         }
     }
 }

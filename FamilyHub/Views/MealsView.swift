@@ -380,7 +380,6 @@ struct MealChoiceSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             HubStickyHeader(lead: "What's For", tail: "Dinner") {
                 HubHeaderPill(title: "Close") {
-                    router.open(.today)
                     onComplete()
                 }
             }
@@ -439,15 +438,15 @@ struct MealChoiceSheet: View {
         case .eatOut(let mode):
             EatOutPicker(day: day, mode: mode, onClose: { DispatchQueue.main.async { route = nil } }, onDone: finish)
         case .family:
-            FamilyRecipePicker(day: day) { go(.sides) }
+            FamilyRecipePicker(day: day, onClose: { DispatchQueue.main.async { route = nil } }) { go(.sides) }
         case .recipes:
             CatalogRecipePicker(day: day, onClose: { DispatchQueue.main.async { route = nil } }, onDone: { go(.sides) })
         case .manual:
-            ManualMealSheet(day: day) { go(.sides) }
+            ManualMealSheet(day: day, onClose: { DispatchQueue.main.async { route = nil } }) { go(.sides) }
         case .sides:
-            SidePicker(day: day) { go(.review) }
+            SidePicker(day: day, onBack: { DispatchQueue.main.async { route = nil } }) { go(.review) }
         case .review:
-            DinnerReviewView(day: day, onDone: finish)
+            DinnerReviewView(day: day, onBack: { go(.sides) }, onDone: finish)
         }
     }
 
@@ -740,6 +739,7 @@ private struct EatOutPicker: View {
 private struct FamilyRecipePicker: View {
     @EnvironmentObject private var store: HubStore
     let day: Date
+    var onClose: () -> Void = {}
     var onDone: () -> Void
     @State private var showAdd = false
     @State private var showScan = false
@@ -771,6 +771,7 @@ private struct FamilyRecipePicker: View {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: "Family", tail: "Recipes") {
                     HStack(spacing: 8) {
+                        HubHeaderPill(title: "Back") { onClose() }
                         Button { showScan = true } label: {
                             Text("Scan")
                                 .font(.headline.weight(.bold))
@@ -796,10 +797,18 @@ private struct FamilyRecipePicker: View {
                     .padding(.bottom, 8)
                 ScrollView {
                     if familyRecipes.isEmpty {
-                        Text("Nothing saved yet.")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
-                            .padding(20)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Nothing saved yet.")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Button("Add a family recipe") { showAdd = true }
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                            Button("Paste a link") { showLink = true }
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(AppTheme.blue)
+                        }
+                        .padding(20)
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
                             ForEach(familyRecipes) { recipe in
@@ -1041,7 +1050,7 @@ private struct CatalogRecipePicker: View {
                             .foregroundStyle(on ? .white : AppTheme.blue)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(on ? AppTheme.blue : Color.white, in: Capsule())
+                            .background(on ? AppTheme.blue : AppTheme.card, in: Capsule())
                             .overlay(Capsule().stroke(AppTheme.blue.opacity(on ? 0 : 0.25), lineWidth: 1.5))
                     }
                     .buttonStyle(.plain)
@@ -1077,7 +1086,7 @@ private struct CatalogRecipeDetail: View {
                         .foregroundStyle(AppTheme.blue)
                 }
                 .padding(14)
-                .background(Color.white)
+                .background(AppTheme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -1117,6 +1126,7 @@ private struct CatalogRecipeDetail: View {
 private struct SidePicker: View {
     @EnvironmentObject private var store: HubStore
     let day: Date
+    var onBack: () -> Void = {}
     var onDone: () -> Void
     @StateObject private var catalog = SideCatalog()
     @State private var opened: CatalogRecipe?
@@ -1137,9 +1147,12 @@ private struct SidePicker: View {
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 HubStickyHeader(lead: "All", tail: "Sides") {
+                    HStack(spacing: 8) {
+                    HubHeaderPill(title: "Back") { onBack() }
                     HubHeaderPill(title: "Skip side") {
                         store.setDinnerSide(on: day, recipeID: nil)
                         DispatchQueue.main.async { onDone() }
+                    }
                     }
                 }
                 HubSearchBar(text: $catalog.query, placeholder: "Mashed potatoes, slaw, fries…") {
@@ -1167,7 +1180,7 @@ private struct SidePicker: View {
                                     .foregroundStyle(on ? .white : AppTheme.blue)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
-                                    .background(on ? AppTheme.blue : Color.white, in: Capsule())
+                                    .background(on ? AppTheme.blue : AppTheme.card, in: Capsule())
                                     .overlay(Capsule().stroke(AppTheme.blue.opacity(on ? 0 : 0.25), lineWidth: 1.5))
                             }
                             .buttonStyle(.plain)
@@ -1261,6 +1274,7 @@ private struct DinnerReviewView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var router: HubRouter
     let day: Date
+    var onBack: () -> Void = {}
     var onDone: () -> Void
     @State private var picked: Set<String> = []
 
@@ -1276,7 +1290,9 @@ private struct DinnerReviewView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Dinner", tail: "Is set")
+            HubStickyHeader(lead: "Dinner", tail: "Is set") {
+                HubHeaderPill(title: "Back") { onBack() }
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("\(people). Tap an ingredient to add or skip it.")
@@ -1677,12 +1693,12 @@ private func hubFoodTile(name: String, category: String, url: URL? = nil) -> som
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
-        .background(Color.white)
+        .background(AppTheme.card)
     }
     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     .overlay(
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+            .stroke(AppTheme.cardBorder, lineWidth: 1)
     )
     .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
 }
@@ -1715,12 +1731,12 @@ private func placeTile(_ place: NearbyPlace, mode: PlaceMode) -> some View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
-        .background(Color.white)
+        .background(AppTheme.card)
     }
     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     .overlay(
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+            .stroke(AppTheme.cardBorder, lineWidth: 1)
     )
     .shadow(color: .black.opacity(0.10), radius: 10, y: 5)
 }
@@ -2004,13 +2020,16 @@ private struct PlaceInfoView: View {
 private struct ManualMealSheet: View {
     @EnvironmentObject private var store: HubStore
     let day: Date
+    var onClose: () -> Void = {}
     var onDone: () -> Void
     @State private var name = ""
     @State private var notes = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Enter", tail: "Meal")
+            HubStickyHeader(lead: "Enter", tail: "Meal") {
+                HubHeaderPill(title: "Back") { onClose() }
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Image("DinnerManual")

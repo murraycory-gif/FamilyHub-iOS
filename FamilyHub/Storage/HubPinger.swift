@@ -89,48 +89,57 @@ final class HubPinger: ObservableObject {
 
     func schedule(_ store: HubStore) async {
         let center = UNUserNotificationCenter.current()
-        center.removeAllPendingNotificationRequests()
         let prefs = store.notifyPrefs
+        let built = requests(for: store, now: Date())
+        let keepIDs = Set(HubNoticePlanner.prioritize(built.map(\.slot)).map(\.identifier))
+        let chosen = built.filter { keepIDs.contains($0.identifier) }.map(\.request)
+        let pending = await center.pendingNotificationRequests()
+        let remove = HubNoticePlanner.identifiersToRemove(
+            pending: pending.map(\.identifier),
+            keeping: chosen.map(\.identifier)
+        )
+        if !remove.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: remove)
+        }
         guard prefs.anyOn else { return }
         _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
+        for request in chosen {
+            try? await center.add(request)
+        }
+    }
 
-        var requests: [UNNotificationRequest] = []
-        if prefs.morningBrief {
-            requests.append(daily("hub.morning", hour: prefs.morningAt / 60, minute: prefs.morningAt % 60, title: "Sunrise brief", body: morningBody(store)))
+    private func requests(for store: HubStore, now: Date) -> [HubNoticeDraft] {
+        let prefs = store.notifyPrefs
+        guard prefs.anyOn else { return [] }
+        var drafts: [HubNoticeDraft] = []
+        func dailyDraft(_ id: String, minutes: Int, title: String, body: String) {
+            let request = daily(id, hour: minutes / 60, minute: minutes % 60, title: title, body: body)
+            let fire = HubNoticePlanner.nextDaily(hour: minutes / 60, minute: minutes % 60, now: now)
+            drafts.append(HubNoticeDraft(identifier: id, fireAt: fire, request: request))
         }
-        if prefs.dinnerPing {
-            requests.append(daily("hub.dinner", hour: prefs.dinnerAt / 60, minute: prefs.dinnerAt % 60, title: "What's for dinner?", body: dinnerBody(store)))
-        }
-        if prefs.chorePing {
-            requests.append(daily("hub.chores", hour: prefs.choreAt / 60, minute: prefs.choreAt % 60, title: "Chore check", body: choreBody(store)))
-        }
-        if prefs.billsPing {
-            requests.append(daily("hub.bills", hour: prefs.billsAt / 60, minute: prefs.billsAt % 60, title: "Bills Due", body: billsBody(store)))
-        }
-        if prefs.shoppingPing {
-            requests.append(daily("hub.shop", hour: prefs.shoppingAt / 60, minute: prefs.shoppingAt % 60, title: "Shopping list", body: shopBody(store)))
-        }
+        if prefs.morningBrief { dailyDraft("hub.morning", minutes: prefs.morningAt, title: "Sunrise brief", body: morningBody(store)) }
+        if prefs.dinnerPing { dailyDraft("hub.dinner", minutes: prefs.dinnerAt, title: "What's for dinner?", body: dinnerBody(store)) }
+        if prefs.chorePing { dailyDraft("hub.chores", minutes: prefs.choreAt, title: "Chore check", body: choreBody(store)) }
+        if prefs.billsPing { dailyDraft("hub.bills", minutes: prefs.billsAt, title: "Bills Due", body: billsBody(store)) }
+        if prefs.shoppingPing { dailyDraft("hub.shop", minutes: prefs.shoppingAt, title: "Shopping list", body: shopBody(store)) }
         if prefs.eventPings {
             let cal = Calendar.current
             let lead = TimeInterval(max(5, prefs.eventLeadMinutes) * 60)
-            let upcoming = store.events
-                .filter { $0.startAt > Date() && $0.startAt < Date().addingTimeInterval(60 * 60 * 24 * 7) }
-                .prefix(20)
+            let upcoming = store.events.filter { $0.startAt > now && $0.startAt < now.addingTimeInterval(60 * 60 * 24 * 14) }
             for event in upcoming {
                 let fire = event.startAt.addingTimeInterval(-lead)
-                guard fire > Date() else { continue }
+                guard fire > now else { continue }
                 let parts = cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
                 let content = UNMutableNotificationContent()
                 content.title = event.title
                 content.body = "Starts in \(prefs.eventLeadMinutes) minutes."
                 content.sound = .default
-                let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
-                requests.append(UNNotificationRequest(identifier: "hub.event.\(event.id)", content: content, trigger: trigger))
+                let id = "hub.event.\(event.id)"
+                let request = UNNotificationRequest(identifier: id, content: content, trigger: UNCalendarNotificationTrigger(dateMatching: parts, repeats: false))
+                drafts.append(HubNoticeDraft(identifier: id, fireAt: fire, request: request))
             }
         }
-        for request in requests.prefix(60) {
-            try? await center.add(request)
-        }
+        return drafts
     }
 
     func fireDue(_ store: HubStore) async {
@@ -285,5 +294,42 @@ final class HubPinger: ObservableObject {
             return "That phone number isn’t valid."
         }
         return raw
+    }
+}
+
+struct HubNoticeSlot: Equatable {
+    var identifier: String
+    var fireAt: Date
+}
+
+struct HubNoticeDraft {
+    var identifier: String
+    var fireAt: Date
+    var request: UNNotificationRequest
+    var slot: HubNoticeSlot { HubNoticeSlot(identifier: identifier, fireAt: fireAt) }
+}
+
+enum HubNoticePlanner {
+    static let cap = 64
+
+    static func prioritize(_ items: [HubNoticeSlot], limit: Int = cap) -> [HubNoticeSlot] {
+        Array(items.sorted { $0.fireAt < $1.fireAt }.prefix(max(0, limit)))
+    }
+
+    /// Drops hub schedules that are no longer in the plan. Leaves immediate `hub.now` alerts and anything else alone.
+    static func identifiersToRemove(pending: [String], keeping: [String]) -> [String] {
+        let keep = Set(keeping)
+        return pending.filter { id in
+            id.hasPrefix("hub.") && !id.hasPrefix("hub.now.") && !keep.contains(id)
+        }
+    }
+
+    static func nextDaily(hour: Int, minute: Int, now: Date, calendar: Calendar = .current) -> Date {
+        var parts = calendar.dateComponents([.year, .month, .day], from: now)
+        parts.hour = hour
+        parts.minute = minute
+        let today = calendar.date(from: parts) ?? now
+        if today > now { return today }
+        return calendar.date(byAdding: .day, value: 1, to: today) ?? today
     }
 }

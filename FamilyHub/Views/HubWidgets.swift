@@ -37,7 +37,7 @@ struct HubWidgetPickSheet: View {
                             .foregroundStyle(current == kind ? .white : AppTheme.text)
                             .frame(maxWidth: .infinity, minHeight: 132)
                             .padding(16)
-                            .background(current == kind ? AppTheme.blue : Color.white)
+                            .background(current == kind ? AppTheme.blue : AppTheme.card)
                             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -92,7 +92,7 @@ struct HubWidgetPicker: View {
                         .buttonStyle(.plain)
                     }
                     .padding(16)
-                    .background(Color.white)
+                    .background(AppTheme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -484,7 +484,7 @@ struct FlightDetailSheet: View {
                                                 }
                                             }
                                             .padding(12)
-                                            .background(Color.white)
+                                            .background(AppTheme.card)
                                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                                         }
                                         .buttonStyle(.plain)
@@ -568,7 +568,7 @@ struct FlightDetailSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.white)
+        .background(AppTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
@@ -1114,7 +1114,7 @@ struct WhiteboardEditor: View {
                     .foregroundStyle(AppTheme.textSecondary)
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white)
+                        .fill(AppTheme.card)
                     if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text("Soccer bags by the door…")
                             .font(.title3.weight(.semibold))
