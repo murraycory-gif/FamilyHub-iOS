@@ -549,36 +549,36 @@ struct HubSnapshot: Codable {
     var chores: [Chore]
     var assignments: [ChoreAssignment]
     var ledger: [LedgerEntry]
-    var weatherPlace: WeatherPlace?
-    var weatherFollowsMe: Bool?
-    var hubWidgets: [HubWidget]?
-    var flights: [TrackedFlight]?
-    var packages: [TrackedPackage]?
-    var calendarSources: [CalendarSource]?
-    var recipes: [Recipe]?
-    var dinners: [DinnerPlan]?
-    var shoppingItems: [ShoppingItem]?
-    var units: HubUnits?
-    var ownerID: UUID?
-    var joinCode: String?
-    var signedInMemberID: UUID?
-    var notifyPrefs: HubNotifyPrefs?
-    var whiteboardNote: String?
-    var hubWidgetLimit: Int?
-    var setupCompleted: Bool?
-    var appearance: HubAppearance?
-    var eventComments: [EventComment]?
-    var circlePlaces: [CirclePlace]?
-    var placePings: [PlacePing]?
-    var documents: [HubDocument]?
-    var custodyHouses: [CustodyHouse]?
-    var quietHours: [QuietHours]?
-    var recapPhotos: [RecapPhoto]?
-    var choreProofs: [ChoreProof]?
+    var weatherPlace: WeatherPlace? = nil
+    var weatherFollowsMe: Bool? = nil
+    var hubWidgets: [HubWidget]? = nil
+    var flights: [TrackedFlight]? = nil
+    var packages: [TrackedPackage]? = nil
+    var calendarSources: [CalendarSource]? = nil
+    var recipes: [Recipe]? = nil
+    var dinners: [DinnerPlan]? = nil
+    var shoppingItems: [ShoppingItem]? = nil
+    var units: HubUnits? = nil
+    var ownerID: UUID? = nil
+    var joinCode: String? = nil
+    var signedInMemberID: UUID? = nil
+    var notifyPrefs: HubNotifyPrefs? = nil
+    var whiteboardNote: String? = nil
+    var hubWidgetLimit: Int? = nil
+    var setupCompleted: Bool? = nil
+    var appearance: HubAppearance? = nil
+    var eventComments: [EventComment]? = nil
+    var circlePlaces: [CirclePlace]? = nil
+    var placePings: [PlacePing]? = nil
+    var documents: [HubDocument]? = nil
+    var custodyHouses: [CustodyHouse]? = nil
+    var quietHours: [QuietHours]? = nil
+    var recapPhotos: [RecapPhoto]? = nil
+    var choreProofs: [ChoreProof]? = nil
     /// Bumped when the on-disk shape changes. Missing on older files; decoded with `decodeIfPresent`.
-    var schemaVersion: Int?
+    var schemaVersion: Int? = nil
     /// Join codes this device has issued. Kept locally so old public records can be deleted on purpose.
-    var issuedJoinCodes: [String]?
+    var issuedJoinCodes: [String]? = nil
 
     static let currentSchema = 1
 
@@ -589,86 +589,6 @@ struct HubSnapshot: Codable {
         case notifyPrefs, whiteboardNote, hubWidgetLimit, setupCompleted, appearance
         case eventComments, circlePlaces, placePings, documents, custodyHouses, quietHours
         case recapPhotos, choreProofs, schemaVersion, issuedJoinCodes
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        householdName = try c.decode(String.self, forKey: .householdName)
-        members = try c.decode([FamilyMember].self, forKey: .members)
-        events = try c.decode([CalendarEvent].self, forKey: .events)
-        reminders = try c.decode([ReminderItem].self, forKey: .reminders)
-        todos = try c.decode([TodoItem].self, forKey: .todos)
-        chores = try c.decode([Chore].self, forKey: .chores)
-        assignments = try c.decode([ChoreAssignment].self, forKey: .assignments)
-        ledger = try c.decode([LedgerEntry].self, forKey: .ledger)
-        weatherPlace = try c.decodeIfPresent(WeatherPlace.self, forKey: .weatherPlace)
-        weatherFollowsMe = try c.decodeIfPresent(Bool.self, forKey: .weatherFollowsMe)
-        hubWidgets = try c.decodeIfPresent([HubWidget].self, forKey: .hubWidgets)
-        flights = try c.decodeIfPresent([TrackedFlight].self, forKey: .flights)
-        packages = try c.decodeIfPresent([TrackedPackage].self, forKey: .packages)
-        calendarSources = try c.decodeIfPresent([CalendarSource].self, forKey: .calendarSources)
-        recipes = try c.decodeIfPresent([Recipe].self, forKey: .recipes)
-        dinners = try c.decodeIfPresent([DinnerPlan].self, forKey: .dinners)
-        shoppingItems = try c.decodeIfPresent([ShoppingItem].self, forKey: .shoppingItems)
-        units = try c.decodeIfPresent(HubUnits.self, forKey: .units)
-        ownerID = try c.decodeIfPresent(UUID.self, forKey: .ownerID)
-        joinCode = try c.decodeIfPresent(String.self, forKey: .joinCode)
-        signedInMemberID = try c.decodeIfPresent(UUID.self, forKey: .signedInMemberID)
-        notifyPrefs = try c.decodeIfPresent(HubNotifyPrefs.self, forKey: .notifyPrefs)
-        whiteboardNote = try c.decodeIfPresent(String.self, forKey: .whiteboardNote)
-        hubWidgetLimit = try c.decodeIfPresent(Int.self, forKey: .hubWidgetLimit)
-        setupCompleted = try c.decodeIfPresent(Bool.self, forKey: .setupCompleted)
-        appearance = try c.decodeIfPresent(HubAppearance.self, forKey: .appearance)
-        eventComments = try c.decodeIfPresent([EventComment].self, forKey: .eventComments)
-        circlePlaces = try c.decodeIfPresent([CirclePlace].self, forKey: .circlePlaces)
-        placePings = try c.decodeIfPresent([PlacePing].self, forKey: .placePings)
-        documents = try c.decodeIfPresent([HubDocument].self, forKey: .documents)
-        custodyHouses = try c.decodeIfPresent([CustodyHouse].self, forKey: .custodyHouses)
-        quietHours = try c.decodeIfPresent([QuietHours].self, forKey: .quietHours)
-        recapPhotos = try c.decodeIfPresent([RecapPhoto].self, forKey: .recapPhotos)
-        choreProofs = try c.decodeIfPresent([ChoreProof].self, forKey: .choreProofs)
-        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion)
-        issuedJoinCodes = try c.decodeIfPresent([String].self, forKey: .issuedJoinCodes)
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(householdName, forKey: .householdName)
-        try c.encode(members, forKey: .members)
-        try c.encode(events, forKey: .events)
-        try c.encode(reminders, forKey: .reminders)
-        try c.encode(todos, forKey: .todos)
-        try c.encode(chores, forKey: .chores)
-        try c.encode(assignments, forKey: .assignments)
-        try c.encode(ledger, forKey: .ledger)
-        try c.encodeIfPresent(weatherPlace, forKey: .weatherPlace)
-        try c.encodeIfPresent(weatherFollowsMe, forKey: .weatherFollowsMe)
-        try c.encodeIfPresent(hubWidgets, forKey: .hubWidgets)
-        try c.encodeIfPresent(flights, forKey: .flights)
-        try c.encodeIfPresent(packages, forKey: .packages)
-        try c.encodeIfPresent(calendarSources, forKey: .calendarSources)
-        try c.encodeIfPresent(recipes, forKey: .recipes)
-        try c.encodeIfPresent(dinners, forKey: .dinners)
-        try c.encodeIfPresent(shoppingItems, forKey: .shoppingItems)
-        try c.encodeIfPresent(units, forKey: .units)
-        try c.encodeIfPresent(ownerID, forKey: .ownerID)
-        try c.encodeIfPresent(joinCode, forKey: .joinCode)
-        try c.encodeIfPresent(signedInMemberID, forKey: .signedInMemberID)
-        try c.encodeIfPresent(notifyPrefs, forKey: .notifyPrefs)
-        try c.encodeIfPresent(whiteboardNote, forKey: .whiteboardNote)
-        try c.encodeIfPresent(hubWidgetLimit, forKey: .hubWidgetLimit)
-        try c.encodeIfPresent(setupCompleted, forKey: .setupCompleted)
-        try c.encodeIfPresent(appearance, forKey: .appearance)
-        try c.encodeIfPresent(eventComments, forKey: .eventComments)
-        try c.encodeIfPresent(circlePlaces, forKey: .circlePlaces)
-        try c.encodeIfPresent(placePings, forKey: .placePings)
-        try c.encodeIfPresent(documents, forKey: .documents)
-        try c.encodeIfPresent(custodyHouses, forKey: .custodyHouses)
-        try c.encodeIfPresent(quietHours, forKey: .quietHours)
-        try c.encodeIfPresent(recapPhotos, forKey: .recapPhotos)
-        try c.encodeIfPresent(choreProofs, forKey: .choreProofs)
-        try c.encode(schemaVersion ?? Self.currentSchema, forKey: .schemaVersion)
-        try c.encodeIfPresent(issuedJoinCodes, forKey: .issuedJoinCodes)
     }
 
     /// Payload safe for CloudKit's public database. Join still gets names, colors,
@@ -712,6 +632,90 @@ struct HubSnapshot: Codable {
         }
         copy.issuedJoinCodes = nil
         return copy
+    }
+}
+
+extension HubSnapshot {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            householdName: try c.decode(String.self, forKey: .householdName),
+            members: try c.decode([FamilyMember].self, forKey: .members),
+            events: try c.decode([CalendarEvent].self, forKey: .events),
+            reminders: try c.decode([ReminderItem].self, forKey: .reminders),
+            todos: try c.decode([TodoItem].self, forKey: .todos),
+            chores: try c.decode([Chore].self, forKey: .chores),
+            assignments: try c.decode([ChoreAssignment].self, forKey: .assignments),
+            ledger: try c.decode([LedgerEntry].self, forKey: .ledger),
+            weatherPlace: try c.decodeIfPresent(WeatherPlace.self, forKey: .weatherPlace),
+            weatherFollowsMe: try c.decodeIfPresent(Bool.self, forKey: .weatherFollowsMe),
+            hubWidgets: try c.decodeIfPresent([HubWidget].self, forKey: .hubWidgets),
+            flights: try c.decodeIfPresent([TrackedFlight].self, forKey: .flights),
+            packages: try c.decodeIfPresent([TrackedPackage].self, forKey: .packages),
+            calendarSources: try c.decodeIfPresent([CalendarSource].self, forKey: .calendarSources),
+            recipes: try c.decodeIfPresent([Recipe].self, forKey: .recipes),
+            dinners: try c.decodeIfPresent([DinnerPlan].self, forKey: .dinners),
+            shoppingItems: try c.decodeIfPresent([ShoppingItem].self, forKey: .shoppingItems),
+            units: try c.decodeIfPresent(HubUnits.self, forKey: .units),
+            ownerID: try c.decodeIfPresent(UUID.self, forKey: .ownerID),
+            joinCode: try c.decodeIfPresent(String.self, forKey: .joinCode),
+            signedInMemberID: try c.decodeIfPresent(UUID.self, forKey: .signedInMemberID),
+            notifyPrefs: try c.decodeIfPresent(HubNotifyPrefs.self, forKey: .notifyPrefs),
+            whiteboardNote: try c.decodeIfPresent(String.self, forKey: .whiteboardNote),
+            hubWidgetLimit: try c.decodeIfPresent(Int.self, forKey: .hubWidgetLimit),
+            setupCompleted: try c.decodeIfPresent(Bool.self, forKey: .setupCompleted),
+            appearance: try c.decodeIfPresent(HubAppearance.self, forKey: .appearance),
+            eventComments: try c.decodeIfPresent([EventComment].self, forKey: .eventComments),
+            circlePlaces: try c.decodeIfPresent([CirclePlace].self, forKey: .circlePlaces),
+            placePings: try c.decodeIfPresent([PlacePing].self, forKey: .placePings),
+            documents: try c.decodeIfPresent([HubDocument].self, forKey: .documents),
+            custodyHouses: try c.decodeIfPresent([CustodyHouse].self, forKey: .custodyHouses),
+            quietHours: try c.decodeIfPresent([QuietHours].self, forKey: .quietHours),
+            recapPhotos: try c.decodeIfPresent([RecapPhoto].self, forKey: .recapPhotos),
+            choreProofs: try c.decodeIfPresent([ChoreProof].self, forKey: .choreProofs),
+            schemaVersion: try c.decodeIfPresent(Int.self, forKey: .schemaVersion),
+            issuedJoinCodes: try c.decodeIfPresent([String].self, forKey: .issuedJoinCodes)
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(householdName, forKey: .householdName)
+        try c.encode(members, forKey: .members)
+        try c.encode(events, forKey: .events)
+        try c.encode(reminders, forKey: .reminders)
+        try c.encode(todos, forKey: .todos)
+        try c.encode(chores, forKey: .chores)
+        try c.encode(assignments, forKey: .assignments)
+        try c.encode(ledger, forKey: .ledger)
+        try c.encodeIfPresent(weatherPlace, forKey: .weatherPlace)
+        try c.encodeIfPresent(weatherFollowsMe, forKey: .weatherFollowsMe)
+        try c.encodeIfPresent(hubWidgets, forKey: .hubWidgets)
+        try c.encodeIfPresent(flights, forKey: .flights)
+        try c.encodeIfPresent(packages, forKey: .packages)
+        try c.encodeIfPresent(calendarSources, forKey: .calendarSources)
+        try c.encodeIfPresent(recipes, forKey: .recipes)
+        try c.encodeIfPresent(dinners, forKey: .dinners)
+        try c.encodeIfPresent(shoppingItems, forKey: .shoppingItems)
+        try c.encodeIfPresent(units, forKey: .units)
+        try c.encodeIfPresent(ownerID, forKey: .ownerID)
+        try c.encodeIfPresent(joinCode, forKey: .joinCode)
+        try c.encodeIfPresent(signedInMemberID, forKey: .signedInMemberID)
+        try c.encodeIfPresent(notifyPrefs, forKey: .notifyPrefs)
+        try c.encodeIfPresent(whiteboardNote, forKey: .whiteboardNote)
+        try c.encodeIfPresent(hubWidgetLimit, forKey: .hubWidgetLimit)
+        try c.encodeIfPresent(setupCompleted, forKey: .setupCompleted)
+        try c.encodeIfPresent(appearance, forKey: .appearance)
+        try c.encodeIfPresent(eventComments, forKey: .eventComments)
+        try c.encodeIfPresent(circlePlaces, forKey: .circlePlaces)
+        try c.encodeIfPresent(placePings, forKey: .placePings)
+        try c.encodeIfPresent(documents, forKey: .documents)
+        try c.encodeIfPresent(custodyHouses, forKey: .custodyHouses)
+        try c.encodeIfPresent(quietHours, forKey: .quietHours)
+        try c.encodeIfPresent(recapPhotos, forKey: .recapPhotos)
+        try c.encodeIfPresent(choreProofs, forKey: .choreProofs)
+        try c.encode(schemaVersion ?? Self.currentSchema, forKey: .schemaVersion)
+        try c.encodeIfPresent(issuedJoinCodes, forKey: .issuedJoinCodes)
     }
 }
 

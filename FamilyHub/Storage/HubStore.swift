@@ -1275,7 +1275,7 @@ final class HubStore: ObservableObject {
             let minutes = await LeaveByETA.driveMinutes(from: origin, to: destination) ?? LeaveByETA.fallbackMinutes
             guard events.contains(where: { $0.id == eventID && $0.startAt == start }) else { return }
             writeWidgetSnapshot(day: Date(), next: events.first { $0.id == eventID }, travelMinutes: minutes)
-            #if canImport(ActivityKit)
+            #if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
             LeaveByLive.publish(title: title, eventID: eventID.uuidString, startAt: start, travelMinutes: minutes)
             #endif
         }
@@ -1295,7 +1295,7 @@ final class HubStore: ObservableObject {
             updatedAt: Date()
         ))
         WidgetCenter.shared.reloadAllTimelines()
-        #if canImport(ActivityKit)
+        #if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
         if let next {
             LeaveByLive.publish(title: next.title, eventID: next.id.uuidString, startAt: next.startAt, travelMinutes: minutes)
         }

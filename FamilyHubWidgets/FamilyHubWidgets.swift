@@ -1,6 +1,6 @@
 import SwiftUI
 import WidgetKit
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
 import ActivityKit
 #endif
 
@@ -130,7 +130,7 @@ struct LeaveLockWidget: Widget {
     }
 }
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
 struct LeaveByLiveView: View {
     let context: ActivityViewContext<LeaveByAttributes>
     var body: some View {
@@ -186,7 +186,7 @@ struct FamilyHubWidgets: WidgetBundle {
         AgendaWidget()
         DinnerWidget()
         LeaveLockWidget()
-        #if canImport(ActivityKit)
+        #if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
         LeaveByLiveWidget()
         #endif
     }

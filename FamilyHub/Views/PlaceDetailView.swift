@@ -1,6 +1,5 @@
 import MapKit
 import SwiftUI
-import WebKit
 
 struct PlaceDetailView: View {
     @Environment(\.openURL) private var openURL
@@ -73,27 +72,6 @@ struct PlaceDetailView: View {
                 }
             }
 
-            if let menu = PlaceMenus.url(for: name, website: facts.website ?? website) {
-                HubPanel(symbol: "menucard", title: "Menu") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        MenuWebView(url: menu)
-                            .frame(height: 360)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        Button {
-                            openURL(menu)
-                        } label: {
-                            Label("Open full menu", systemImage: "safari")
-                                .font(.headline.weight(.bold))
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(AppTheme.blue, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
             HStack(spacing: 10) {
                 if let phone = facts.phone ?? phone, !phone.isEmpty,
                    let tel = URL(string: "tel:\(phone.filter(\.isNumber))") {
@@ -159,17 +137,4 @@ struct PlaceDetailView: View {
         }
         .buttonStyle(.plain)
     }
-}
-
-struct MenuWebView: UIViewRepresentable {
-    let url: URL
-
-    func makeUIView(context: Context) -> WKWebView {
-        let view = WKWebView()
-        view.scrollView.isScrollEnabled = true
-        view.load(URLRequest(url: url))
-        return view
-    }
-
-    func updateUIView(_ view: WKWebView, context: Context) {}
 }
