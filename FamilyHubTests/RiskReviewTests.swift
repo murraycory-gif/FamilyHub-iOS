@@ -4,6 +4,21 @@ import XCTest
 
 @MainActor
 final class RiskReviewTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        clearSavedAccount()
+    }
+
+    override func tearDown() {
+        clearSavedAccount()
+        super.tearDown()
+    }
+
+    private func clearSavedAccount() {
+        UserDefaults.standard.removeObject(forKey: HubStore.accountKey)
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: HubStore.accountKey)
+    }
+
     func testEraseDeletesPrivateShareBeforeClearingLocalData() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -232,6 +247,55 @@ final class RiskReviewTests: XCTestCase {
         XCTAssertFalse(store.ownsPrivateZone)
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("device-role.json").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hub-role.json").path))
+    }
+
+    func testOldSchemaLaunchKeepsParticipantRole() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let role = #"{"ownsPrivateZone":false}"#
+        try Data(role.utf8).write(to: root.appendingPathComponent("device-role.json"))
+        let old = """
+        {"householdName":"Joined","members":[],"events":[],"reminders":[],"todos":[],"chores":[],"assignments":[],"ledger":[],"schemaVersion":0,"joinCode":"AB12CD","issuedJoinCodes":["AB12CD"]}
+        """
+        try Data(old.utf8).write(to: root.appendingPathComponent("hub.json"))
+
+        let store = HubStore(rootURL: root)
+        XCTAssertFalse(store.ownsPrivateZone)
+        XCTAssertFalse(store.loadFailed)
+        let saved = try String(contentsOf: root.appendingPathComponent("device-role.json"), encoding: .utf8)
+        XCTAssertTrue(saved.contains("false"))
+    }
+
+    func testCorruptPruneKeepsThreeNewestNames() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("{not json".utf8).write(to: root.appendingPathComponent("hub.json"))
+        let sharedDate = Date(timeIntervalSince1970: 50)
+        let seeded = [
+            "corrupt-hub-2099-01-03T00-00-00.000Z.json",
+            "corrupt-hub-2099-01-02T00-00-00.000Z.json",
+            "corrupt-hub-2099-01-01T00-00-00.000Z.json",
+            "corrupt-hub-2020-01-02T00-00-00.000Z.json",
+            "corrupt-hub-2020-01-01T00-00-00.000Z.json"
+        ]
+        for name in seeded {
+            let url = root.appendingPathComponent(name)
+            try Data("{not json".utf8).write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: sharedDate], ofItemAtPath: url.path)
+        }
+        let oldest = root.appendingPathComponent("corrupt-hub-2020-01-01T00-00-00.000Z.json")
+        try FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: oldest.path)
+
+        let store = HubStore(rootURL: root)
+        let names = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).map(\.lastPathComponent)
+        XCTAssertTrue(names.contains("corrupt-hub-2099-01-03T00-00-00.000Z.json"))
+        XCTAssertTrue(names.contains("corrupt-hub-2099-01-02T00-00-00.000Z.json"))
+        XCTAssertTrue(names.contains("corrupt-hub-2099-01-01T00-00-00.000Z.json"))
+        XCTAssertFalse(names.contains("corrupt-hub-2020-01-02T00-00-00.000Z.json"))
+        XCTAssertFalse(names.contains("corrupt-hub-2020-01-01T00-00-00.000Z.json"))
+        let detail = store.loadFailureDetail ?? ""
+        let named = names.first { detail.contains($0) && $0.hasPrefix("corrupt-hub-") }
+        XCTAssertNotNil(named)
     }
 }
 

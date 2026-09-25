@@ -3,6 +3,18 @@ import XCTest
 
 @MainActor
 final class SnapshotReliabilityTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        UserDefaults.standard.removeObject(forKey: HubStore.accountKey)
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: HubStore.accountKey)
+    }
+
+    override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: HubStore.accountKey)
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: HubStore.accountKey)
+        super.tearDown()
+    }
+
     func testNotifyPrefsDropLegacyTwilioOnDecode() throws {
         let raw = """
         {"morningBrief":true,"eventPings":false,"dinnerPing":true,"chorePing":false,"shoppingPing":false,"billsPing":false,"channel":"text","who":"me","extraPhone":"3125550100","twilioSID":"AC123","twilioToken":"secret-token","twilioFrom":"+13125550199"}
@@ -141,9 +153,13 @@ final class SnapshotReliabilityTests: XCTestCase {
         XCTAssertFalse(store.recipes.contains(where: { $0.name == "Tacos" }))
         XCTAssertTrue(store.loadFailed)
         let copies = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
-            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.lastPathComponent.hasSuffix(".json") }
+            .filter { $0.lastPathComponent.hasPrefix("corrupt-hub-") && $0.pathExtension == "json" }
         XCTAssertEqual(copies.count, 1)
-        XCTAssertEqual(try Data(contentsOf: copies[0]), original)
+        guard let copy = copies.first else {
+            XCTFail("corrupt copy was not written")
+            return
+        }
+        XCTAssertEqual(try Data(contentsOf: copy), original)
         store.setWhiteboardNote("should not overwrite")
         let still = try Data(contentsOf: url)
         XCTAssertEqual(still, original)

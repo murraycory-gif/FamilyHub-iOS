@@ -3,6 +3,18 @@ import XCTest
 
 @MainActor
 final class CalendarMathTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        UserDefaults.standard.removeObject(forKey: HubStore.accountKey)
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: HubStore.accountKey)
+    }
+
+    override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: HubStore.accountKey)
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: HubStore.accountKey)
+        super.tearDown()
+    }
+
     func testFamilyFilterIncludesEveryone() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!

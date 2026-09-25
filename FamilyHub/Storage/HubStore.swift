@@ -93,8 +93,9 @@ final class HubStore: ObservableObject {
         setupCompleted = false
         appearance = .system
         familyPhotoData = nil
-        loadOrSeed()
         loadDeviceRole()
+        loadOrSeed()
+        roleLoaded = true
         let photoURL = familyPhotoURL
         let folder = memberPhotoFolder
         HubAccess.store = self
@@ -1164,7 +1165,8 @@ final class HubStore: ObservableObject {
                 backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("corrupt-hub-\(stamp)-\(UUID().uuidString).json")
             }
             try? fileManager.copyItem(at: snapshotURL, to: backup)
-            pruneCorruptCopies(keeping: 3)
+            try? fileManager.setAttributes([.modificationDate: Date()], ofItemAtPath: backup.path)
+            pruneCorruptCopies(keeping: 3, protecting: backup.lastPathComponent)
             loadFailed = true
             loadFailureDetail = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
         }
@@ -1287,7 +1289,7 @@ final class HubStore: ObservableObject {
     private func persistNow() {
         persistTask?.cancel()
         writeSnapshot()
-        if writingRole { saveDeviceRole() }
+        if roleLoaded && writingRole { saveDeviceRole() }
     }
 
     private func publishWidgets() {
@@ -1334,6 +1336,7 @@ final class HubStore: ObservableObject {
     private var cloudPublishTask: Task<Void, Never>?
 
     private func scheduleCloudPublish(_ data: Data) {
+        guard !Self.runningUnitTests else { return }
         guard signedInMemberID != nil, signedInMemberID == ownerID else { return }
         cloudPublishTask?.cancel()
         cloudPublishTask = Task { [weak self] in
@@ -1394,6 +1397,9 @@ final class HubStore: ObservableObject {
     }
 
     func joinSharedHousehold() async throws {
+        guard !Self.runningUnitTests, remote is HouseholdCloudClient else {
+            throw HouseholdCloudError.missingHouse
+        }
         let fetched = try await HouseholdCloud.fetchShared()
         let data = fetched.data
         ownsPrivateZone = fetched.ownedHere
@@ -1423,9 +1429,14 @@ final class HubStore: ObservableObject {
         NSUbiquitousKeyValueStore.default.synchronize()
     }
 
-    private static let accountKey = "familyhub.account.join"
+    static let accountKey = "familyhub.account.join"
+    static var runningUnitTests: Bool {
+        let env = ProcessInfo.processInfo.environment
+        return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
+    }
 
     func restoreAccountIfNeeded() async {
+        guard !Self.runningUnitTests else { return }
         guard !loadFailed else { return }
         if setupCompleted || !members.isEmpty {
             rememberAccount()
@@ -1512,6 +1523,8 @@ final class HubStore: ObservableObject {
 
     private var writingBackup = true
     private var writingRole = true
+    /// Stays false through the launch `persistNow()`, so that save cannot invent an owner role file.
+    private var roleLoaded = false
 
     private func writeTimestampedBackup(_ data: Data) {
         guard writingBackup else { return }
@@ -1587,19 +1600,26 @@ final class HubStore: ObservableObject {
         return nil
     }
 
-    /// Failed launches keep only the newest corrupt copies. They never count as `hub-` backups.
-    private func pruneCorruptCopies(keeping limit: Int) {
+    /// Failed launches keep the 3 newest corrupt copies, ordered by the timestamp in the filename.
+    /// `protecting` is the copy named on the restore screen and is never deleted.
+    private func pruneCorruptCopies(keeping limit: Int, protecting protectedName: String? = nil) {
         let folder = snapshotURL.deletingLastPathComponent()
-        let ordered = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+        let ordered = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?
             .filter { $0.lastPathComponent.hasPrefix("corrupt-hub-") && $0.pathExtension == "json" } ?? []
-        let sorted = ordered.sorted { lhs, rhs in
-            let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            return left > right
+        let sorted = ordered.sorted { Self.corruptStamp($0.lastPathComponent) > Self.corruptStamp($1.lastPathComponent) }
+        var keep = Set(sorted.prefix(limit).map(\.lastPathComponent))
+        if let protectedName { keep.insert(protectedName) }
+        for file in ordered where !keep.contains(file.lastPathComponent) {
+            try? fileManager.removeItem(at: file)
         }
-        for old in sorted.dropFirst(limit) {
-            try? fileManager.removeItem(at: old)
-        }
+    }
+
+    nonisolated static func corruptStamp(_ name: String) -> String {
+        var body = name
+        let prefix = "corrupt-hub-"
+        if body.hasPrefix(prefix) { body.removeFirst(prefix.count) }
+        if body.hasSuffix(".json") { body.removeLast(".json".count) }
+        return body
     }
 
     private func deleteAllBackups() {

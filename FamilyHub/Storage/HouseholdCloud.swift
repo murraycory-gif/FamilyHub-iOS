@@ -30,6 +30,14 @@ enum HouseholdCloud {
 
     static var container: CKContainer { CKContainer(identifier: containerID) }
 
+    /// Unsigned test hosts trap inside CKContainer.init. Refuse before any database is touched.
+    static func refuseCloudUnderTest() throws {
+        let env = ProcessInfo.processInfo.environment
+        if env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil {
+            throw HouseholdCloudError.iCloud
+        }
+    }
+
     private static var privateDB: CKDatabase { container.privateCloudDatabase }
     private static var sharedDB: CKDatabase { container.sharedCloudDatabase }
     private static var publicDB: CKDatabase { container.publicCloudDatabase }
@@ -40,12 +48,14 @@ enum HouseholdCloud {
 
     /// Saves the household in the owner's private custom zone. Not the public database.
     static func publish(data: Data) async throws {
+        try refuseCloudUnderTest()
         _ = try await savePrivate(data: data, shareTitle: nil)
     }
 
     /// Saves the private record and returns the CKShare the owner sends with UICloudSharingController.
     static func makeShare(data: Data, title: String) async throws -> CKShare {
-        try await savePrivate(data: data, shareTitle: title)
+        try refuseCloudUnderTest()
+        return try await savePrivate(data: data, shareTitle: title)
     }
 
     @discardableResult
@@ -73,6 +83,7 @@ enum HouseholdCloud {
     /// Owner's private copy, then a zone shared with this iCloud user.
     /// `ownedHere` is false when the payload came from someone else's shared zone.
     static func fetchShared() async throws -> (data: Data, ownedHere: Bool) {
+        try refuseCloudUnderTest()
         let ownID = CKRecord.ID(recordName: recordName, zoneID: ownerZoneID)
         if let record = try? await privateDB.record(for: ownID), let data = record["payload"] as? Data, !data.isEmpty {
             return (data, true)
@@ -89,6 +100,7 @@ enum HouseholdCloud {
 
     /// Participant leaves the share. Does not delete the owner's zone or share record.
     static func leaveShare() async throws {
+        try refuseCloudUnderTest()
         let zones = try await sharedDB.allRecordZones()
         for zone in zones where zone.zoneID.zoneName == zoneName {
             let id = CKRecord.ID(recordName: recordName, zoneID: zone.zoneID)
@@ -99,6 +111,7 @@ enum HouseholdCloud {
 
     /// Deletes the private-zone household record and its CKShare. Missing records count as already gone.
     static func deletePrivateHouseholdAndShare() async throws {
+        try refuseCloudUnderTest()
         let householdID = CKRecord.ID(recordName: recordName, zoneID: ownerZoneID)
         do {
             let record = try await privateDB.record(for: householdID)
@@ -139,6 +152,7 @@ enum HouseholdCloud {
 
     /// Public database is only for retiring the old hub-<code> records.
     static func delete(code: String) async throws {
+        try refuseCloudUnderTest()
         let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
         guard clean.count == 6 else { return }
         let id = CKRecord.ID(recordName: "hub-\(clean)")
