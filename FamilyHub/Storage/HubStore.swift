@@ -53,6 +53,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var loadFailureDetail: String?
     var remote: any HouseholdRemote = HouseholdCloudClient()
     /// False after this device joins someone else's share. Erase then only leaves that share.
+    /// Restored from hub-role.json so a relaunch does not treat a participant as the owner.
     var ownsPrivateZone = true
     private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
     private var memberPhotoFolder: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("member-photos", isDirectory: true) }
@@ -93,6 +94,7 @@ final class HubStore: ObservableObject {
         appearance = .system
         familyPhotoData = nil
         loadOrSeed()
+        loadDeviceRole()
         let photoURL = familyPhotoURL
         let folder = memberPhotoFolder
         HubAccess.store = self
@@ -590,7 +592,7 @@ final class HubStore: ObservableObject {
                     removed = true
                     break
                 } catch {
-                    if HouseholdCloud.isForeignPublicRecord(error) {
+                    if HouseholdCloud.isForeignPublicRecord(error, participant: !ownsPrivateZone) {
                         removed = true
                         break
                     }
@@ -1154,10 +1156,11 @@ final class HubStore: ObservableObject {
             let ms = Int((CFAbsoluteTimeGetCurrent() - started) * 1000)
             Logger(subsystem: "com.corymurray.FamilyHub", category: "launch").info("hub.json \(data.count, privacy: .public) bytes \(ms, privacy: .public) ms")
         } catch {
-            let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let stamp = formatter.string(from: Date()).replacingOccurrences(of: ":", with: "-")
             let backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-\(stamp).json")
             try? fileManager.copyItem(at: snapshotURL, to: backup)
-            pruneBackups(keeping: 5)
             loadFailed = true
             loadFailureDetail = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
         }
@@ -1280,6 +1283,7 @@ final class HubStore: ObservableObject {
     private func persistNow() {
         persistTask?.cancel()
         writeSnapshot()
+        saveDeviceRole()
     }
 
     private func publishWidgets() {
@@ -1377,6 +1381,8 @@ final class HubStore: ObservableObject {
         guard let data = currentHouseholdData() else { throw HouseholdCloudError.missingHouse }
         let title = householdName.isEmpty ? "HUB Circle" : householdName
         let share = try await HouseholdCloud.makeShare(data: data, title: title)
+        ownsPrivateZone = true
+        saveDeviceRole()
         if let note = await retirePublicRecordsOnce() {
             errorMessage = note
         }
@@ -1387,6 +1393,7 @@ final class HubStore: ObservableObject {
         let fetched = try await HouseholdCloud.fetchShared()
         let data = fetched.data
         ownsPrivateZone = fetched.ownedHere
+        saveDeviceRole()
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let snapshot = try decoder.decode(HubSnapshot.self, from: data)
@@ -1510,22 +1517,71 @@ final class HubStore: ObservableObject {
         pruneBackups(keeping: 5)
     }
 
+    private var roleURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-role.json") }
+
+    private struct DeviceRole: Codable {
+        var ownsPrivateZone: Bool
+    }
+
+    private func loadDeviceRole() {
+        guard let data = try? Data(contentsOf: roleURL),
+              let role = try? JSONDecoder().decode(DeviceRole.self, from: data) else { return }
+        ownsPrivateZone = role.ownsPrivateZone
+    }
+
+    private func saveDeviceRole() {
+        guard let data = try? JSONEncoder().encode(DeviceRole(ownsPrivateZone: ownsPrivateZone)) else { return }
+        try? data.write(to: roleURL, options: [.atomic])
+    }
+
+    private func backupFiles(in folder: URL) -> [URL] {
+        (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" } ?? []
+    }
+
+    /// Keeps the newest files, and always the newest backup that still decodes.
+    /// Does nothing while hub.json itself is corrupt, so failed launches cannot evict a good copy.
     private func pruneBackups(keeping limit: Int) {
+        guard !loadFailed else { return }
         let folder = snapshotURL.deletingLastPathComponent()
-        let files = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+        let ordered = backupFiles(in: folder).sorted { lhs, rhs in
+            let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return left > right
+        }
+        var keep = Set(ordered.prefix(limit).map(\.path))
+        if let protected = Self.newestDecodableBackupURL(in: folder) {
+            keep.insert(protected.path)
+        }
+        for file in ordered where !keep.contains(file.path) {
+            try? fileManager.removeItem(at: file)
+        }
+    }
+
+    nonisolated static func newestDecodableBackupURL(in folder: URL) -> URL? {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
             .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" } ?? []
         let ordered = files.sorted { lhs, rhs in
             let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             return left > right
         }
-        for old in ordered.dropFirst(limit) {
-            try? fileManager.removeItem(at: old)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        for file in ordered {
+            guard let data = try? Data(contentsOf: file),
+                  (try? decoder.decode(HubSnapshot.self, from: data)) != nil
+            else { continue }
+            return file
         }
+        return nil
     }
 
     private func deleteAllBackups() {
-        pruneBackups(keeping: 0)
+        let folder = snapshotURL.deletingLastPathComponent()
+        for file in backupFiles(in: folder) {
+            try? fileManager.removeItem(at: file)
+        }
     }
 
     private func clearLocalHouse() {
@@ -1533,6 +1589,7 @@ final class HubStore: ObservableObject {
         defer { writingBackup = true }
         deleteAllBackups()
         ownsPrivateZone = true
+        try? fileManager.removeItem(at: roleURL)
         UserDefaults.standard.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.synchronize()

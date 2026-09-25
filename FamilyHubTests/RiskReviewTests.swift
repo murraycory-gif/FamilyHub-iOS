@@ -127,6 +127,64 @@ final class RiskReviewTests: XCTestCase {
         XCTAssertEqual(remote.leaveCalls, 1)
         XCTAssertTrue(store.members.isEmpty)
     }
+
+    func testOwnerPermissionFailureKeepsLocalData() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = HubStore(rootURL: root)
+        let person = store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
+        store.markSetupComplete()
+        XCTAssertTrue(store.ownsPrivateZone)
+        let remote = ScriptedRemote()
+        remote.publicError = CKError(.permissionFailure)
+        store.remote = remote
+
+        let failure = await store.eraseHousehold()
+
+        XCTAssertNotNil(failure)
+        XCTAssertEqual(failure, store.errorMessage)
+        XCTAssertEqual(store.members.map(\.id), [person.id])
+        XCTAssertEqual(remote.privateDeletes, 1)
+        XCTAssertEqual(remote.leaveCalls, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("hub.json").path))
+    }
+
+    func testDeviceRoleSurvivesRelaunch() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = HubStore(rootURL: root)
+        store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
+        store.ownsPrivateZone = false
+        store.markSetupComplete()
+
+        let reloaded = HubStore(rootURL: root)
+        XCTAssertFalse(reloaded.ownsPrivateZone)
+        XCTAssertFalse(reloaded.loadFailed)
+    }
+
+    func testFailedLaunchesDoNotEvictDecodableBackup() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        var snapshot = HubStore.emptySnapshot()
+        snapshot.householdName = "Still here"
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let good = try encoder.encode(snapshot)
+        let backup = root.appendingPathComponent("hub-2019-01-01T00-00-00Z.json")
+        try good.write(to: backup)
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 10)], ofItemAtPath: backup.path)
+        try Data("{not json".utf8).write(to: root.appendingPathComponent("hub.json"))
+
+        for _ in 0..<7 {
+            let launched = HubStore(rootURL: root)
+            XCTAssertTrue(launched.loadFailed)
+        }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: backup.path))
+        let store = HubStore(rootURL: root)
+        XCTAssertNil(await store.restoreNewestBackup())
+        XCTAssertEqual(store.householdName, "Still here")
+    }
 }
 
 private final class ScriptedRemote: HouseholdRemote {

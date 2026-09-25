@@ -131,8 +131,9 @@ enum HouseholdCloud {
     }
 
     /// A public hub-<code> record created by another iCloud user is not ours to delete.
-    static func isForeignPublicRecord(_ error: Error) -> Bool {
-        guard let ck = error as? CKError else { return false }
+    /// An owner's permissionFailure is a real failure, not a skip.
+    static func isForeignPublicRecord(_ error: Error, participant: Bool) -> Bool {
+        guard participant, let ck = error as? CKError else { return false }
         return ck.code == .permissionFailure
     }
 
