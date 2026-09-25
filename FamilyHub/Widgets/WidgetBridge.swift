@@ -26,6 +26,17 @@ enum WidgetBridge {
         }
     }
 
+    static func timelinePlan(now: Date = Date(), snap: Snapshot) -> (dates: [Date], next: Date) {
+        var dates = [now]
+        if let leave = snap.leaveAt, leave > now, leave.timeIntervalSince(now) < 3600 {
+            dates.append(leave)
+        }
+        if let start = snap.eventStart, start > now, start.timeIntervalSince(now) < 3600, !dates.contains(start) {
+            dates.append(start)
+        }
+        return (dates, now.addingTimeInterval(60 * 60))
+    }
+
     static func read() -> Snapshot {
         guard let data = defaults().data(forKey: key),
               let snap = try? JSONDecoder().decode(Snapshot.self, from: data)

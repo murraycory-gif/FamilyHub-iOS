@@ -49,6 +49,8 @@
 		A040 /* HubBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = B040 /* HubBrand.swift */; };
 		A041 /* CirclePlus.swift in Sources */ = {isa = PBXBuildFile; fileRef = B041 /* CirclePlus.swift */; };
 		A042 /* CirclePlusViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B042 /* CirclePlusViews.swift */; };
+		A043 /* HubKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = B043 /* HubKeychain.swift */; };
+		A044 /* HubHTTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = B044 /* HubHTTP.swift */; };
 		A050 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B050 /* WidgetBridge.swift */; };
 		A051 /* LeaveByActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B051 /* LeaveByActivity.swift */; };
 		A052 /* FamilyHubWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B052 /* FamilyHubWidgets.swift */; };
@@ -60,6 +62,7 @@
 		A911 /* ChoreEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B911 /* ChoreEngineTests.swift */; };
 		A912 /* CalendarMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B912 /* CalendarMathTests.swift */; };
 		A913 /* OpenItemsTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B913 /* OpenItemsTrackerTests.swift */; };
+		A914 /* SnapshotReliabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B914 /* SnapshotReliabilityTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,6 +97,8 @@
 		B040 /* HubBrand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubBrand.swift; sourceTree = "<group>"; };
 		B041 /* CirclePlus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CirclePlus.swift; sourceTree = "<group>"; };
 		B042 /* CirclePlusViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CirclePlusViews.swift; sourceTree = "<group>"; };
+		B043 /* HubKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubKeychain.swift; sourceTree = "<group>"; };
+		B044 /* HubHTTP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubHTTP.swift; sourceTree = "<group>"; };
 		B050 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		B051 /* LeaveByActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaveByActivity.swift; sourceTree = "<group>"; };
 		B052 /* FamilyHubWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyHubWidgets.swift; sourceTree = "<group>"; };
@@ -137,6 +142,7 @@
 		B911 /* ChoreEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoreEngineTests.swift; sourceTree = "<group>"; };
 		B912 /* CalendarMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMathTests.swift; sourceTree = "<group>"; };
 		B913 /* OpenItemsTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenItemsTrackerTests.swift; sourceTree = "<group>"; };
+		B914 /* SnapshotReliabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotReliabilityTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -236,6 +242,8 @@
 			isa = PBXGroup;
 			children = (
 				B008 /* HubStore.swift */,
+				B043 /* HubKeychain.swift */,
+				B044 /* HubHTTP.swift */,
 				B036 /* HubPinger.swift */,
 				B038 /* FlightTrack.swift */,
 				B039 /* HouseholdCloud.swift */,
@@ -280,6 +288,7 @@
 				B911 /* ChoreEngineTests.swift */,
 				B912 /* CalendarMathTests.swift */,
 				B913 /* OpenItemsTrackerTests.swift */,
+				B914 /* SnapshotReliabilityTests.swift */,
 			);
 			path = FamilyHubTests;
 			sourceTree = "<group>";
@@ -437,6 +446,8 @@
 				A050 /* WidgetBridge.swift in Sources */,
 				A051 /* LeaveByActivity.swift in Sources */,
 				A008 /* HubStore.swift in Sources */,
+				A043 /* HubKeychain.swift in Sources */,
+				A044 /* HubHTTP.swift in Sources */,
 				A036 /* HubPinger.swift in Sources */,
 				A037 /* HubWidgets.swift in Sources */,
 				A038 /* FlightTrack.swift in Sources */,
@@ -479,6 +490,7 @@
 				A911 /* ChoreEngineTests.swift in Sources */,
 				A912 /* CalendarMathTests.swift in Sources */,
 				A913 /* OpenItemsTrackerTests.swift in Sources */,
+				A914 /* SnapshotReliabilityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -190,7 +190,7 @@ final class CalendarIngestor: ObservableObject {
                         memberID: source.memberID
                     )
                 } else if let urlString = source.icsURL, let url = URL(string: urlString) {
-                    let data = try await URLSession.shared.data(from: url).0
+                    let data = try await HubHTTP.data(from: url)
                     let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
                     events = ICSParser.parse(text, sourceID: source.id, memberID: source.memberID)
                 } else {

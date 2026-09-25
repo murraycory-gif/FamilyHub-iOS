@@ -12,12 +12,15 @@ final class WeatherLoader: ObservableObject {
 
     private let locator = LocationFinder()
 
-    func forecastDay(on date: Date) -> WeatherDay? {
+    private static let dayStamp: DateFormatter = {
         let stamp = DateFormatter()
         stamp.dateFormat = "yyyy-MM-dd"
         stamp.locale = Locale(identifier: "en_US_POSIX")
-        let iso = stamp.string(from: date)
-        return days.first { $0.dateISO == iso }
+        return stamp
+    }()
+
+    func forecastDay(on date: Date) -> WeatherDay? {
+        days.first { $0.dateISO == Self.dayStamp.string(from: date) }
     }
 
     func hoursOn(_ date: Date) -> [WeatherHour] {
@@ -80,14 +83,13 @@ final class WeatherLoader: ObservableObject {
 
 enum WeatherAPI {
     static func searchPlaces(_ query: String) async throws -> [WeatherPlace] {
-        var components = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/search")!
-        components.queryItems = [
+        let url = try endpoint("https://geocoding-api.open-meteo.com/v1/search", [
             URLQueryItem(name: "name", value: query),
             URLQueryItem(name: "count", value: "6"),
             URLQueryItem(name: "language", value: "en"),
             URLQueryItem(name: "format", value: "json"),
-        ]
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        ])
+        let data = try await HubHTTP.data(from: url)
         let decoded = try JSONDecoder().decode(GeocodeSearch.self, from: data)
         return (decoded.results ?? []).map(\.place)
     }
@@ -103,15 +105,16 @@ enum WeatherAPI {
                 return WeatherPlace(label: label, latitude: latitude, longitude: longitude)
             }
         }
-        var components = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/reverse")!
-        components.queryItems = [
+        var components = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/reverse")
+        components?.queryItems = [
             URLQueryItem(name: "latitude", value: String(latitude)),
             URLQueryItem(name: "longitude", value: String(longitude)),
             URLQueryItem(name: "language", value: "en"),
             URLQueryItem(name: "format", value: "json"),
         ]
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        if let decoded = try? JSONDecoder().decode(GeocodeSearch.self, from: data),
+        if let url = components?.url,
+           let data = try? await HubHTTP.data(from: url),
+           let decoded = try? JSONDecoder().decode(GeocodeSearch.self, from: data),
            let first = decoded.results?.first {
             return first.place
         }
@@ -123,8 +126,7 @@ enum WeatherAPI {
     }
 
     static func forecast(for place: WeatherPlace, units: HubUnits = .us) async throws -> WeatherBundle {
-        var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
-        components.queryItems = [
+        let url = try endpoint("https://api.open-meteo.com/v1/forecast", [
             URLQueryItem(name: "latitude", value: String(place.latitude)),
             URLQueryItem(name: "longitude", value: String(place.longitude)),
             URLQueryItem(name: "current", value: "temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m,precipitation"),
@@ -135,9 +137,16 @@ enum WeatherAPI {
             URLQueryItem(name: "precipitation_unit", value: units.precipitation.api),
             URLQueryItem(name: "timezone", value: "auto"),
             URLQueryItem(name: "forecast_days", value: "16"),
-        ]
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        ])
+        let data = try await HubHTTP.data(from: url)
         return try JSONDecoder().decode(ForecastResponse.self, from: data).bundle()
+    }
+
+    private static func endpoint(_ string: String, _ items: [URLQueryItem]) throws -> URL {
+        guard var components = URLComponents(string: string) else { throw URLError(.badURL) }
+        components.queryItems = items
+        guard let url = components.url else { throw URLError(.badURL) }
+        return url
     }
 }
 
@@ -341,18 +350,32 @@ final class LocationFinder: NSObject, CLLocationManagerDelegate {
         }
     }
 
+    private let resumeLock = NSLock()
+
+    private func finish(_ body: (CheckedContinuation<CLLocation, Error>) -> Void) {
+        resumeLock.lock()
+        let current = continuation
+        continuation = nil
+        resumeLock.unlock()
+        guard let current else { return }
+        body(current)
+    }
+
     private func requestOnce() async throws -> CLLocation {
-        try await withCheckedThrowingContinuation { continuation in
-            self.continuation = continuation
-            let status = manager.authorizationStatus
-            if status == .notDetermined {
-                manager.requestWhenInUseAuthorization()
-            } else if status == .denied || status == .restricted {
-                continuation.resume(throwing: LocationError.denied)
-                self.continuation = nil
-            } else {
-                manager.requestLocation()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                self.continuation = continuation
+                let status = manager.authorizationStatus
+                if status == .notDetermined {
+                    manager.requestWhenInUseAuthorization()
+                } else if status == .denied || status == .restricted {
+                    finish { $0.resume(throwing: LocationError.denied) }
+                } else {
+                    manager.requestLocation()
+                }
             }
+        } onCancel: {
+            self.finish { $0.resume(throwing: CancellationError()) }
         }
     }
 
@@ -361,8 +384,7 @@ final class LocationFinder: NSObject, CLLocationManagerDelegate {
         case .authorizedAlways, .authorizedWhenInUse:
             manager.requestLocation()
         case .denied, .restricted:
-            continuation?.resume(throwing: LocationError.denied)
-            continuation = nil
+            finish { $0.resume(throwing: LocationError.denied) }
         default:
             break
         }
@@ -370,13 +392,11 @@ final class LocationFinder: NSObject, CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
-        continuation?.resume(returning: location)
-        continuation = nil
+        finish { $0.resume(returning: location) }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        continuation?.resume(throwing: error)
-        continuation = nil
+        finish { $0.resume(throwing: error) }
     }
 }
 
