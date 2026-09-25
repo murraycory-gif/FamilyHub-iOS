@@ -30,3 +30,6 @@ vendor/bundle/
 # Swift PM
 .build/
 .swiftpm/
+
+__pycache__/
+*.pyc
