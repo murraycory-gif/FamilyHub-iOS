@@ -6,6 +6,8 @@
 	<array>
 		<string>iCloud.com.corymurray.FamilyHub</string>
 	</array>
+	<key>com.apple.developer.weatherkit</key>
+	<true/>
 	<key>com.apple.developer.icloud-services</key>
 	<array>
 		<string>CloudKit</string>

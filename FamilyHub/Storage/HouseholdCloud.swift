@@ -1,16 +1,15 @@
 import CloudKit
 import Foundation
+import SwiftUI
 
 enum HouseholdCloudError: LocalizedError {
-    case badCode
     case missingHouse
     case iCloud
 
     var errorDescription: String? {
         switch self {
-        case .badCode: return "Ask the owner for the 6-character HUB code."
-        case .missingHouse: return "No HUB is published for that code yet. On the owner’s iPad open Settings → Invite and wait a few seconds."
-        case .iCloud: return "Sign this device into iCloud, then try the code again."
+        case .missingHouse: return "No family share is on this iCloud account yet. The owner shares HUB from Settings → Invite."
+        case .iCloud: return "Sign this device into iCloud, then try again."
         }
     }
 }
@@ -18,55 +17,93 @@ enum HouseholdCloudError: LocalizedError {
 enum HouseholdCloud {
     static let containerID = "iCloud.com.corymurray.FamilyHub"
     static let recordType = "HubHousehold"
+    static let zoneName = "FamilyHub"
+    static let recordName = "household"
 
-    private static var database: CKDatabase {
-        CKContainer(identifier: containerID).publicCloudDatabase
+    static var container: CKContainer { CKContainer(identifier: containerID) }
+
+    private static var privateDB: CKDatabase { container.privateCloudDatabase }
+    private static var sharedDB: CKDatabase { container.sharedCloudDatabase }
+    private static var publicDB: CKDatabase { container.publicCloudDatabase }
+
+    private static var ownerZoneID: CKRecordZone.ID {
+        CKRecordZone.ID(zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
     }
 
-    private static func recordID(for code: String) -> CKRecord.ID {
-        CKRecord.ID(recordName: "hub-\(code.uppercased())")
+    /// Saves the household in the owner's private custom zone. Not the public database.
+    static func publish(data: Data) async throws {
+        _ = try await savePrivate(data: data, shareTitle: nil)
     }
 
-    /// `data` must already be `HubSnapshot.forPublicDatabase()`. This database is readable by every iCloud user of the app.
-    static func publish(code: String, data: Data) async throws {
-        let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-        guard clean.count == 6 else { throw HouseholdCloudError.badCode }
-        let id = recordID(for: clean)
-        let record: CKRecord
-        if let existing = try? await database.record(for: id) {
-            record = existing
-        } else {
-            record = CKRecord(recordType: recordType, recordID: id)
-        }
+    /// Saves the private record and returns the CKShare the owner sends with UICloudSharingController.
+    static func makeShare(data: Data, title: String) async throws -> CKShare {
+        try await savePrivate(data: data, shareTitle: title)
+    }
+
+    @discardableResult
+    private static func savePrivate(data: Data, shareTitle: String?) async throws -> CKShare {
+        _ = try await privateDB.save(CKRecordZone(zoneID: ownerZoneID))
+        let id = CKRecord.ID(recordName: recordName, zoneID: ownerZoneID)
+        let record = (try? await privateDB.record(for: id)) ?? CKRecord(recordType: recordType, recordID: id)
         record["payload"] = data as CKRecordValue
         record["updatedAt"] = Date() as CKRecordValue
-        _ = try await database.save(record)
+        if let ref = record.share,
+           let existing = try? await privateDB.record(for: ref.recordID) as? CKShare {
+            _ = try await privateDB.save(record)
+            return existing
+        }
+        let share = CKShare(rootRecord: record)
+        share[CKShare.SystemFieldKey.title] = (shareTitle ?? "HUB Circle") as CKRecordValue
+        share.publicPermission = .none
+        let (saved, _) = try await privateDB.modifyRecords(saving: [record, share], deleting: [], savePolicy: .changedKeys)
+        if let result = saved[share.recordID], let stored = try result.get() as? CKShare {
+            return stored
+        }
+        return share
     }
 
-    /// Missing records count as already gone.
+    /// Owner's private copy, then a zone shared with this iCloud user.
+    static func fetchShared() async throws -> Data {
+        let ownID = CKRecord.ID(recordName: recordName, zoneID: ownerZoneID)
+        if let record = try? await privateDB.record(for: ownID), let data = record["payload"] as? Data, !data.isEmpty {
+            return data
+        }
+        let zones = try await sharedDB.allRecordZones()
+        for zone in zones where zone.zoneID.zoneName == zoneName {
+            let id = CKRecord.ID(recordName: recordName, zoneID: zone.zoneID)
+            if let record = try? await sharedDB.record(for: id), let data = record["payload"] as? Data, !data.isEmpty {
+                return data
+            }
+        }
+        throw HouseholdCloudError.missingHouse
+    }
+
+    /// Public database is only for retiring the old hub-<code> records.
     static func delete(code: String) async throws {
         let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-        guard clean.count == 6 else { throw HouseholdCloudError.badCode }
+        guard clean.count == 6 else { return }
+        let id = CKRecord.ID(recordName: "hub-\(clean)")
         do {
-            try await database.deleteRecord(withID: recordID(for: clean))
+            try await publicDB.deleteRecord(withID: id)
         } catch let error as CKError where error.code == .unknownItem {
             return
         }
     }
+}
 
-    static func fetch(code: String) async throws -> Data {
-        let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-        guard clean.count == 6 else { throw HouseholdCloudError.badCode }
-        do {
-            let record = try await database.record(for: recordID(for: clean))
-            if let data = record["payload"] as? Data { return data }
-            throw HouseholdCloudError.missingHouse
-        } catch let error as HouseholdCloudError {
-            throw error
-        } catch let error as CKError where error.code == .unknownItem {
-            throw HouseholdCloudError.missingHouse
-        } catch {
-            throw HouseholdCloudError.iCloud
-        }
+struct HouseholdShareItem: Identifiable {
+    let id = UUID()
+    let share: CKShare
+}
+
+struct HouseholdShareSheet: UIViewControllerRepresentable {
+    let share: CKShare
+
+    func makeUIViewController(context: Context) -> UICloudSharingController {
+        let controller = UICloudSharingController(share: share, container: HouseholdCloud.container)
+        controller.availablePermissions = [.allowReadWrite, .allowPrivate]
+        return controller
     }
+
+    func updateUIViewController(_ controller: UICloudSharingController, context: Context) {}
 }

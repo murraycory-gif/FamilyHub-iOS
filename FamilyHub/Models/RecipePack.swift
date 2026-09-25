@@ -42,9 +42,16 @@ struct RecipePackItem: Codable, Equatable {
         if let trendingRank, trendingRank < 1 { problems.append("trendingRank must be 1 or higher") }
         let image = imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if image.isEmpty == false {
-            let host = URL(string: image)?.host?.lowercased() ?? ""
-            if image.hasPrefix("https://") == false || host.contains("unsplash.com") || host.contains("wikimedia.org") || host.contains("themealdb.com") {
-                problems.append("imageURL must be an https photo of this dish on our catalog, or empty")
+            if image.hasPrefix("bundle:") {
+                let name = String(image.dropFirst("bundle:".count))
+                if name.isEmpty || name.contains("..") || name.contains("/") {
+                    problems.append("bundle image name is not a file in the app")
+                }
+            } else {
+                let host = URL(string: image)?.host?.lowercased() ?? ""
+                if image.hasPrefix("https://") == false || host.contains("unsplash.com") || host.contains("wikimedia.org") || host.contains("themealdb.com") {
+                    problems.append("imageURL must be an https photo of this dish on our catalog, or empty")
+                }
             }
         }
         return problems
@@ -56,7 +63,7 @@ struct RecipePackItem: Codable, Equatable {
             name: name,
             category: category,
             area: cuisine,
-            thumb: URL(string: imageURL),
+            thumb: RecipeThumbs.owned(imageURL),
             instructions: instructions,
             ingredients: ingredients,
             sourceURL: nil,

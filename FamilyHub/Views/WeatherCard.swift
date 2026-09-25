@@ -132,11 +132,11 @@ private struct AtmosphereLayers: View {
             Canvas { context, canvas in drawRain(context, size: canvas, count: 72) }
         case .thunder:
             Canvas { context, canvas in drawRain(context, size: canvas, count: 80) }
-            Color.white.opacity(lightningFlash ? 0.28 : 0)
+            AppTheme.inkOnFill.opacity(lightningFlash ? 0.28 : 0)
         case .snow:
             Canvas { context, canvas in drawSnow(context, size: canvas) }
         case .fog:
-            Color.white.opacity(0.12 + 0.08 * (0.5 + 0.5 * sin(time * 0.35)))
+            AppTheme.inkOnFill.opacity(0.12 + 0.08 * (0.5 + 0.5 * sin(time * 0.35)))
         default:
             EmptyView()
         }
@@ -163,7 +163,7 @@ private struct AtmosphereLayers: View {
         }
         .frame(width: side, height: side)
         .clipShape(Circle())
-        .shadow(color: .white.opacity(0.22), radius: 16)
+        .shadow(color: AppTheme.inkOnFill.opacity(0.22), radius: 16)
         .position(x: size.width * 0.78, y: size.height * 0.50)
     }
 
@@ -221,7 +221,7 @@ private struct AtmosphereLayers: View {
                 width: star.size,
                 height: star.size
             )
-            ctx.fill(Path(ellipseIn: rect), with: .color(.white))
+            ctx.fill(Path(ellipseIn: rect), with: .color(AppTheme.inkOnFill))
         }
     }
 
@@ -236,7 +236,7 @@ private struct AtmosphereLayers: View {
             let travel = Double(size.height + 60)
             let y = CGFloat((time * speed + Double(i) * 41).truncatingRemainder(dividingBy: travel)) - 24
             let rect = CGRect(x: frac * size.width, y: y, width: 1.05, height: 16)
-            ctx.fill(Path(roundedRect: rect, cornerRadius: 0.6), with: .color(.white))
+            ctx.fill(Path(roundedRect: rect, cornerRadius: 0.6), with: .color(AppTheme.inkOnFill))
         }
     }
 
@@ -250,7 +250,7 @@ private struct AtmosphereLayers: View {
             let y = CGFloat((time * speed + Double(i) * 33).truncatingRemainder(dividingBy: travel))
             let wobble = CGFloat(sin(time * 0.9 + Double(i))) * 10
             let s = CGFloat(2.2 + Double(i % 3))
-            ctx.fill(Path(ellipseIn: CGRect(x: frac * size.width + wobble, y: y, width: s, height: s)), with: .color(.white))
+            ctx.fill(Path(ellipseIn: CGRect(x: frac * size.width + wobble, y: y, width: s, height: s)), with: .color(AppTheme.inkOnFill))
         }
     }
 
@@ -299,15 +299,15 @@ struct AppleWeatherCard: View {
         VStack(alignment: .leading, spacing: 0) {
             hero
             if !hours.isEmpty {
-                Divider().overlay(Color.white.opacity(0.18))
+                Divider().overlay(AppTheme.inkOnFill.opacity(0.18))
                 hourly
             }
             if !days.isEmpty {
-                Divider().overlay(Color.white.opacity(0.18))
+                Divider().overlay(AppTheme.inkOnFill.opacity(0.18))
                 daily
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(AppTheme.inkOnFill)
         .background(
             LinearGradient(
                 colors: WeatherSky.colors(code: now?.code ?? days.first?.code ?? 2, isDay: now?.isDay ?? true),
@@ -318,7 +318,7 @@ struct AppleWeatherCard: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusL, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.radiusL, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                .stroke(AppTheme.inkOnFill.opacity(0.14), lineWidth: 1)
         )
     }
 
@@ -336,7 +336,7 @@ struct AppleWeatherCard: View {
             .buttonStyle(.plain)
 
             if isLoading && now == nil {
-                ProgressView().tint(.white).padding(.vertical, 16)
+                ProgressView().tint(AppTheme.inkOnFill).padding(.vertical, 16)
             } else if let errorMessage, now == nil, days.isEmpty {
                 Text(errorMessage)
                     .font(.subheadline)
@@ -419,7 +419,7 @@ struct AppleWeatherCard: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
                 if index < days.count - 1 {
-                    Divider().overlay(Color.white.opacity(0.10))
+                    Divider().overlay(AppTheme.inkOnFill.opacity(0.10))
                 }
             }
         }
@@ -478,7 +478,7 @@ struct HubWeatherTile: View {
                 Button(action: onChangePlace) {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppTheme.inkOnFill)
                 }
                 .buttonStyle(.plain)
             }
@@ -491,20 +491,20 @@ struct HubWeatherTile: View {
                 )
                 VStack(alignment: .leading, spacing: 6) {
                     if isLoading && now == nil && day == nil {
-                        ProgressView().tint(.white)
+                        ProgressView().tint(AppTheme.inkOnFill)
                     } else {
                         HStack(alignment: .top, spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(condition)
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white.opacity(0.95))
+                                    .foregroundStyle(AppTheme.inkOnFill.opacity(0.95))
                                 Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
                                     .font(.caption.weight(.bold).monospacedDigit())
-                                    .foregroundStyle(.white.opacity(0.88))
+                                    .foregroundStyle(AppTheme.inkOnFill.opacity(0.88))
                                 Text("\(temp)°")
                                     .font(.system(size: 40, weight: .thin))
                                     .monospacedDigit()
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(AppTheme.inkOnFill)
                                     .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
                                     .minimumScaleFactor(0.5)
                                     .lineLimit(1)
@@ -522,7 +522,7 @@ struct HubWeatherTile: View {
                                 }
                             }
                             .font(.caption.weight(.bold).monospacedDigit())
-                            .foregroundStyle(.white.opacity(0.9))
+                            .foregroundStyle(AppTheme.inkOnFill.opacity(0.9))
                         }
                     }
                     Spacer(minLength: 4)
@@ -531,14 +531,14 @@ struct HubWeatherTile: View {
                             VStack(spacing: 4) {
                                 Text(index == 0 && isToday ? "Now" : hourLabel(hour.at))
                                     .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.8))
+                                    .foregroundStyle(AppTheme.inkOnFill.opacity(0.8))
                                 Image(systemName: hour.symbolName)
                                     .font(.body)
                                     .symbolRenderingMode(.multicolor)
                                     .frame(height: 18)
                                 Text("\(hour.temp)°")
                                     .font(.subheadline.weight(.semibold).monospacedDigit())
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(AppTheme.inkOnFill)
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -705,8 +705,10 @@ struct WeatherOutlookView: View {
                         .opacity(0.9)
                 }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(AppTheme.inkOnFill)
             .shadow(color: .black.opacity(0.25), radius: 8, y: 1)
+            WeatherAttributionMark()
+                .padding(.bottom, 10)
         }
         .frame(maxWidth: .infinity)
         .frame(minHeight: 260)
@@ -973,7 +975,7 @@ struct WeatherPlacePicker: View {
                     HStack(spacing: 12) {
                         Image(systemName: "location.fill")
                             .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AppTheme.inkOnFill)
                             .frame(width: 36, height: 36)
                             .background(AppTheme.blue, in: Circle())
                         Text(locating ? "Finding you…" : "Use current location")
@@ -1062,5 +1064,29 @@ private struct TempRangeBar: View {
             }
         }
         .frame(height: height)
+    }
+}
+
+private struct WeatherAttributionMark: View {
+    @State private var name = "Apple Weather"
+    @State private var legal: URL?
+
+    var body: some View {
+        HStack {
+            Spacer()
+            if let legal {
+                Link(name, destination: legal)
+            } else {
+                Text(name)
+            }
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(AppTheme.inkOnFill.opacity(0.85))
+        .padding(.horizontal, 12)
+        .task {
+            let mark = await WeatherAPI.attribution()
+            if !mark.name.isEmpty { name = mark.name }
+            legal = mark.legal
+        }
     }
 }

@@ -19,6 +19,7 @@ for the catalog build.
 from __future__ import annotations
 
 import argparse
+import json
 import mimetypes
 import os
 import sys
@@ -28,18 +29,96 @@ ROOT = Path(__file__).resolve().parent
 DEFAULT_OUT = ROOT / "out"
 
 
+DIET_TOKENS = {
+    "vegan": "vegan",
+    "vegetarian": "vegetarian",
+    "pescatarian": "pescatarian",
+    "keto": "keto",
+    "paleo": "paleo",
+    "gluten-free": "glutenFree",
+    "dairy-free": "dairyFree",
+    "egg-free": "eggFree",
+    "soy-free": "soyFree",
+    "halal": "halal",
+    "kosher": "kosher",
+    "low-sodium": "lowSodium",
+    "low-carb": "lowCarb",
+}
+
+
+def diet_labels(recipe: dict) -> list[str]:
+    compatible = {
+        item.get("id")
+        for item in recipe.get("dietLabels") or []
+        if item.get("status") == "compatible"
+    }
+    labels = [token for key, token in DIET_TOKENS.items() if key in compatible]
+    if "peanut-free" in compatible and "tree-nut-free" in compatible:
+        labels.append("nutFree")
+    return labels
+
+
+def write_recipe_pack(out: Path, public_base: str) -> Path:
+    """Write recipe-pack.json in the app's schema. Photos are bucket paths, never Wikimedia URLs."""
+    catalog_path = out / "catalog.json"
+    catalog = json.loads(catalog_path.read_text()) if catalog_path.is_file() else {"recipes": []}
+    base = public_base.rstrip("/")
+    recipes = []
+    for index, recipe in enumerate(catalog.get("recipes") or [], start=1):
+        images = recipe.get("images") or []
+        hosted = ""
+        if images:
+            hosted = str(images[0].get("hostedPath") or "")
+        file_name = Path(hosted).name if hosted else ""
+        image_url = f"{base}/images/{file_name}" if base and file_name else ""
+        if "wikimedia" in image_url.lower() or "unsplash" in image_url.lower():
+            image_url = ""
+        source = recipe.get("source") or {}
+        ingredients = []
+        for item in recipe.get("ingredients") or []:
+            if isinstance(item, str):
+                ingredients.append(item)
+            elif isinstance(item, dict):
+                ingredients.append(str(item.get("text") or item.get("item") or ""))
+        steps = recipe.get("steps") or []
+        if isinstance(steps, str):
+            instructions = steps
+        else:
+            instructions = "\n".join(str(step) for step in steps)
+        rank = index if index <= 12 else None
+        recipes.append({
+            "id": recipe.get("id") or f"hub-{index}",
+            "name": recipe.get("title") or recipe.get("name") or "Recipe",
+            "category": recipe.get("mealType") or recipe.get("category") or "",
+            "cuisine": recipe.get("cuisine") or "",
+            "ingredients": [line for line in ingredients if line],
+            "instructions": instructions,
+            "imageURL": image_url,
+            "diets": diet_labels(recipe),
+            "trendingRank": rank,
+            "sourceName": "Wikibooks Cookbook",
+            "license": source.get("license") or "CC BY-SA 4.0",
+            "changes": source.get("changesMade") or "None",
+            "sourceURL": source.get("pageURL") or "",
+        })
+    pack = {"version": 1, "recipes": recipes}
+    dest = out / "recipe-pack.json"
+    dest.write_text(json.dumps(pack, indent=2) + "\n")
+    return dest
+
+
 def objects(out: Path, prefix: str) -> list[tuple[Path, str]]:
-    names = ["catalog.json", "trending.json", "credits.json", "import-report.json"]
     found: list[tuple[Path, str]] = []
-    for name in names:
-        path = out / name
-        if path.is_file():
-            found.append((path, f"{prefix}/{name}".lstrip("/")))
+    pack = out / "recipe-pack.json"
+    if pack.is_file():
+        key = f"{prefix}/recipe-pack.json".lstrip("/") if prefix else "recipe-pack.json"
+        found.append((pack, key))
     image_dir = out / "images"
     if image_dir.is_dir():
         for path in sorted(image_dir.glob("*")):
             if path.is_file():
-                found.append((path, f"{prefix}/images/{path.name}".lstrip("/")))
+                key = f"{prefix}/images/{path.name}".lstrip("/") if prefix else f"images/{path.name}"
+                found.append((path, key))
     return found
 
 
@@ -52,7 +131,9 @@ def main() -> int:
     dry_run = not args.upload
 
     bucket = os.environ.get("R2_BUCKET", "").strip()
-    prefix = os.environ.get("R2_PREFIX", "recipe-catalog").strip().strip("/")
+    prefix = os.environ.get("R2_PREFIX", "").strip().strip("/")
+    public_base = os.environ.get("R2_PUBLIC_BASE", "").strip()
+    write_recipe_pack(args.out, public_base)
     account = os.environ.get("R2_ACCOUNT_ID", "").strip()
     access = os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("AWS_ACCESS_KEY_ID") or ""
     secret = os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get("AWS_SECRET_ACCESS_KEY") or ""

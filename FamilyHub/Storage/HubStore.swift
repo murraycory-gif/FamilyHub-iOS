@@ -1,3 +1,4 @@
+import CloudKit
 import CoreLocation
 import Foundation
 import os
@@ -1237,8 +1238,7 @@ final class HubStore: ObservableObject {
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
             rememberAccount()
-            let cloud = try encoder.encode(snapshot.forPublicDatabase())
-            scheduleCloudPublish(cloud)
+            scheduleCloudPublish(data)
             publishWidgets()
         } catch {
             errorMessage = "Could not save: \(error.localizedDescription)"
@@ -1307,37 +1307,57 @@ final class HubStore: ObservableObject {
     private func scheduleCloudPublish(_ data: Data) {
         guard signedInMemberID != nil, signedInMemberID == ownerID else { return }
         cloudPublishTask?.cancel()
-        let code = joinCode
         cloudPublishTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1.2))
             guard !Task.isCancelled else { return }
             do {
-                try await HouseholdCloud.publish(code: code, data: data)
+                try await HouseholdCloud.publish(data: data)
+                await self?.retirePublicRecordsOnce()
             } catch {
                 await MainActor.run { self?.errorMessage = error.localizedDescription }
             }
         }
     }
 
+    private static let publicCleanupKey = "familyhub.publicHubCleanup.v1"
+
+    /// After the private-zone save succeeds, delete old public hub-<code> records one time.
+    func retirePublicRecordsOnce() async {
+        guard !UserDefaults.standard.bool(forKey: Self.publicCleanupKey) else { return }
+        let codes = knownShareCodes()
+        for code in codes {
+            let removed = await Self.deleteSharedRecord(code: code)
+            if !removed { return }
+        }
+        UserDefaults.standard.set(true, forKey: Self.publicCleanupKey)
+    }
+
+    func currentHouseholdData() -> Data? {
+        guard let raw = try? Data(contentsOf: snapshotURL) else { return nil }
+        return raw
+    }
+
     func publishHouseholdNow() async -> String? {
-        guard let raw = try? Data(contentsOf: snapshotURL) else { return "Nothing to share yet." }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        guard let snapshot = try? decoder.decode(HubSnapshot.self, from: raw) else { return "Nothing to share yet." }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(snapshot.forPublicDatabase()) else { return "Nothing to share yet." }
+        guard let data = currentHouseholdData() else { return "Nothing to share yet." }
         do {
-            try await HouseholdCloud.publish(code: joinCode, data: data)
+            try await HouseholdCloud.publish(data: data)
+            await retirePublicRecordsOnce()
             return nil
         } catch {
             return error.localizedDescription
         }
     }
 
-    func joinRemoteHousehold(code: String) async throws {
-        let data = try await HouseholdCloud.fetch(code: code)
+    func prepareHouseholdShare() async throws -> CKShare {
+        guard let data = currentHouseholdData() else { throw HouseholdCloudError.missingHouse }
+        let title = householdName.isEmpty ? "HUB Circle" : householdName
+        let share = try await HouseholdCloud.makeShare(data: data, title: title)
+        await retirePublicRecordsOnce()
+        return share
+    }
+
+    func joinSharedHousehold() async throws {
+        let data = try await HouseholdCloud.fetchShared()
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let snapshot = try decoder.decode(HubSnapshot.self, from: data)
@@ -1375,7 +1395,7 @@ final class HubStore: ObservableObject {
             ?? UserDefaults.standard.string(forKey: Self.accountKey)
         guard let saved, saved.count == 6 else { return }
         do {
-            try await joinRemoteHousehold(code: saved)
+            try await joinSharedHousehold()
             setupCompleted = true
             persist()
         } catch {

@@ -23,6 +23,8 @@ enum AppTheme {
     static let tableFill = adaptive(light: "F7F8FB", dark: "10192B")
     static let cardBorder = adaptive(light: "C5D4E4", dark: "1C2A40")
 
+    /// Light ink for type and marks that sit on blue or the dark splash.
+    static let inkOnFill = Color(hex: "F2F5FA")
     static let text = adaptive(light: "141A29", dark: "F2F5FA")
     static let textSecondary = adaptive(light: "616B80", dark: "A8B4C8")
     static let textTertiary = adaptive(light: "8C93A3", dark: "7D8AA0")

@@ -36,17 +36,18 @@ enum FlightParse {
         )
     }
 
-    private static let codeRegex = try! NSRegularExpression(
+    private static let codeRegex = try? NSRegularExpression(
         pattern: #"\b(?:FLIGHT\s+)?([A-Z]{2})\s*-?\s*(\d{2,4})\b"#
     )
-    private static let airportRegex = try! NSRegularExpression(
+    private static let airportRegex = try? NSRegularExpression(
         pattern: #"\b([A-Z]{3})\s*(?:TO|-|–|—|/|→)\s*([A-Z]{3})\b"#
     )
 
     static func flightCode(in text: String) -> (airline: String, number: String)? {
         let upper = text.uppercased()
         let range = NSRange(upper.startIndex..., in: upper)
-        guard let match = codeRegex.firstMatch(in: upper, range: range),
+        guard let codeRegex,
+              let match = codeRegex.firstMatch(in: upper, range: range),
               let a = Range(match.range(at: 1), in: upper),
               let n = Range(match.range(at: 2), in: upper)
         else { return nil }
@@ -56,7 +57,8 @@ enum FlightParse {
     static func airports(in text: String) -> (origin: String, dest: String)? {
         let upper = text.uppercased()
         let range = NSRange(upper.startIndex..., in: upper)
-        guard let match = airportRegex.firstMatch(in: upper, range: range),
+        guard let airportRegex,
+              let match = airportRegex.firstMatch(in: upper, range: range),
               let a = Range(match.range(at: 1), in: upper),
               let b = Range(match.range(at: 2), in: upper)
         else { return nil }

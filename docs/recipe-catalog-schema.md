@@ -61,4 +61,4 @@ The recipe screen shows one line: `sourceName · license · changes`.
 
 ## Photos
 
-Only a real photo of that dish, hosted on our bucket. No stock photo, no map, no generated stand-in. When the pipeline has no such photo, set `imageURL` to `""`.
+Only a real photo of that dish, hosted on our bucket under `images/`. `tools/recipe-catalog/publish.py` writes `recipe-pack.json` in this shape and uploads that file plus `images/<photo>`. It never writes a Wikimedia, Unsplash, or TheMealDB URL into `imageURL`. When `R2_PUBLIC_BASE` is unset, `imageURL` is empty. The bundled seed may use `bundle:<file>` for a photo shipped in the app.

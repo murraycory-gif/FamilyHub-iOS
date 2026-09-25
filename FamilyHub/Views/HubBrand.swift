@@ -63,7 +63,7 @@ struct HubOrbitMark: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [Color.white, Color(hex: "4DE2FF"), Color(hex: "0066C2")],
+                        colors: [AppTheme.inkOnFill, Color(hex: "4DE2FF"), Color(hex: "0066C2")],
                         center: .center,
                         startRadius: 0,
                         endRadius: size * 0.2
@@ -110,14 +110,14 @@ struct HubWordmark: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("HUB")
                 .font(.system(size: hubSize, weight: .heavy))
-                .foregroundStyle(onDark ? Color.white : AppTheme.text)
+                .foregroundStyle(onDark ? AppTheme.inkOnFill : AppTheme.text)
                 .tracking(0.8)
             Text("|")
                 .font(.system(size: hubSize * 0.72, weight: .semibold))
-                .foregroundStyle((onDark ? Color.white : AppTheme.space).opacity(0.45))
+                .foregroundStyle((onDark ? AppTheme.inkOnFill : AppTheme.space).opacity(0.45))
             Text("Circle")
                 .font(.system(size: circleSize, weight: .regular))
-                .foregroundStyle(onDark ? Color.white.opacity(0.9) : AppTheme.space)
+                .foregroundStyle(onDark ? AppTheme.inkOnFill.opacity(0.9) : AppTheme.space)
                 .tracking(1.6)
         }
         .lineLimit(1)

@@ -9,8 +9,16 @@ enum RecipeThumbs {
 
     static func owned(_ raw: String) -> URL? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("bundle:") {
+            let name = String(trimmed.dropFirst("bundle:".count))
+            let base = (name as NSString).deletingPathExtension
+            let ext = (name as NSString).pathExtension
+            return Bundle.main.url(forResource: base, withExtension: ext, subdirectory: "RecipePhotos")
+        }
         guard let url = URL(string: trimmed), let host = url.host?.lowercased() else { return nil }
         if host == "unsplash.com" || host.hasSuffix(".unsplash.com") { return nil }
+        if host == "wikimedia.org" || host.hasSuffix(".wikimedia.org") { return nil }
+        if host.contains("themealdb.com") { return nil }
         if url.scheme != "https" && url.scheme != "http" { return nil }
         return url
     }
@@ -43,6 +51,10 @@ enum RecipePhotoLoader {
     }
 
     static func image(from url: URL) async -> UIImage? {
+        if url.isFileURL, let image = UIImage(contentsOfFile: url.path) {
+            memory.setObject(image, forKey: url.absoluteString as NSString, cost: 1)
+            return image
+        }
         if let hit = cached(url: url) { return hit }
         return await gate.run {
             if let hit = cached(url: url) { return hit }

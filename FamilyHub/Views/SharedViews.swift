@@ -168,7 +168,7 @@ struct FilterChip: View {
                 Capsule(style: .continuous)
                     .fill(selected ? AppTheme.blue : AppTheme.blueSoft)
             )
-            .foregroundStyle(selected ? Color.white : AppTheme.text)
+            .foregroundStyle(selected ? AppTheme.inkOnFill : AppTheme.text)
         }
         .buttonStyle(.plain)
     }
@@ -335,7 +335,7 @@ struct PhotoCropper: View {
                         imageView(hole: hole)
                             .frame(width: hole, height: hole)
                             .clipShape(Circle())
-                            .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 3))
+                            .overlay(Circle().stroke(AppTheme.inkOnFill.opacity(0.9), lineWidth: 3))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .gesture(pan(hole: hole))
@@ -344,7 +344,7 @@ struct PhotoCropper: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Drag to center · pinch or slide to zoom")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.85))
+                            .foregroundStyle(AppTheme.inkOnFill.opacity(0.85))
                         Slider(value: Binding(
                             get: { scale },
                             set: { scale = $0; clamp(hole: hole) }
@@ -517,15 +517,15 @@ struct PlaceHeroPhoto: View {
                     VStack(spacing: 10) {
                         Image(systemName: "storefront.fill")
                             .font(.system(size: 42, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AppTheme.inkOnFill)
                         Text(name)
                             .font(.title3.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AppTheme.inkOnFill)
                             .multilineTextAlignment(.center)
                         if let address, !address.isEmpty {
                             Text(address)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.88))
+                                .foregroundStyle(AppTheme.inkOnFill.opacity(0.88))
                                 .multilineTextAlignment(.center)
                         }
                     }
@@ -576,7 +576,7 @@ struct HubStickyHeader<Trailing: View>: View {
             if !pageLabel.isEmpty {
                 Text(pageLabel)
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.92))
+                    .foregroundStyle(AppTheme.inkOnFill.opacity(0.92))
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
             }
@@ -612,7 +612,7 @@ struct HubHeaderPill: View {
         Button(action: action) {
             Text(title)
                 .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(AppTheme.inkOnFill)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(color, in: Capsule())
@@ -631,7 +631,7 @@ struct HubSearchBar: View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
                 .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(AppTheme.inkOnFill)
                 .frame(width: 36, height: 36)
                 .background(AppTheme.blue, in: Circle())
             TextField(placeholder, text: $text)
@@ -685,7 +685,7 @@ struct HubSuggestionList: View {
                     HStack(spacing: 12) {
                         Image(systemName: symbol)
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AppTheme.inkOnFill)
                             .frame(width: 32, height: 32)
                             .background(AppTheme.blue, in: Circle())
                         VStack(alignment: .leading, spacing: 2) {
@@ -761,7 +761,7 @@ struct HubConfirm: ViewModifier {
                             } label: {
                                 Text(confirmTitle)
                                     .font(.headline.weight(.bold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(AppTheme.inkOnFill)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
                                     .background(confirmColor, in: Capsule())
@@ -865,7 +865,7 @@ struct HubTileBanner<Trailing: View>: View {
             Spacer(minLength: 0)
             trailing
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(AppTheme.inkOnFill)
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1009,7 +1009,7 @@ struct HubFilterBanner: View {
                     .font(.caption.weight(.bold))
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(AppTheme.inkOnFill)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))

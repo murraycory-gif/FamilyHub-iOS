@@ -246,11 +246,12 @@ struct InviteSettingsView: View {
     @State private var publishNote: String?
     @State private var confirmReset = false
     @State private var confirmCleanup = false
+    @State private var cloudShare: HouseholdShareItem?
 
     var body: some View {
         SettingsPageShell(tail: "Invite", symbol: "person.badge.plus", title: "Invite to this HUB") {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Family uses this code on a new install, then picks their profile. Both devices need iCloud on.")
+                Text("Share this HUB with Apple’s share sheet. Family accepts the invite in Messages or Mail. The house stays in your private iCloud, not a public record.")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
                 Text(store.joinCode)
@@ -275,10 +276,15 @@ struct InviteSettingsView: View {
                 }
                 Button {
                     Task {
-                        publishNote = await store.publishHouseholdNow() ?? "HUB is live for that code."
+                        do {
+                            cloudShare = HouseholdShareItem(share: try await store.prepareHouseholdShare())
+                            publishNote = "Choose who can open this HUB."
+                        } catch {
+                            publishNote = error.localizedDescription
+                        }
                     }
                 } label: {
-                    Text("Publish this HUB now")
+                    Text("Share this HUB")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -324,6 +330,9 @@ struct InviteSettingsView: View {
             store.resetAsNewDownload()
             tours = ""
             onboardingCompleted = false
+        }
+        .sheet(item: $cloudShare) { share in
+            HouseholdShareSheet(share: share.share)
         }
     }
 }

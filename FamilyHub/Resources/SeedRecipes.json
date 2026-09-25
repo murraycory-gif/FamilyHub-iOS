@@ -2,98 +2,908 @@
   "version": 1,
   "recipes": [
     {
-      "id": "hub-tacos",
-      "name": "Weeknight tacos",
-      "category": "Tex-Mex",
-      "cuisine": "Mexican",
+      "id": "wikibooks-1-2-3-4-cake",
+      "name": "1-2-3-4 Cake",
+      "category": "dessert",
+      "cuisine": "American",
       "ingredients": [
-        "1 lb ground beef",
-        "8 corn tortillas",
-        "lettuce",
-        "tomato",
-        "cheddar"
+        "1 cup (240 g / 8.5 oz) butter",
+        "1 cup (240 ml / 8.1 oz) milk",
+        "1 teaspoon vanilla extract",
+        "2 cups (450 g / 16 oz) white granulated sugar",
+        "3 cups (400 g / 14 oz) all-purpose flour",
+        "3 teaspoons baking powder",
+        "3 pinches of salt",
+        "4 eggs"
       ],
-      "instructions": "Brown the beef. Warm the tortillas. Set out lettuce, tomato, and cheese.",
-      "imageURL": "",
-      "diets": [],
+      "instructions": "Preheat oven to 175 \u00b0C (350 \u00b0F)\nCream the butter and sugar together until fluffy.\nBeat in the vanilla and eggs, one at a time, ensuring the batter is well mixed after each egg.\nGradually sift in the dry ingredients, alternating with small additions of the milk.\nTransfer to a greased and floured baking pan.\nBake at 175 \u00b0C (350 \u00b0F), until a skewer inserted shows no moist crumbs.",
+      "imageURL": "bundle:wikibooks-1-2-3-4-cake.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "soyFree",
+        "nutFree"
+      ],
       "trendingRank": 1,
-      "sourceName": "HUB kitchen",
-      "license": "HUB original",
-      "changes": "Written for HUB",
-      "sourceURL": ""
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:1-2-3-4_Cake"
     },
     {
-      "id": "hub-pasta",
-      "name": "Tomato pasta",
-      "category": "Italian",
-      "cuisine": "Italian",
+      "id": "wikibooks-a-nice-cup-of-tea",
+      "name": "A Nice Cup of Tea",
+      "category": "drink",
+      "cuisine": "Irish",
       "ingredients": [
-        "12 oz pasta",
-        "1 can crushed tomato",
-        "garlic",
-        "olive oil",
-        "basil"
+        "32 fl oz (1 L) hot water",
+        "3\u20135 measures of loose tea leaves or 3\u20135 tea bags",
+        "Sweetener, such as sugar or honey, to taste",
+        "Milk or lemon juice to taste"
       ],
-      "instructions": "Boil the pasta. Simmer garlic, oil, and tomato. Toss and finish with basil.",
-      "imageURL": "",
+      "instructions": "Pour freshly-drawn water into a tea kettle, and heat it to your desired temperature. An electric kettle is fast and convenient.\nPour some hot tap water into your teapot and let stand for about several seconds to a minute to pre-warm it. Alternately, you can swish some of the hotter boiling water from your kettle around in the teapot for a few seconds. Pour out this water before adding the tea to the teapot.\nIf using loose tea, place it into an infuser, then into the teapot. If using teabags, place them into the teapot.\nWhen the water reaches the preferred temperature, pour it from the tea kettle into the teapot. As you pour, try to avoid pouring directly onto the tea (especially important for green and white teas) to avoid scalding the leaves.\nAllow the tea to infuse quietly (i.e. do not stir the teapot or \"dunk the teabag\"). Agitating the tea releases more of the bitter compounds and degrades the taste. Watch the time to avoid over-infusion, and remove the infuser or tea bag when the time is up.\nPour tea into your cup(s). Add sweetener and milk or lemon to taste.",
+      "imageURL": "bundle:wikibooks-a-nice-cup-of-tea.jpg",
       "diets": [
-        "vegetarian"
+        "vegetarian",
+        "pescatarian",
+        "glutenFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
       ],
       "trendingRank": 2,
-      "sourceName": "HUB kitchen",
-      "license": "HUB original",
-      "changes": "Written for HUB",
-      "sourceURL": ""
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:A_Nice_Cup_of_Tea"
     },
     {
-      "id": "hub-salmon",
-      "name": "Sheet-pan salmon",
-      "category": "Fish",
-      "cuisine": "American",
+      "id": "wikibooks-aadun-nigerian-corn-flour-with-palm-oil",
+      "name": "Aadun (Nigerian Corn Flour with Palm Oil)",
+      "category": "dinner",
+      "cuisine": "",
       "ingredients": [
-        "4 salmon fillets",
-        "broccoli",
-        "olive oil",
-        "lemon",
-        "salt"
+        "1 cup corn flour",
+        "\u00bc cup palm oil",
+        "\u00bd teaspoon chile pepper",
+        "\u00bd teaspoon salt"
       ],
-      "instructions": "Toss broccoli with oil. Roast with salmon at 425\u00b0F for 14 minutes. Finish with lemon.",
-      "imageURL": "",
-      "diets": [
-        "glutenFree",
-        "pescatarian",
-        "dairyFree"
-      ],
-      "trendingRank": 3,
-      "sourceName": "HUB kitchen",
-      "license": "HUB original",
-      "changes": "Written for HUB",
-      "sourceURL": ""
-    },
-    {
-      "id": "hub-beans",
-      "name": "Rice and beans",
-      "category": "Weeknight",
-      "cuisine": "American",
-      "ingredients": [
-        "2 cups rice",
-        "2 cans black beans",
-        "cumin",
-        "onion",
-        "salt"
-      ],
-      "instructions": "Simmer the rice. Warm beans with onion and cumin. Serve together.",
-      "imageURL": "",
+      "instructions": "Combine the corn flour, palm oil, chili pepper, and salt in a bowl.\nLeave the mixture to sit for 2\u20133 hours.\nShape the mixture as desired, and serve with drinks.",
+      "imageURL": "bundle:wikibooks-aadun-nigerian-corn-flour-with-palm-oil.jpg",
       "diets": [
         "vegan",
+        "vegetarian",
+        "pescatarian",
+        "glutenFree",
         "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": 3,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Aadun_(Nigerian_Corn_Flour_with_Palm_Oil)"
+    },
+    {
+      "id": "wikibooks-acorn-crusted-salmon",
+      "name": "Acorn Crusted Salmon",
+      "category": "dinner",
+      "cuisine": "",
+      "ingredients": [
+        "2 salmon fillets",
+        "1\u00bd cups (320 ml) of shelled acorns",
+        "2 egg whites"
+      ],
+      "instructions": "Use a food processor, blender or other method (meat tenderizer, etc.) to pulverize the acorns into a fine meal. If desired, toast the acorn meal for 5-7 minutes at 375\u00b0F/190\u00b0C/gas mark 5. Transfer the acorn meal to a dish.\nPlace the egg whites in a shallow dish. Coat each salmon fillet in egg white.\nCoat each fillet with the acorn meal.",
+      "imageURL": "bundle:wikibooks-acorn-crusted-salmon.jpg",
+      "diets": [
+        "pescatarian",
+        "keto",
+        "paleo",
+        "glutenFree",
+        "dairyFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": 4,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Acorn_Crusted_Salmon"
+    },
+    {
+      "id": "wikibooks-adobo-chicken-philippine",
+      "name": "Adobo Chicken (Philippine)",
+      "category": "dinner",
+      "cuisine": "",
+      "ingredients": [
+        "6\u20138 chicken pieces, preferably legs and wings",
+        "\u2153 cup (80 ml) vinegar made from coconut juice (as a variant, try balsamic vinegar)",
+        "\u00bc cup (60 ml) soy sauce",
+        "4 cloves of garlic, crushed",
+        "1\u20132 bay leaves",
+        "\u00bd tsp (2.5 ml) freshly cracked (not ground) black peppercorns"
+      ],
+      "instructions": "Put chicken, garlic, peppercorn, soy sauce and vinegar in a pan and bring to a boil.\nWhen chicken is cooked, put chicken pieces in a colander and drain. Put aside the pot with soy sauce and vinegar.\nWhen chicken pieces are no longer draining, fry them in hot oil at medium heat. Have a cover ready for splatters.\nSear the chicken, browning on all sides.\nPut chicken pieces back in the pot with soy sauce and vinegar and bring to simmer. Add 1\u20132 pieces of bay leaf.\nCook until the sauce has largely evaporated; some take this to an extreme and cook until the sauce has thickened and adhered to the chicken, which begins to make a popping noise due to the high, direct heat.\nServe over hot steamed rice. May be eaten with tomato slices in fish sauce, tapsilog, soy sauce, vinegar, hotdog, etc.",
+      "imageURL": "bundle:wikibooks-adobo-chicken-philippine.jpg",
+      "diets": [
+        "keto",
+        "dairyFree",
+        "eggFree",
+        "nutFree"
+      ],
+      "trendingRank": 5,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Adobo_Chicken_(Philippine)"
+    },
+    {
+      "id": "wikibooks-affogato",
+      "name": "Affogato",
+      "category": "dessert",
+      "cuisine": "Italian",
+      "ingredients": [
+        "1 scoop gelato, typically vanilla",
+        "1\u20132 shots espresso, or one long pull shot"
+      ],
+      "instructions": "Either pour espresso over gelato and serve, or serve them side by side for diner to mix at the table.",
+      "imageURL": "bundle:wikibooks-affogato.jpg",
+      "diets": [
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "keto",
+        "paleo",
+        "glutenFree",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": 6,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Affogato"
+    },
+    {
+      "id": "wikibooks-aji-de-gallina-peruvian-chili-chicken",
+      "name": "Aj\u00ed de Gallina (Peruvian Chili Chicken)",
+      "category": "bread",
+      "cuisine": "Peruvian",
+      "ingredients": [
+        "1300 g (4 lb) chicken",
+        "120 ml (\u00bd cup) of olive oil",
+        "1 large finely chopped onion",
+        "8 cloves of minced garlic",
+        "3 hot yellow South American chilis (seeds and filaments removed): Adjust quantity for individual taste.",
+        "Salt and pepper to taste",
+        "1 chicken stock cube",
+        "\u00bc loaf of bread",
+        "110 g (\u00bc lb) of chopped pecans",
+        "110 g (4 ounces) grated Parmesan cheese",
+        "1 can of evaporated milk",
+        "1.6 kg (3.5 lbs) boiled rice (flavored with chopped garlic and salt)",
+        "4 hard boiled eggs",
+        "6 potatoes",
+        "120 g (\u00bd cup) black olives"
+      ],
+      "instructions": "Boil chicken in salted water together with the stock cube. Remove bones and break into bite size pieces, keeping the resulting chicken stock.\nIn a saucepan, heat oil and saut\u00e9 the onion, garlic, and finely chopped chili peppers and add salt and pepper. Fry this until the onions are cooked and golden.\nSoak the bread in two cups of the stock from the boiled chicken and place in a blender for a couple of minutes and then add the resulting liquid to the saucepan.\nCook slowly for ten minutes. Cook slowly, stirring to thicken.\nWhile the Aj\u00ed de Gallina is cooking slowly, boil the rice: first fry the garlic for a couple of seconds, then add the rice and the salt, then add the water. When the water starts to boil, let the rice cook in a closed pot very slowly for about 20 minutes or until the water has completely evaporated (hint: to cook \"peruvian\" rice: cook a cup of rice in two cups of water).\nBack to the Aj\u00ed de Gallina: add the chopped pecans, grated cheese, and chicken pieces. Cook until it has a thick creamy texture. About five minutes before serving, add the evaporated milk and continue cooking on low heat.\nServe over the boiled rice and garnish with halved potatoes, eggs quartered lengthwise, and olives.",
+      "imageURL": "bundle:wikibooks-aji-de-gallina-peruvian-chili-chicken.jpg",
+      "diets": [
+        "soyFree"
+      ],
+      "trendingRank": 7,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Aj%C3%AD_de_Gallina_(Peruvian_Chili_Chicken)"
+    },
+    {
+      "id": "wikibooks-akamu-nigerian-pudding",
+      "name": "Akamu (Nigerian Pudding)",
+      "category": "dinner",
+      "cuisine": "",
+      "ingredients": [
+        "Akamu paste, broken into lumps",
+        "Hot water",
+        "Evaporated milk",
+        "Sugar"
+      ],
+      "instructions": "Fill a large basin halfway with the akamu lumps. Because akamu rises during preparation, use a bowl large enough to hold the meal in its elevated position. If in doubt, use a large bowl and allow plenty of time.\nCrush the ogi lumps with a spoon into very little pieces. Mix in small amounts of cold water until the mixture is smooth and has the consistency of evaporated milk.\nBring a large pot of water to a boil.\nStir the mixture thoroughly just before the water boils, as some akamu may have accumulated at the bottom of the basin. Once the water has reached a boil, carefully but steadily stir it into the akamu mixture. Stop stirring as soon as the mixture starts to set, and reduce the flow of water you're pouring to the bare minimum until the akamu has entirely set.\nThoroughly whisk the mixture. Add additional water as desired if the mixture is too thick.\nStir in evaporated milk and a pinch of sugar to taste.",
+      "imageURL": "bundle:wikibooks-akamu-nigerian-pudding.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "glutenFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": 8,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Akamu_(Nigerian_Pudding)"
+    },
+    {
+      "id": "wikibooks-algerian-mint-tea",
+      "name": "Algerian Mint Tea",
+      "category": "drink",
+      "cuisine": "",
+      "ingredients": [
+        "2 tsp of dried green tea (optional)",
+        "1 bunch of fresh mint leaves",
+        "10 sugar cubes (optional)",
+        "Water"
+      ],
+      "instructions": "Boil water in a saucepan.\nPut 2 tsp of dried green tea in the teapot.\nPour half a glass of boiling water into the teapot, stir and then empty the water to rinse the tea and get rid of its sour aftertaste.\nFill the teapot with boiling water and then add the fresh mint leaves, which should have been rinsed carefully beforehand.\nAdd the sugar cubes to the teapot then leave it on low to medium heat for a few minutes.\nThe tea is ready when the water comes to a boil.",
+      "imageURL": "bundle:wikibooks-algerian-mint-tea.jpg",
+      "diets": [
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "glutenFree",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": 9,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Algerian_Mint_Tea"
+    },
+    {
+      "id": "wikibooks-alkubus-nigerian-steamed-bread",
+      "name": "Alkubus (Nigerian Steamed Bread)",
+      "category": "bread",
+      "cuisine": "American",
+      "ingredients": [
+        "2 cups wheat flour",
+        "1 teaspoon instant yeast",
+        "\u00bd teaspoon salt",
+        "1 teaspoon baking powder",
+        "\u00bd cup water",
+        "2 teaspoons vegetable oil"
+      ],
+      "instructions": "Sift the flour into a mixing bowl. Mix in the yeast, salt, and baking powder.\nMix in the water to make a dough, and knead it until cohesive and fully combined.\nCover the dough and let rise for 1 hour.\nGently deflate the dough.\nGrease a cooking mold, and transfer the dough to the mold.\nCover the mold and place it in a steamer setup. Steam until cooked through and a skewer inserted into the center comes out clean.\nRemove from the heat and let cool.\nUnmold the steamed bread and serve.",
+      "imageURL": "bundle:wikibooks-alkubus-nigerian-steamed-bread.jpg",
+      "diets": [
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": 10,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Alkubus_(Nigerian_Steamed_Bread)"
+    },
+    {
+      "id": "wikibooks-almond-milk-ii",
+      "name": "Almond Milk II",
+      "category": "drink",
+      "cuisine": "",
+      "ingredients": [
+        "1 cup (236 ml) almonds",
+        "pure water, such as , orange blossom water, spring water, distilled water, or iodized water",
+        "3 dates"
+      ],
+      "instructions": "Put the almonds into a bowl, and cover them with at least one 1 inch (2.5 cm) of water. Leave them in the refrigerator overnight, and then drain the water. This is called sprouting or steeping.\nPut the drained almonds into a blender, and blend in the 3 cups (708 ml) of water. The mixture will start clear and quickly change color. Stop blending after a few minutes when there is no visible change in color or consistency anymore.\nStrain this mixture over a pitcher. You can either strain it through a fine sieve by squeezing the milk from the moist mixture through the sieve with a wooden spoon, or simply place mesh sometimes called a sprout or nut-milk bag that is usually made of nylon on top of the pitcher in order to squeeze the mixture through the mesh by hand. You may either discard the pulp or use it for other recipes, such as mixing it into almond .\nReturn the strained almond milk into the blender. Add the dates and blend until there is no longer any visible change in color or consistency.\nRefrigerate or pour into a drinking cup and consume.",
+      "imageURL": "bundle:wikibooks-almond-milk-ii.jpg",
+      "diets": [
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "keto",
+        "paleo",
+        "glutenFree",
+        "dairyFree",
+        "eggFree",
+        "soyFree"
+      ],
+      "trendingRank": 11,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Almond_Milk_II"
+    },
+    {
+      "id": "wikibooks-amala-ogede-nigerian-plantain-fufu",
+      "name": "Amala \u1eccg\u1eb9d\u1eb9 (Nigerian Plantain Fufu)",
+      "category": "dinner",
+      "cuisine": "",
+      "ingredients": [
+        "Plantain flour",
+        "Water"
+      ],
+      "instructions": "Boil some water in a pot.\nSlowly stir in the plantain flour until smooth and lump-free.\nAdd some water and cook for few minutes.\nServe with the soup of your choice.",
+      "imageURL": "bundle:wikibooks-amala-ogede-nigerian-plantain-fufu.jpg",
+      "diets": [
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": 12,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Amala_%E1%BB%8Cg%E1%BA%B9d%E1%BA%B9_(Nigerian_Plantain_Fufu)"
+    },
+    {
+      "id": "wikibooks-amala-yoruba-yam-swallow",
+      "name": "Amala (Yoruba Yam Swallow)",
+      "category": "dinner",
+      "cuisine": "",
+      "ingredients": [
+        "1 liter water",
+        "2 milk tins of yam flour"
+      ],
+      "instructions": "Heat water in a pot and bring to boil.\nGradually stir in the yam flour, mixing continuously to avoid lumps. You should get a smooth paste or dough.\nAdjust the amount of water or yam flour to get your desired consistency.\nStir well, cover, and cook on low heat for about 10 minutes.\nServe with soups.",
+      "imageURL": "bundle:wikibooks-amala-yoruba-yam-swallow.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "eggFree",
+        "soyFree",
         "nutFree"
       ],
       "trendingRank": null,
-      "sourceName": "HUB kitchen",
-      "license": "HUB original",
-      "changes": "Written for HUB",
-      "sourceURL": ""
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Amala_(Yoruba_Yam_Swallow)"
+    },
+    {
+      "id": "wikibooks-ambrosia-fruit-salad",
+      "name": "Ambrosia Fruit Salad",
+      "category": "dessert",
+      "cuisine": "",
+      "ingredients": [
+        "4 cups of mandarin oranges, drained",
+        "2 cans of pineapple, drained",
+        "2 cups of grapes",
+        "3 cups whipped cream",
+        "1 cup sour cream",
+        "6\u20138 cups miniature marshmallows"
+      ],
+      "instructions": "Mix the mandarin oranges, pineapple, and grapes in a large bowl.\nFold in the whipped cream, sour cream, and marshmallows.\nChill for at least an hour.\nStir again before serving.",
+      "imageURL": "bundle:wikibooks-ambrosia-fruit-salad.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "keto",
+        "glutenFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Ambrosia_Fruit_Salad"
+    },
+    {
+      "id": "wikibooks-anzac-biscuits-i",
+      "name": "Anzac Biscuits I",
+      "category": "dessert",
+      "cuisine": "",
+      "ingredients": [
+        "2 cups plain (non-self raising) flour",
+        "1 cup white or brown sugar",
+        "2 cups rolled or instant oats",
+        "1 cup desiccated coconut flakes",
+        "4 tablespoons golden syrup, corn syrup, or honey",
+        "225 grams butter or margarine",
+        "1 teaspoon baking soda",
+        "2 tablespoons of water"
+      ],
+      "instructions": "Mix the flour, sugar, oats, and coconut in a bowl.\nMelt the syrup and butter in a saucepan. Add the baking soda and water to the syrup mix.\nMix the wet and dry ingredients, adding water if necessary.\nSeparate and roll the mixture into small balls, and flatten them on oven trays.\nBake at 150\u00b0C (300\u00b0F) for about 20 minutes or until golden brown.",
+      "imageURL": "bundle:wikibooks-anzac-biscuits-i.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Anzac_Biscuits_I"
+    },
+    {
+      "id": "wikibooks-appam-fermented-rice-pancake",
+      "name": "Appam (Fermented Rice Pancake)",
+      "category": "dessert",
+      "cuisine": "Indian",
+      "ingredients": [
+        "1\u00bd cups uncooked white rice",
+        "1\u00bd cups fresh grated coconut",
+        "1 tablespoon sugar",
+        "1 teaspoon salt, or to taste",
+        "2 tablespoons white rice, cooked",
+        "water for soaking rice, and 2 to 2\u00bd cups for grinding",
+        "\u00bd teaspoon yeast or kefir, to start the ferment (optional)"
+      ],
+      "instructions": "Soak the raw rice in water.\nGrind the soaked rice until about \u00bc ground.\nAdd the grated coconut along with a little water and continue grinding.\nAdd the sugar, cooked rice and yeast or kefir, and keep grinding until the whole mixture becomes smooth. It should be thinner than pancake batter.\nTransfer it to a wide open container and leave it to rise overnight.\nThe next morning, add salt and refrigerate the batter until use.\nTo fry the appams, use a tava or a small bowl-shaped pan with either a non-stick coating or a little oil (coconut or any other refined oil) or ghee.\nPour a full serving spoon of batter into the middle of the pan and swirl it around a single time so that a little of the batter sticks to the sides.\nCover the pan with a hot lid and remove the appam with a spatula after 2\u20133 minutes, when it becomes slightly browned around the edges. It should be round, with a thick centre and thin, lacy edges.",
+      "imageURL": "bundle:wikibooks-appam-fermented-rice-pancake.jpg",
+      "diets": [
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "glutenFree",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Appam_(Fermented_Rice_Pancake)"
+    },
+    {
+      "id": "wikibooks-apple-cake",
+      "name": "Apple Cake",
+      "category": "dessert",
+      "cuisine": "",
+      "ingredients": [
+        "\u00bd cup (118 ml / 108 g) butter",
+        "1 cup (237 ml / 225 g) white granulated sugar",
+        "2 eggs",
+        "1 cup (110 g) white all-purpose flour",
+        "1 teaspoon baking soda",
+        "1 teaspoon ground cinnamon",
+        "\u00bd teaspoon ground nutmeg",
+        "Add 2 cups (\u00bd lb / 227 g) chopped apples",
+        "Whipped cream"
+      ],
+      "instructions": "Cream together butter and sugar until fluffy.\nBeat in the eggs.\nSift together the flour, baking soda, cinnamon, nutmeg. Mix into the batter until just incorporated\nFold in the apples.\nTransfer the batter to a greased and lined cake pan.\nBake at 350 \u00b0F (177 \u00b0C, gas mark 4) for 45 minutes.\nServe warm with whipped cream.",
+      "imageURL": "bundle:wikibooks-apple-cake.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Apple_Cake"
+    },
+    {
+      "id": "wikibooks-apple-crisp-i",
+      "name": "Apple Crisp I",
+      "category": "dessert",
+      "cuisine": "American",
+      "ingredients": [
+        "6 cups sliced and cored baking apples (for example, Granny Smith)",
+        "\u00bd cup (100 g) all-purpose flour",
+        "\u00bd cup (100 g) rolled oats",
+        "\u00be teaspoon (3 g) cinnamon",
+        "\u2153 cup (75 g) cold butter or cold margarine",
+        "\u2154\u2013\u00be cup (120\u2013150 g) brown sugar"
+      ],
+      "instructions": "In a medium bowl stir together flour, brown sugar, and oatmeal. If the room temperature is a bit warm, you should cool this mixture in the fridge.\nPrepare the apples. This should be completed before mixing butter into the topping. It is helpful to choose apples that do not brown quickly; Granny Smith apples are a good choice. Do not use Red Delicious apples; they turn to mush. Place the apples into a 9-inch (23 cm) square baking dish; glass is best.\nAdd the butter or margarine to the topping. Mix it via a slicing action, so that the butter or margarine forms tiny little chunks and does not melt or smear. A pair of butter knives, used like scissors, is good for this. You must work quickly once you start this step.\nSprinkle the topping onto the apples. You may pat it down just a bit.\nBake for about 30 minutes in a 375 \u00b0F (190\u00b0C) oven. Do not remove the crisp before the top is dark brown. Black spots indicate burning. It is better to burn a few small spots, which you can then remove, than to risk undercooking the topping.",
+      "imageURL": "bundle:wikibooks-apple-crisp-i.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Apple_Crisp_I"
+    },
+    {
+      "id": "wikibooks-arroz-con-pollo-rice-and-chicken",
+      "name": "Arroz con Pollo (Rice and Chicken)",
+      "category": "dinner",
+      "cuisine": "",
+      "ingredients": [
+        "1 ea. (1.3\u20131.8 kg) chicken, cut into serving pieces",
+        "Salt to taste",
+        "Pepper to taste",
+        "Olive oil",
+        "4 cloves of fresh garlic, minced",
+        "1 medium onion, chopped",
+        "225 g diced red bell pepper",
+        "425 g (1 can) diced tomatoes",
+        "7.5 g (\u00bd tablespoon) sweet paprika",
+        "14 g (\u00bd oz) chopped cilantro",
+        "1.4 liter (6 cups) chicken stock",
+        "8 saffron threads or 1 teaspoon food coloring for yellow rice",
+        "370 g (2 cups) medium or long-grain rice",
+        "225 g (8 oz) canned peas (thoroughly drained)"
+      ],
+      "instructions": "Season the chicken with two pinches of salt and a pinch of pepper.\nPour enough olive oil into a large skillet to just barely cover the bottom.\nSaut\u00e9 chicken in oil until brown. There are two ways to proceed from here: either remove the chicken from the skillet or keep it there.\nSaut\u00e9 garlic until brown. Be careful, garlic burns easily.\nAdd the onion, bell pepper, tomatoes and paprika. Saut\u00e9 until the vegetables are tender.\nTransfer the ingredients to a large stewing pot.\nAdd the cilantro, bouillon and saffron (or food coloring). Bring to a rolling boil.\nAdd the rice and mix well. Simmer over medium heat until the rice is cooked and the liquid is absorbed. Add more broth or water if the liquid evaporates before the rice is cooked.\nAdd the chicken to the pot (if you removed it previously) and cover it with rice. Wait two to three minutes to allow the chicken to warm.\nSprinkle peas on top of the rice.",
+      "imageURL": "bundle:wikibooks-arroz-con-pollo-rice-and-chicken.jpg",
+      "diets": [
+        "glutenFree",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Arroz_con_Pollo_(Rice_and_Chicken)"
+    },
+    {
+      "id": "wikibooks-asian-grilled-duck-breasts",
+      "name": "Asian Grilled Duck Breasts",
+      "category": "dinner",
+      "cuisine": "",
+      "ingredients": [
+        "4 ea. (28\u201332 oz / 800\u2013900 g) boneless duck breasts",
+        "1 tsp (5 ml) salt",
+        "1 tsp (5 ml) freshly ground black pepper",
+        "1 tsp (5 ml) ground ginger",
+        "\u00bd tbsp (7.5 ml) red pepper flake",
+        "1 star anise pod, ground",
+        "2 tsp (10 ml) curry powder",
+        "\u00bd tsp (2.5 ml) freshly ground cinnamon",
+        "1 tsp (5 ml) dried basil",
+        "2 tsp (10 ml) garlic powder",
+        "\u00bd cup (120 ml) canned Mandarin orange wedges in syrup, drained",
+        "1 tbsp (15 ml) soy sauce",
+        "2 tbsp (30 ml) honey",
+        "1\u00bd tbsp (22.5 ml) chile paste"
+      ],
+      "instructions": "Combine salt, pepper, ginger, pepper flake, star anise, basil, curry powder, cinnamon, basil, and garlic powder. Set aside.\nScore skin of duck in a diamond pattern, being careful not to cut into flesh. Rub both sides of each duck breast with spice mixture. Refrigerate for at least 1 hour.\nPreheat a grill to medium high heat.\nPulse oranges, soy sauce, honey, and chile paste in a food processor until smooth.\nPour into a large saucepan and bring to a boil over medium high heat. Cook until reduced by half. Let cool before using.\nGrill duck on the preheated grill 4\u20135 minutes, brushing liberally with sauce once or twice. Flip and cook another 3\u20134 minutes, brushing liberally with glaze once or twice, for medium rare.\nBring remaining glaze to a boil. Pour into a dipping bowl and serve alongside the duck.",
+      "imageURL": "bundle:wikibooks-asian-grilled-duck-breasts.jpg",
+      "diets": [
+        "dairyFree",
+        "eggFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Asian_Grilled_Duck_Breasts"
+    },
+    {
+      "id": "wikibooks-asian-inspired-chicken-salad",
+      "name": "Asian-Inspired Chicken Salad",
+      "category": "salad",
+      "cuisine": "",
+      "ingredients": [
+        "1\u00bd cups broccoli flowerets",
+        "\u00bd cup pea pods",
+        "6 cups torn mixed greens",
+        "2 cups thinly-sliced Nappa cabbage",
+        "\u00bd cup julienned carrots",
+        "1 package (6 oz) grilled chicken breast, cut in strips",
+        "\u00be cups salad dressing (teriyaki ginger, Asian sesame with ginger, or balsamic vinaigrette)",
+        "1 mango, peeled, seeded, and thinly sliced (optional)",
+        "Sesame crackers (optional)"
+      ],
+      "instructions": "In large saucepan quickly plunge broccoli and pea pods into boiling water for 30 seconds. Drain vegetables. Quickly rinse with cold water. Drain well.\nIn large bowl toss together the blanched broccoli and pea pods, greens, cabbage and carrots.\nAdd chicken.\nDrizzle with salad dressing. Toss to coat.\nArrange on 4 serving plates.\nTop with mango, if desired.\nServe with crackers.",
+      "imageURL": "bundle:wikibooks-asian-inspired-chicken-salad.jpg",
+      "diets": [
+        "keto",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Asian-Inspired_Chicken_Salad"
+    },
+    {
+      "id": "wikibooks-asun-goat-in-pepper-sauce",
+      "name": "Asun (Goat in Pepper Sauce)",
+      "category": "dinner",
+      "cuisine": "",
+      "ingredients": [
+        "Goat meat, washed and cut into smaller pieces",
+        "Salt",
+        "Stock cube",
+        "2 medium-sized onions",
+        "Fresh habanero pepper",
+        "Bell pepper, chopped",
+        "1 onion, chopped"
+      ],
+      "instructions": "Place goat meat in a clean bowl. Add salt and stock cubes, and give a good massage. Marinate for at least 2 hours to properly season the meat.\nPlace the marinated goat meat on an electric barbecue grill or oven grill. Rub some vegetable oil on the meat.\nCover the grill, and grill for about 20 minutes. If you are using an oven grill, grill it for about 40 minutes at 180\u02daC.\nIn a food processor, blend the habanero pepper, and onions to a chunky paste.\nPlace a pan on medium heat. Add the grilled meat along with about \u00be cup water to introduce moisture. Let cook for about 5\u201310 minutes.\nStir in the pepper and onion mixture, and let cook for about 5\u20137 minutes.\nAdd the chopped bell pepper and onion. Combine thoroughly, and add salt to taste.\nAdd a tablespoon of vegetable oil, and combine very well. Leave to simmer for about 2 minutes.\nServe.",
+      "imageURL": "bundle:wikibooks-asun-goat-in-pepper-sauce.jpg",
+      "diets": [
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "keto",
+        "paleo",
+        "glutenFree",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Asun_(Goat_in_Pepper_Sauce)"
+    },
+    {
+      "id": "wikibooks-au-jus-sandwich",
+      "name": "Au Jus Sandwich",
+      "category": "bread",
+      "cuisine": "",
+      "ingredients": [
+        "3 tablespoons flour",
+        "roast or other cut of beef",
+        "1 beef bouillon cube",
+        "1 can (~2 cups / 16 oz / 470 ml) beef consomm\u00e9, bouillon cube equivalent, or additional roast beef",
+        "1 can (~2 cups / 16 oz / 470 ml) French onion soup",
+        "1 cup (2 sticks / 250 g / 8.8 oz) butter",
+        "1 can (16 oz / 470 ml) beer (optional)",
+        "Spices (e.g. salt, pepper) (optional)",
+        "4 French/sandwich/hoagie rolls"
+      ],
+      "instructions": "Combine all the ingredients except the rolls in a slow cooker or crock pot. Let the mixture simmer for at least six hours. This step is critical because it makes the meat tender.\nServe beef on split rolls.\nYou can either pre-dip the sandwich, or serve with a bowl of meat drippings. When serving the drippings separately, remove the beef shreds from the juices and serve with a small bowl of meat drippings on the side. Dip the sandwiches in the drippings as you eat.",
+      "imageURL": "bundle:wikibooks-au-jus-sandwich.jpg",
+      "diets": [
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Au_Jus_Sandwich"
+    },
+    {
+      "id": "wikibooks-baba-ganoush",
+      "name": "Baba Ganoush",
+      "category": "snack",
+      "cuisine": "Mediterranean",
+      "ingredients": [
+        "1 ea. (1 to 1\u00bd pounds) medium-large eggplant, any variety",
+        "2 tablespoons raw tahini",
+        "Juice of 1 lime or lemon",
+        "1 clove garlic, crushed",
+        "3 tablespoons olive oil",
+        "\u00bd tsp salt",
+        "Paprika or cayenne pepper, as a garnish"
+      ],
+      "instructions": "Roast the eggplant. This can be done in a variety of ways, but the flesh should be fully cooked and the skin should be burned and falling off easily. An effective method is to prick the eggplant and place it a few inches under a broiler, turning it as the exposed skin blackens, about every 3-4 minutes. Place a pan underneath to catch the juices, and discard them.\nScrape off the eggplant skin. It's alright if you miss a few burned bits.\nFinely chop or blend the eggplant flesh with the rest of the ingredients. The consistency should be smooth. Reserve a bit of the olive oil, and drizzle that over the top. Sprinkle with some paprika or cayenne.",
+      "imageURL": "bundle:wikibooks-baba-ganoush.jpg",
+      "diets": [
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "keto",
+        "paleo",
+        "glutenFree",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Baba_Ganoush"
+    },
+    {
+      "id": "wikibooks-baingan-bartha-south-indian-eggplant-with-coconut-and-chili-i",
+      "name": "Baingan Bartha (South Indian Eggplant with Coconut and Chili) I",
+      "category": "dinner",
+      "cuisine": "Indian",
+      "ingredients": [
+        "1 ea. (1 pound / 450 kg) eggplant (aubergine)",
+        "2\u20136 green chillies, as desired",
+        "1 cup fresh ground coconut",
+        "1 cup chopped fresh coriander leaves (cilantro)",
+        "2 cups paneer or yoghurt (optional)",
+        "Salt to taste"
+      ],
+      "instructions": "Roast the eggplant directly over a low flame. Don't be afraid to set it right on the gas burner, turning it regularly until the skin becomes blackened and brittle and the flesh soft (about 15\u201320 minutes).\nSet aside to cool.\nGrind the chillies, coconut, and coriander together in a food processor to form a paste.\nPeel the eggplant skin off and mash the flesh to a uniform pulp by hand.\nMix in the coconut paste and paneer/yogurt, along with salt to taste.\nServe with chapatis, dosa or rice.",
+      "imageURL": "bundle:wikibooks-baingan-bartha-south-indian-eggplant-with-coconut-and-chili-i.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "keto",
+        "glutenFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Baingan_Bartha_(South_Indian_Eggplant_with_Coconut_and_Chili)_I"
+    },
+    {
+      "id": "wikibooks-baked-ziti",
+      "name": "Baked Ziti",
+      "category": "bread",
+      "cuisine": "Italian",
+      "ingredients": [
+        "1 lb (450 g) ziti or other pasta",
+        "1 \u00bd cups (360 ml) marinara sauce",
+        "1 lb (450 g) grated mozzarella",
+        "\u00bd lb (225 g) ricotta",
+        "4 oz (110 g) grated Parmesan cheese",
+        "1 egg, beaten",
+        "3 tbsp basil, chopped fine",
+        "2 tbsp oregano, chopped fine",
+        "3 tbsp Italian parsley, chopped fine",
+        "\u00bd cup (120 ml) bread crumbs",
+        "1 pinch crushed red pepper flakes (optional)",
+        "Salt",
+        "Pepper"
+      ],
+      "instructions": "Preheat oven to 425 \u00b0F (225 \u00b0C). Coat a large baking dish with olive oil.\nMix ricotta, egg, basil, oregano, parsley and about half of the mozzarella and Parmesan in a large bowl until well incorporated. Season with salt and pepper.\nCook ziti in a large pot of salted water until al dente. Drain well.\nIn a large bowl or pot, toss ziti with marinara sauce and red pepper flakes until noodles are covered. Stir in ricotta mixture and fold until it begins to melt. Pour mixture into greased dish and spread it out with a spoon.\nSprinkle remaining mozzarella and Parmesan over the top, then sprinkle bread crumbs over cheese.\nBake at 425 \u00b0F (225 \u00b0C) for 20 minutes or until cheese on top turns golden and begins to bubble.",
+      "imageURL": "bundle:wikibooks-baked-ziti.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Baked_Ziti"
+    },
+    {
+      "id": "wikibooks-banana-chip-muffins",
+      "name": "Banana Chip Muffins",
+      "category": "breakfast",
+      "cuisine": "",
+      "ingredients": [
+        "1 \u00be cup (250 g / 8.8 oz) all-purpose flour",
+        "\u00bd cup (110 g / 3.9 oz) granulated sugar",
+        "1 tablespoon baking powder",
+        "\u00bd cup (40 g / 1.4 oz) semisweet chocolate chips",
+        "1 egg",
+        "\u00bc cup (60 ml / 2 fl oz) cooking oil",
+        "\u00bc cup (60 ml / 2 oz) milk",
+        "1 cup (250 g / 8.8 oz / 3 ea.) mashed ripe bananas"
+      ],
+      "instructions": "Measure flour, sugar, baking powder, salt, and chocolate chips into a mixing bowl. Make a well in the center.\nBeat egg in a small mixing bowl until frothy. Mix in cooking oil, milk, and banana.\nPour into well in flour mixture. Stir just to moisten\u2014the batter will be lumpy.\nFill greased muffin cups \u00be full. Bake at 400 \u00b0F (205 \u00b0C) for 15 to 20 minutes.",
+      "imageURL": "bundle:wikibooks-banana-chip-muffins.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Banana_Chip_Muffins"
+    },
+    {
+      "id": "wikibooks-banana-nut-muffins",
+      "name": "Banana Nut Muffins",
+      "category": "bread",
+      "cuisine": "",
+      "ingredients": [
+        "2 eggs",
+        "1 tbsp honey, molasses, or sugar",
+        "1 cup milk (or soy milk)",
+        "\u00bc cup vegetable oil",
+        "2\u20133 bananas, mashed",
+        "\u2154 cups (160 ml) white flour",
+        "1\u2153 cups (320 g) whole wheat flour",
+        "\u00bd tsp salt",
+        "2 tsp baking powder",
+        "\u00bd cups (120 ml) chopped nuts (such as walnuts)",
+        "Sugar to taste, if necessary"
+      ],
+      "instructions": "Preheat oven to 400\u00b0F (200\u00b0C).\nGrease a muffin tin.\nCream together eggs, honey, milk, vegetable oil, and bananas.\nCombine dry ingredients, then mix gently with wet ingredients. Lumpy batter is to be expected.\nBake for 20\u201325 minutes.\nCool.",
+      "imageURL": "bundle:wikibooks-banana-nut-muffins.jpg",
+      "diets": [
+        "vegetarian",
+        "pescatarian",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Banana_Nut_Muffins"
+    },
+    {
+      "id": "wikibooks-barbecue-ribs",
+      "name": "Barbecue Ribs",
+      "category": "dinner",
+      "cuisine": "",
+      "ingredients": [
+        "1 slab St. Louis pork spareribs",
+        "5 tbsp Barbecue Rub",
+        "\u00bd cup apple cider vinegar",
+        "\u00bd cup tomato paste",
+        "\u00bc cup blackstrap molasses",
+        "\u00bc cup light molasses",
+        "2 tbsp Worcestershire sauce",
+        "Large hickory chunks"
+      ],
+      "instructions": "Massage ribs with the barbecue rub. Refrigerate for 1 hour.\nCombine remaining ingredients except for hickory in a large saucepan, and bring to a boil over high heat until reduced by \u00bd.\nPlace hickory chunks in firebox of 250\u00b0F (120\u00b0C) smoker.\nPlace ribs in smoker and cook, brushing often with tomato mixture and changing the hickory chunks as needed, for 5\u20136 hours.\nBrush ribs generously with mixture and grill on high heat, brushing repeatedly until well-browned on both sides.\nRemove and let rest 10 minutes. Serve.",
+      "imageURL": "bundle:wikibooks-barbecue-ribs.jpg",
+      "diets": [
+        "glutenFree",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Barbecue_Ribs"
+    },
+    {
+      "id": "wikibooks-barbecue-sauce-i",
+      "name": "Barbecue Sauce I",
+      "category": "drink",
+      "cuisine": "",
+      "ingredients": [
+        "\u00bc cup (62.5 mL) brown sugar",
+        "1 tbsp (15 mL) garlic powder",
+        "1 tbsp (15 mL) paprika powder",
+        "2 tsp (10 mL) salt",
+        "1 heaping tsp (6.66 mL) of ground coffee beans",
+        "1 cup (250 mL) ketchup",
+        "\u00bd cup (125 mL) water",
+        "3 tbsp (45 mL) white vinegar",
+        "A shot of whiskey or \u00bd shot of cognac",
+        "A squeeze of lemon juice"
+      ],
+      "instructions": "Mix everything in a pot.\nLet it simmer for around 30 minutes, stirring occasionally.",
+      "imageURL": "bundle:wikibooks-barbecue-sauce-i.jpg",
+      "diets": [
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "glutenFree",
+        "dairyFree",
+        "eggFree",
+        "soyFree",
+        "nutFree"
+      ],
+      "trendingRank": null,
+      "sourceName": "Wikibooks Cookbook",
+      "license": "CC BY-SA 4.0",
+      "changes": "Normalized the ingredient list and steps, resized and compressed the dish photo for HUB Circle hosting, and added deterministic diet and allergen tags from the ingredient list. The recipe wording was lightly cleaned.",
+      "sourceURL": "https://en.wikibooks.org/wiki/Cookbook:Barbecue_Sauce_I"
     }
   ]
 }

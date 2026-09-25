@@ -44,9 +44,13 @@ protocol RecipeProviding: Sendable {
 }
 
 enum RecipeSources {
-    /// Public base of our recipe pack on Cloudflare R2, such as https://recipes.example.r2.dev
-    /// Nil uses the bundled seed only. No third-party recipe API.
-    static let r2CatalogBase: URL? = nil
+    /// Public base of our recipe pack. Set Info.plist `HUBCatalogBaseURL` when the bucket is public. Empty uses the bundled seed only.
+    static var r2CatalogBase: URL? {
+        let raw = (Bundle.main.object(forInfoDictionaryKey: "HUBCatalogBaseURL") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard raw.isEmpty == false else { return nil }
+        return URL(string: raw)
+    }
     static let packPath = "recipe-pack.json"
 
     static func make() -> any RecipeProviding {

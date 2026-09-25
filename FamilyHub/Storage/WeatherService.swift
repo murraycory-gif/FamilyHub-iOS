@@ -1,5 +1,7 @@
 import CoreLocation
 import Foundation
+import MapKit
+import WeatherKit
 
 @MainActor
 final class WeatherLoader: ObservableObject {
@@ -55,7 +57,7 @@ final class WeatherLoader: ObservableObject {
             hours = bundle.hours
             now = bundle.now
         } catch {
-            errorMessage = "Could not load weather."
+            errorMessage = "Weather unavailable"
         }
     }
 
@@ -83,15 +85,18 @@ final class WeatherLoader: ObservableObject {
 
 enum WeatherAPI {
     static func searchPlaces(_ query: String) async throws -> [WeatherPlace] {
-        let url = try endpoint("https://geocoding-api.open-meteo.com/v1/search", [
-            URLQueryItem(name: "name", value: query),
-            URLQueryItem(name: "count", value: "6"),
-            URLQueryItem(name: "language", value: "en"),
-            URLQueryItem(name: "format", value: "json"),
-        ])
-        let data = try await HubHTTP.data(from: url)
-        let decoded = try JSONDecoder().decode(GeocodeSearch.self, from: data)
-        return (decoded.results ?? []).map(\.place)
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.resultTypes = .address
+        let response = try await MKLocalSearch(request: request).start()
+        return response.mapItems.prefix(6).compactMap { item in
+            let coord = item.placemark.coordinate
+            let city = item.placemark.locality ?? item.name ?? ""
+            guard !city.isEmpty else { return nil }
+            let region = item.placemark.administrativeArea
+            let label = [city, region].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+            return WeatherPlace(label: label, latitude: coord.latitude, longitude: coord.longitude)
+        }
     }
 
     static func reverseGeocode(latitude: Double, longitude: Double) async throws -> WeatherPlace {
@@ -105,48 +110,20 @@ enum WeatherAPI {
                 return WeatherPlace(label: label, latitude: latitude, longitude: longitude)
             }
         }
-        var components = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/reverse")
-        components?.queryItems = [
-            URLQueryItem(name: "latitude", value: String(latitude)),
-            URLQueryItem(name: "longitude", value: String(longitude)),
-            URLQueryItem(name: "language", value: "en"),
-            URLQueryItem(name: "format", value: "json"),
-        ]
-        if let url = components?.url,
-           let data = try? await HubHTTP.data(from: url),
-           let decoded = try? JSONDecoder().decode(GeocodeSearch.self, from: data),
-           let first = decoded.results?.first {
-            return first.place
-        }
-        return WeatherPlace(
-            label: "Current location",
-            latitude: latitude,
-            longitude: longitude
-        )
+        return WeatherPlace(label: "Current location", latitude: latitude, longitude: longitude)
     }
 
     static func forecast(for place: WeatherPlace, units: HubUnits = .us) async throws -> WeatherBundle {
-        let url = try endpoint("https://api.open-meteo.com/v1/forecast", [
-            URLQueryItem(name: "latitude", value: String(place.latitude)),
-            URLQueryItem(name: "longitude", value: String(place.longitude)),
-            URLQueryItem(name: "current", value: "temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m,precipitation"),
-            URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation_probability,is_day,uv_index"),
-            URLQueryItem(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max,wind_speed_10m_max"),
-            URLQueryItem(name: "temperature_unit", value: units.temperature.api),
-            URLQueryItem(name: "wind_speed_unit", value: units.wind.rawValue),
-            URLQueryItem(name: "precipitation_unit", value: units.precipitation.api),
-            URLQueryItem(name: "timezone", value: "auto"),
-            URLQueryItem(name: "forecast_days", value: "16"),
-        ])
-        let data = try await HubHTTP.data(from: url)
-        return try JSONDecoder().decode(ForecastResponse.self, from: data).bundle()
+        let location = CLLocation(latitude: place.latitude, longitude: place.longitude)
+        let weather = try await WeatherService.shared.weather(for: location)
+        return WeatherKitMap.bundle(weather, units: units)
     }
 
-    private static func endpoint(_ string: String, _ items: [URLQueryItem]) throws -> URL {
-        guard var components = URLComponents(string: string) else { throw URLError(.badURL) }
-        components.queryItems = items
-        guard let url = components.url else { throw URLError(.badURL) }
-        return url
+    static func attribution() async -> (name: String, legal: URL?) {
+        guard let attribution = try? await WeatherService.shared.attribution else {
+            return ("Weather", nil)
+        }
+        return (attribution.serviceName, attribution.legalPageURL)
     }
 }
 
@@ -156,171 +133,76 @@ struct WeatherBundle {
     var days: [WeatherDay]
 }
 
-private struct GeocodeSearch: Decodable {
-    var results: [GeocodeHit]?
-}
-
-private struct GeocodeHit: Decodable {
-    var name: String
-    var latitude: Double
-    var longitude: Double
-    var admin1: String?
-    var country_code: String?
-
-    var place: WeatherPlace {
-        var parts = [name]
-        if let admin1, !admin1.isEmpty { parts.append(admin1) }
-        if let country_code, country_code != "US" { parts.append(country_code) }
-        return WeatherPlace(label: parts.joined(separator: ", "), latitude: latitude, longitude: longitude)
-    }
-}
-
-private struct ForecastResponse: Decodable {
-    var current: Current
-    var hourly: Hourly
-    var daily: Daily
-
-    struct Current: Decodable {
-        var temperature_2m: Double
-        var apparent_temperature: Double
-        var weather_code: Int
-        var is_day: Int
-        var relative_humidity_2m: Int?
-        var wind_speed_10m: Double?
-        var precipitation: Double?
-    }
-
-    struct Hourly: Decodable {
-        var time: [String]
-        var temperature_2m: [Double]
-        var weather_code: [Int]
-        var precipitation_probability: [Int]?
-        var is_day: [Int]?
-        var uv_index: [Double]?
-    }
-
-    struct Daily: Decodable {
-        var time: [String]
-        var weather_code: [Int]
-        var temperature_2m_max: [Double]
-        var temperature_2m_min: [Double]
-        var precipitation_probability_max: [Int]?
-        var sunrise: [String]?
-        var sunset: [String]?
-        var uv_index_max: [Double]?
-        var wind_speed_10m_max: [Double]?
-    }
-
-    func bundle() -> WeatherBundle {
-        let dayStamp = DateFormatter()
-        dayStamp.dateFormat = "yyyy-MM-dd"
-        dayStamp.locale = Locale(identifier: "en_US_POSIX")
+private enum WeatherKitMap {
+    static func bundle(_ weather: Weather, units: HubUnits) -> WeatherBundle {
+        let current = weather.currentWeather
+        let tempUnit: UnitTemperature = units.temperature == .celsius ? .celsius : .fahrenheit
+        let speedUnit: UnitSpeed = {
+            switch units.wind {
+            case .kmh: return .kilometersPerHour
+            case .ms: return .metersPerSecond
+            case .kn: return .knots
+            case .mph: return .milesPerHour
+            }
+        }()
+        let now = WeatherNow(
+            temp: Int(current.temperature.converted(to: tempUnit).value.rounded()),
+            feelsLike: Int(current.apparentTemperature.converted(to: tempUnit).value.rounded()),
+            code: code(current.condition),
+            isDay: current.isDaylight,
+            humidity: Int((current.humidity * 100).rounded()),
+            windMph: Int(current.wind.speed.converted(to: speedUnit).value.rounded()),
+            uv: current.uvIndex.value,
+            precip: Int(current.precipitationIntensity.converted(to: units.precipitation == .mm ? UnitLength.millimeters : .inches).value.rounded())
+        )
+        let start = Date().addingTimeInterval(-30 * 60)
+        let hours: [WeatherHour] = weather.hourlyForecast.forecast.prefix(384).compactMap { hour in
+            guard hour.date >= start else { return nil }
+            return WeatherHour(
+                at: hour.date,
+                temp: Int(hour.temperature.converted(to: tempUnit).value.rounded()),
+                code: code(hour.condition),
+                precip: Int((hour.precipitationChance * 100).rounded()),
+                isDay: hour.isDaylight
+            )
+        }
+        let stamp = DateFormatter()
+        stamp.dateFormat = "yyyy-MM-dd"
+        stamp.locale = Locale(identifier: "en_US_POSIX")
         let weekday = DateFormatter()
         weekday.dateFormat = "EEE"
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withColonSeparatorInTime]
-        let loose = DateFormatter()
-        loose.dateFormat = "yyyy-MM-dd'T'HH:mm"
-        loose.locale = Locale(identifier: "en_US_POSIX")
-
-        func parseHour(_ raw: String) -> Date {
-            iso.date(from: raw) ?? loose.date(from: raw) ?? Date()
-        }
-        func asInt(_ value: Double) -> Int {
-            guard value.isFinite else { return 0 }
-            return Int(value.rounded())
-        }
-
-        let sunriseDates = (daily.sunrise ?? []).map(parseHour)
-        let sunsetDates = (daily.sunset ?? []).map(parseHour)
-        let sunIsUp: Bool = {
-            if let rise = sunriseDates.first, let set = sunsetDates.first {
-                let nowDate = Date()
-                return nowDate >= rise && nowDate < set
-            }
-            return current.is_day == 1
-        }()
-
-        let nowHourIndex = hourly.time.indices.first { index in
-            abs(parseHour(hourly.time[index]).timeIntervalSinceNow) < 45 * 60
-        }
-        let nowUV: Int = {
-            if let idx = nowHourIndex, let uvs = hourly.uv_index, idx < uvs.count {
-                return asInt(uvs[idx])
-            }
-            return asInt(daily.uv_index_max?.first ?? 0)
-        }()
-
-        let precipNow = current.precipitation ?? 0
-        var code = current.weather_code
-        let rainCodes: Set<Int> = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82]
-        if precipNow < 0.1, rainCodes.contains(code) {
-            let pop = nowHourIndex.flatMap { idx in hourly.precipitation_probability?[idx] } ?? 0
-            if pop < 40 {
-                code = 2
-            }
-        }
-
-        let now = WeatherNow(
-            temp: asInt(current.temperature_2m),
-            feelsLike: asInt(current.apparent_temperature),
-            code: code,
-            isDay: sunIsUp,
-            humidity: current.relative_humidity_2m ?? 0,
-            windMph: asInt(current.wind_speed_10m ?? 0),
-            uv: nowUV,
-            precip: asInt(current.precipitation ?? 0)
-        )
-
-        let start = Date().addingTimeInterval(-30 * 60)
-        let hours: [WeatherHour] = zip(hourly.time.indices, hourly.time).compactMap { index, raw in
-            guard hourly.temperature_2m.indices.contains(index),
-                  hourly.weather_code.indices.contains(index)
-            else { return nil }
-            let at = parseHour(raw)
-            guard at >= start else { return nil }
-            let hourIsDay: Bool
-            if let flags = hourly.is_day, flags.indices.contains(index) {
-                hourIsDay = flags[index] == 1
-            } else if let rise = sunriseDates.first, let set = sunsetDates.first {
-                hourIsDay = at >= rise && at < set
-            } else {
-                let hour = Calendar.current.component(.hour, from: at)
-                hourIsDay = hour >= 6 && hour < 20
-            }
-            let pop = hourly.precipitation_probability.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0
-            return WeatherHour(
-                at: at,
-                temp: asInt(hourly.temperature_2m[index]),
-                code: hourly.weather_code[index],
-                precip: pop,
-                isDay: hourIsDay
+        let days: [WeatherDay] = weather.dailyForecast.forecast.map { day in
+            WeatherDay(
+                dateISO: stamp.string(from: day.date),
+                weekday: weekday.string(from: day.date),
+                high: Int(day.highTemperature.converted(to: tempUnit).value.rounded()),
+                low: Int(day.lowTemperature.converted(to: tempUnit).value.rounded()),
+                code: code(day.condition),
+                precip: Int((day.precipitationChance * 100).rounded()),
+                uv: day.uvIndex.value,
+                windMph: Int(day.wind.speed.converted(to: speedUnit).value.rounded()),
+                sunrise: day.sun?.sunrise,
+                sunset: day.sun?.sunset
             )
         }
-        .prefix(384)
-        .map { $0 }
-
-        let days: [WeatherDay] = zip(daily.time.indices, daily.time).compactMap { index, isoDay in
-            guard daily.temperature_2m_max.indices.contains(index),
-                  daily.temperature_2m_min.indices.contains(index),
-                  daily.weather_code.indices.contains(index)
-            else { return nil }
-            let date = dayStamp.date(from: isoDay) ?? Date()
-            return WeatherDay(
-                dateISO: isoDay,
-                weekday: weekday.string(from: date),
-                high: asInt(daily.temperature_2m_max[index]),
-                low: asInt(daily.temperature_2m_min[index]),
-                code: daily.weather_code[index],
-                precip: daily.precipitation_probability_max.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0,
-                uv: asInt(daily.uv_index_max.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0),
-                windMph: asInt(daily.wind_speed_10m_max.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 0),
-                sunrise: sunriseDates.indices.contains(index) ? sunriseDates[index] : nil,
-                sunset: sunsetDates.indices.contains(index) ? sunsetDates[index] : nil
-            )
-        }
-
         return WeatherBundle(now: now, hours: hours, days: days)
+    }
+
+    static func code(_ condition: WeatherCondition) -> Int {
+        switch condition {
+        case .clear, .mostlyClear, .hot: return 0
+        case .partlyCloudy, .windy: return 2
+        case .cloudy, .mostlyCloudy, .blowingDust, .haze, .smoky: return 3
+        case .foggy, .breezy: return 45
+        case .drizzle, .freezingDrizzle: return 51
+        case .rain, .sunShowers, .heavyRain: return 61
+        case .freezingRain, .wintryMix: return 67
+        case .snow, .flurries, .sunFlurries, .heavySnow, .blowingSnow, .blizzard: return 71
+        case .sleet, .hail: return 77
+        case .thunderstorms, .isolatedThunderstorms, .scatteredThunderstorms, .strongStorms: return 95
+        case .frigid, .hurricane, .tropicalStorm: return 95
+        default: return 3
+        }
     }
 }
 

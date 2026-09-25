@@ -229,21 +229,11 @@ struct OnboardingView: View {
     }
 
     private func startJoin() {
-        let code = joinInput.replacingOccurrences(of: " ", with: "").uppercased()
-        guard code.count == 6 else {
-            joinError = "Ask the owner for the 6-character HUB code."
-            return
-        }
-        if code == store.joinCode.uppercased(), !store.members.isEmpty {
-            joinError = nil
-            withAnimation { page = 2 }
-            return
-        }
         joining = true
         joinError = nil
         Task {
             do {
-                try await store.joinRemoteHousehold(code: code)
+                try await store.joinSharedHousehold()
                 joinError = nil
                 withAnimation { page = 2 }
             } catch {
@@ -306,7 +296,7 @@ struct OnboardingView: View {
                             pathCard("Create this Circle", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
                                 path = .create
                             }
-                            pathCard("Join a family Circle", "Someone already built one. Enter their code.", "person.badge.plus", path == .join) {
+                            pathCard("Join a family Circle", "Accept the owner’s Apple share, then open it here.", "person.badge.plus", path == .join) {
                                 path = .join
                             }
                         }
@@ -321,7 +311,7 @@ struct OnboardingView: View {
                         pathCard("Create this Circle", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
                             path = .create
                         }
-                        pathCard("Join a family Circle", "Someone already built one. Enter their code.", "person.badge.plus", path == .join) {
+                        pathCard("Join a family Circle", "Accept the owner’s Apple share, then open it here.", "person.badge.plus", path == .join) {
                             path = .join
                         }
                     }
@@ -785,7 +775,7 @@ struct OnboardingView: View {
     }
 
     private var readyPage: some View {
-        setupCard("Your HUB is live", "Share the code. Family who join see calendars, meals, chores, and shopping.") {
+        setupCard("Your HUB is live", "Share it from Settings → Invite. Family accepts the Apple invite, then picks a profile.") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Family join code")
                     .font(.subheadline.weight(.bold))
@@ -810,7 +800,7 @@ struct OnboardingView: View {
     }
 
     private var joinPage: some View {
-        setupCard("Enter the family code", "Six characters from the owner. Then tap your profile.") {
+        setupCard("Accept the family share", "Open the invite from the owner, then load the shared HUB and tap your profile.") {
             VStack(alignment: .leading, spacing: 12) {
                 TextField("ABC123", text: $joinInput)
                     .textInputAutocapitalization(.characters)
@@ -822,7 +812,7 @@ struct OnboardingView: View {
                 if let joinError {
                     Text(joinError).foregroundStyle(AppTheme.chore).font(.subheadline.weight(.semibold))
                 }
-                if joinInput.replacingOccurrences(of: " ", with: "").uppercased() == store.joinCode.uppercased() {
+                if !store.members.isEmpty {
                     Text("Who are you?")
                         .font(.headline)
                     ForEach(store.members) { member in
