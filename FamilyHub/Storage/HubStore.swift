@@ -53,7 +53,7 @@ final class HubStore: ObservableObject {
     @Published private(set) var loadFailureDetail: String?
     var remote: any HouseholdRemote = HouseholdCloudClient()
     /// False after this device joins someone else's share. Erase then only leaves that share.
-    /// Restored from hub-role.json so a relaunch does not treat a participant as the owner.
+    /// Restored from device-role.json so a relaunch does not treat a participant as the owner.
     var ownsPrivateZone = true
     private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
     private var memberPhotoFolder: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("member-photos", isDirectory: true) }
@@ -1159,8 +1159,12 @@ final class HubStore: ObservableObject {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             let stamp = formatter.string(from: Date()).replacingOccurrences(of: ":", with: "-")
-            let backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-\(stamp).json")
+            var backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("corrupt-hub-\(stamp).json")
+            if fileManager.fileExists(atPath: backup.path) {
+                backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("corrupt-hub-\(stamp)-\(UUID().uuidString).json")
+            }
             try? fileManager.copyItem(at: snapshotURL, to: backup)
+            pruneCorruptCopies(keeping: 3)
             loadFailed = true
             loadFailureDetail = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
         }
@@ -1283,7 +1287,7 @@ final class HubStore: ObservableObject {
     private func persistNow() {
         persistTask?.cancel()
         writeSnapshot()
-        saveDeviceRole()
+        if writingRole { saveDeviceRole() }
     }
 
     private func publishWidgets() {
@@ -1507,6 +1511,7 @@ final class HubStore: ObservableObject {
     }
 
     private var writingBackup = true
+    private var writingRole = true
 
     private func writeTimestampedBackup(_ data: Data) {
         guard writingBackup else { return }
@@ -1517,13 +1522,17 @@ final class HubStore: ObservableObject {
         pruneBackups(keeping: 5)
     }
 
-    private var roleURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-role.json") }
+    private var roleURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("device-role.json") }
+    private var legacyRoleURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-role.json") }
 
     private struct DeviceRole: Codable {
         var ownsPrivateZone: Bool
     }
 
     private func loadDeviceRole() {
+        if !fileManager.fileExists(atPath: roleURL.path), fileManager.fileExists(atPath: legacyRoleURL.path) {
+            try? fileManager.moveItem(at: legacyRoleURL, to: roleURL)
+        }
         guard let data = try? Data(contentsOf: roleURL),
               let role = try? JSONDecoder().decode(DeviceRole.self, from: data) else { return }
         ownsPrivateZone = role.ownsPrivateZone
@@ -1539,7 +1548,8 @@ final class HubStore: ObservableObject {
             .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" } ?? []
     }
 
-    /// Keeps the newest files, and always the newest backup that still decodes.
+    /// Cap is the 5 newest `hub-*.json` backups plus the newest one that still decodes, when that file is older (at most 6).
+    /// Corrupt copies use the `corrupt-hub-` prefix and are not part of this set.
     /// Does nothing while hub.json itself is corrupt, so failed launches cannot evict a good copy.
     private func pruneBackups(keeping limit: Int) {
         guard !loadFailed else { return }
@@ -1577,19 +1587,40 @@ final class HubStore: ObservableObject {
         return nil
     }
 
+    /// Failed launches keep only the newest corrupt copies. They never count as `hub-` backups.
+    private func pruneCorruptCopies(keeping limit: Int) {
+        let folder = snapshotURL.deletingLastPathComponent()
+        let ordered = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+            .filter { $0.lastPathComponent.hasPrefix("corrupt-hub-") && $0.pathExtension == "json" } ?? []
+        let sorted = ordered.sorted { lhs, rhs in
+            let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return left > right
+        }
+        for old in sorted.dropFirst(limit) {
+            try? fileManager.removeItem(at: old)
+        }
+    }
+
     private func deleteAllBackups() {
         let folder = snapshotURL.deletingLastPathComponent()
         for file in backupFiles(in: folder) {
             try? fileManager.removeItem(at: file)
         }
+        pruneCorruptCopies(keeping: 0)
     }
 
     private func clearLocalHouse() {
         writingBackup = false
-        defer { writingBackup = true }
+        writingRole = false
+        defer {
+            writingBackup = true
+            writingRole = true
+        }
         deleteAllBackups()
         ownsPrivateZone = true
         try? fileManager.removeItem(at: roleURL)
+        try? fileManager.removeItem(at: legacyRoleURL)
         UserDefaults.standard.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.synchronize()

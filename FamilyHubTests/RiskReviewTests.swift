@@ -110,6 +110,7 @@ final class RiskReviewTests: XCTestCase {
         let backups = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
             .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" }
         XCTAssertEqual(backups, [])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("device-role.json").path))
     }
 
     func testParticipantEraseSkipsForeignPublicCode() async throws {
@@ -184,10 +185,53 @@ final class RiskReviewTests: XCTestCase {
         }
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: backup.path))
+        let names = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).map(\.lastPathComponent)
+        XCTAssertEqual(names.filter { $0.hasPrefix("corrupt-hub-") }.count, 3)
+        XCTAssertFalse(names.contains { $0.hasPrefix("hub-") && $0.hasPrefix("corrupt-hub-") == false && $0 != backup.lastPathComponent })
         let store = HubStore(rootURL: root)
         let restored = await store.restoreNewestBackup()
         XCTAssertNil(restored)
         XCTAssertEqual(store.householdName, "Still here")
+    }
+
+    func testOrdinarySavesLeaveDeviceRoleIntact() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = HubStore(rootURL: root)
+        _ = store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
+        store.ownsPrivateZone = false
+        for _ in 0..<10 {
+            store.markSetupComplete()
+        }
+        let role = root.appendingPathComponent("device-role.json")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: role.path))
+        let reloaded = HubStore(rootURL: root)
+        XCTAssertFalse(reloaded.ownsPrivateZone)
+    }
+
+    func testMissingRoleFileDefaultsToOwner() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = HubStore(rootURL: root)
+        XCTAssertTrue(store.ownsPrivateZone)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("device-role.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hub-role.json").path))
+    }
+
+    func testLegacyRoleFileIsMigrated() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(#"{"ownsPrivateZone":false}"#.utf8).write(to: root.appendingPathComponent("hub-role.json"))
+        var snapshot = HubStore.emptySnapshot()
+        snapshot.householdName = "Joined"
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(snapshot).write(to: root.appendingPathComponent("hub.json"))
+
+        let store = HubStore(rootURL: root)
+        XCTAssertFalse(store.ownsPrivateZone)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("device-role.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hub-role.json").path))
     }
 }
 
