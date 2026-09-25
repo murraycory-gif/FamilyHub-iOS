@@ -462,6 +462,7 @@ struct WeatherSettingsForm: View {
                         }
                     }
                 }
+                PlacesPhotoKeyField()
             }
         .hubTour("settings", steps: HubTours.settings.filter { $0.id == "setWeather" })
         .sheet(isPresented: $showPlace) {
@@ -470,8 +471,44 @@ struct WeatherSettingsForm: View {
                 .environmentObject(weather)
         }
     }
+}
 
-    private func measureRow<V: View>(_ title: String, @ViewBuilder chips: () -> V) -> some View {
+private struct PlacesPhotoKeyField: View {
+    @State private var key = HubKeychain.loadPlacesPhotoKey()
+    @State private var saved = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Restaurant photos")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+            Text("Optional. MapKit supplies the name, address, and distance. A Google Places API key can add that restaurant’s own photo. Leave this blank and dinner places show a name tile.")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            SecureField("Google Places API key", text: $key)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .padding(12)
+                .background(AppTheme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(AppTheme.cardBorder, lineWidth: 1)
+                )
+            Button(saved ? "Saved on this device" : "Save key") {
+                HubKeychain.savePlacesPhotoKey(key)
+                saved = true
+            }
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(AppTheme.blue)
+        }
+        .padding(.top, 8)
+        .onChange(of: key) { _, _ in saved = false }
+    }
+}
+
+private extension WeatherSettingsForm {
+    func measureRow<V: View>(_ title: String, @ViewBuilder chips: () -> V) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.subheadline.weight(.bold))
@@ -483,7 +520,7 @@ struct WeatherSettingsForm: View {
         }
     }
 
-    private func unitChip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+    func unitChip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.bold))

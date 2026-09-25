@@ -22,7 +22,17 @@ enum HubKeychain {
         write("from", value.from)
     }
 
-    private static func read(_ account: String) -> String? {
+    private static let placesService = "com.corymurray.FamilyHub.places"
+
+    static func loadPlacesPhotoKey() -> String {
+        read("google", service: placesService) ?? ""
+    }
+
+    static func savePlacesPhotoKey(_ value: String) {
+        write("google", value.trimmingCharacters(in: .whitespacesAndNewlines), service: placesService)
+    }
+
+    private static func read(_ account: String, service: String = HubKeychain.service) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -37,7 +47,7 @@ enum HubKeychain {
         return String(data: data, encoding: .utf8)
     }
 
-    private static func write(_ account: String, _ value: String) {
+    private static func write(_ account: String, _ value: String, service: String = HubKeychain.service) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

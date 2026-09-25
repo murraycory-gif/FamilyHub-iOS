@@ -1742,15 +1742,25 @@ private func placeTile(_ place: NearbyPlace, mode: PlaceMode) -> some View {
 }
 
 struct DinnerDayPhoto: View {
+    @EnvironmentObject private var store: HubStore
     let plan: DinnerPlan?
     var recipe: Recipe?
     var title: String?
     var quality: RecipePhotoLoader.Quality = .card
 
+    private var home: CLLocation? {
+        guard let place = store.weatherPlace else { return nil }
+        let seeded = place.label == WeatherPlace.chicago.label
+            && place.latitude == WeatherPlace.chicago.latitude
+            && place.longitude == WeatherPlace.chicago.longitude
+        if seeded { return nil }
+        return CLLocation(latitude: place.latitude, longitude: place.longitude)
+    }
+
     var body: some View {
         if let recipe {
             RecipePhoto(
-                url: URL(string: recipe.imageURL),
+                url: RecipeThumbs.owned(recipe.imageURL),
                 searchName: recipe.name,
                 category: recipe.notes,
                 quality: quality,
@@ -1758,12 +1768,12 @@ struct DinnerDayPhoto: View {
             )
         } else if let title, title.isEmpty == false, plan?.placeName == nil {
             RecipePhoto(
-                url: RecipeThumbs.url(for: title),
+                url: nil,
                 searchName: title,
                 quality: quality,
                 crop: true
             )
-        } else if let plan, let place = NearbyPlace(plan: plan) {
+        } else if let plan, let place = NearbyPlace(plan: plan, origin: home) {
             PlacePhoto(place: place)
         } else {
             ZStack {
@@ -1784,6 +1794,10 @@ struct RecipePhoto: View {
     var crop: Bool = true
     @State private var image: UIImage?
 
+    private var owned: URL? {
+        url.flatMap { RecipeThumbs.owned($0.absoluteString) }
+    }
+
     var body: some View {
         ZStack {
             AppTheme.blueSoft
@@ -1800,127 +1814,26 @@ struct RecipePhoto: View {
                         .scaledToFit()
                 }
             } else {
-                Image(systemName: RecipeLook.symbol(searchName, category: category))
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(AppTheme.blue.opacity(0.7))
+                Text(searchName.isEmpty ? "Recipe" : searchName)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .padding(10)
             }
         }
         .clipped()
         .contentShape(Rectangle())
-        .onAppear { image = RecipePhotoLoader.cached(name: searchName, quality: quality) }
-        .task(id: searchName + String(describing: quality)) {
-            if image == nil { image = RecipePhotoLoader.cached(name: searchName, quality: quality) }
-            if let found = await RecipePhotoLoader.image(name: searchName, quality: quality) {
+        .onAppear { image = owned.flatMap { RecipePhotoLoader.cached(url: $0) } }
+        .task(id: owned?.absoluteString ?? "") {
+            image = nil
+            guard let owned else { return }
+            if let cached = RecipePhotoLoader.cached(url: owned) {
+                image = cached
+            }
+            if let found = await RecipePhotoLoader.image(from: owned) {
                 image = found
             }
-        }
-    }
-}
-
-private enum RecipeLook {
-    static func symbol(_ name: String, category: String = "") -> String {
-        let blob = "\(name) \(category)".lowercased()
-        let rules: [(String, String)] = [
-            ("cheeseburger", "fork.knife.circle.fill"),
-            ("smash burger", "fork.knife.circle.fill"),
-            ("hamburger", "fork.knife.circle.fill"),
-            ("sloppy", "fork.knife.circle.fill"),
-            ("baby back", "flame.fill"),
-            ("rib", "flame.fill"),
-            ("brisket", "flame.fill"),
-            ("pulled pork", "flame.fill"),
-            ("pulled chicken", "flame.fill"),
-            ("bbq", "flame.fill"),
-            ("buffalo", "flame.fill"),
-            ("wing", "flame.fill"),
-            ("fried chicken", "flame.fill"),
-            ("chicken fried", "flame.fill"),
-            ("pot pie", "oven.fill"),
-            ("casserole", "oven.fill"),
-            ("meatloaf", "oven.fill"),
-            ("lasagna", "oven.fill"),
-            ("ziti", "oven.fill"),
-            ("pizza", "oven.fill"),
-            ("roast chicken", "oven.fill"),
-            ("pot roast", "oven.fill"),
-            ("macaroni", "fork.knife.circle.fill"),
-            ("grilled cheese", "fork.knife.circle.fill"),
-            ("cheesesteak", "fork.knife.circle.fill"),
-            ("club", "fork.knife.circle.fill"),
-            ("blt", "fork.knife.circle.fill"),
-            ("sandwich", "fork.knife.circle.fill"),
-            ("po' boy", "fork.knife.circle.fill"),
-            ("melt", "fork.knife.circle.fill"),
-            ("taco", "takeoutbag.and.cup.and.straw.fill"),
-            ("enchilada", "takeoutbag.and.cup.and.straw.fill"),
-            ("quesadilla", "takeoutbag.and.cup.and.straw.fill"),
-            ("burrito", "takeoutbag.and.cup.and.straw.fill"),
-            ("nacho", "takeoutbag.and.cup.and.straw.fill"),
-            ("fajita", "takeoutbag.and.cup.and.straw.fill"),
-            ("carnitas", "takeoutbag.and.cup.and.straw.fill"),
-            ("orange chicken", "takeoutbag.and.cup.and.straw.fill"),
-            ("general tso", "takeoutbag.and.cup.and.straw.fill"),
-            ("stir fry", "takeoutbag.and.cup.and.straw.fill"),
-            ("teriyaki", "takeoutbag.and.cup.and.straw.fill"),
-            ("spaghetti", "fork.knife.circle.fill"),
-            ("alfredo", "fork.knife.circle.fill"),
-            ("pasta", "fork.knife.circle.fill"),
-            ("meatball", "fork.knife.circle.fill"),
-            ("chili", "cup.and.saucer.fill"),
-            ("soup", "cup.and.saucer.fill"),
-            ("chowder", "cup.and.saucer.fill"),
-            ("stew", "cup.and.saucer.fill"),
-            ("gumbo", "cup.and.saucer.fill"),
-            ("jambalaya", "cup.and.saucer.fill"),
-            ("grits", "cup.and.saucer.fill"),
-            ("dumplings", "cup.and.saucer.fill"),
-            ("red beans", "cup.and.saucer.fill"),
-            ("salad", "leaf.fill"),
-            ("green bean", "leaf.fill"),
-            ("broccoli", "leaf.fill"),
-            ("asparagus", "leaf.fill"),
-            ("collard", "leaf.fill"),
-            ("salmon", "fish.fill"),
-            ("tuna", "fish.fill"),
-            ("fish", "fish.fill"),
-            ("catfish", "fish.fill"),
-            ("crab", "fish.fill"),
-            ("lobster", "fish.fill"),
-            ("shrimp", "fish.fill"),
-            ("scampi", "fish.fill"),
-            ("steak", "flame.fill"),
-            ("grill", "flame.fill"),
-            ("hot dog", "fork.knife.circle.fill"),
-            ("coney", "fork.knife.circle.fill"),
-            ("brat", "fork.knife.circle.fill"),
-            ("pancake", "birthday.cake.fill"),
-            ("french toast", "birthday.cake.fill"),
-            ("waffle", "birthday.cake.fill"),
-            ("biscuit", "birthday.cake.fill"),
-            ("egg", "fork.knife.circle.fill"),
-            ("huevos", "fork.knife.circle.fill"),
-            ("rice", "takeoutbag.and.cup.and.straw.fill"),
-            ("bowl", "takeoutbag.and.cup.and.straw.fill"),
-            ("potato", "oven.fill"),
-            ("tater", "oven.fill"),
-            ("fries", "fork.knife.circle.fill"),
-            ("corn", "leaf.fill"),
-            ("bread", "oven.fill"),
-            ("roll", "oven.fill"),
-            ("bean", "leaf.fill"),
-        ]
-        for (key, symbol) in rules where blob.contains(key) { return symbol }
-        switch category.lowercased() {
-        case "bbq": return "flame.fill"
-        case "diner": return "fork.knife.circle.fill"
-        case "southern": return "oven.fill"
-        case "comfort": return "oven.fill"
-        case "tex-mex", "mexican": return "takeoutbag.and.cup.and.straw.fill"
-        case "italian": return "fork.knife.circle.fill"
-        case "asian", "chinese", "japanese", "thai": return "takeoutbag.and.cup.and.straw.fill"
-        case "holiday": return "oven.fill"
-        case "weeknight": return "fork.knife.circle.fill"
-        default: return "fork.knife.circle.fill"
         }
     }
 }
@@ -1928,14 +1841,6 @@ private enum RecipeLook {
 struct PlacePhoto: View {
     let place: NearbyPlace
     @State private var image: UIImage?
-
-    private var fallback: String {
-        switch place.mode {
-        case .delivery: return "DinnerDelivery"
-        case .takeout: return "DinnerTakeout"
-        default: return "DinnerEatOut"
-        }
-    }
 
     var body: some View {
         Color.clear
@@ -1945,9 +1850,24 @@ struct PlacePhoto: View {
                         .resizable()
                         .scaledToFill()
                 } else {
-                    Image(fallback)
-                        .resizable()
-                        .scaledToFill()
+                    VStack(spacing: 6) {
+                        Image(systemName: "storefront.fill")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(AppTheme.blue)
+                        Text(place.name)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(3)
+                        if let miles = place.distanceLabel {
+                            Text(miles)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(AppTheme.blueSoft)
                 }
             }
             .clipped()

@@ -37,6 +37,7 @@ struct NearbyPlace: Identifiable, Hashable, Codable {
     var longitude: Double
     var distance: CLLocationDistance?
     var mode: PlaceMode
+    var mapItemID: String? = nil
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -59,8 +60,18 @@ struct NearbyPlace: Identifiable, Hashable, Codable {
 
 extension NearbyPlace {
     init?(plan: DinnerPlan) {
+        self.init(plan: plan, origin: nil)
+    }
+
+    init?(plan: DinnerPlan, origin: CLLocation?) {
         guard let name = plan.placeName, name.isEmpty == false else { return nil }
         let mode = PlaceMode(rawValue: plan.placeKind ?? "") ?? .sitdown
+        let lat = plan.placeLatitude ?? 0
+        let lon = plan.placeLongitude ?? 0
+        let distance: CLLocationDistance? = {
+            guard lat != 0 || lon != 0, let origin else { return nil }
+            return origin.distance(from: CLLocation(latitude: lat, longitude: lon))
+        }()
         self.init(
             id: "dinner-\(plan.id.uuidString)",
             name: name,
@@ -68,9 +79,9 @@ extension NearbyPlace {
             address: plan.placeAddress ?? "",
             phone: plan.placePhone ?? "",
             url: plan.placeURL.flatMap(URL.init(string:)),
-            latitude: plan.placeLatitude ?? 0,
-            longitude: plan.placeLongitude ?? 0,
-            distance: nil,
+            latitude: lat,
+            longitude: lon,
+            distance: distance,
             mode: mode
         )
     }
@@ -506,6 +517,12 @@ final class PlacesSearch: ObservableObject {
         }
         let coord = item.placemark.coordinate
         if CLLocationCoordinate2DIsValid(coord) == false { return nil }
+        let placeID: String? = {
+            if #available(iOS 18.0, *) {
+                return item.identifier?.rawValue
+            }
+            return nil
+        }()
         let pin = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
         let distance = location.map { $0.distance(from: pin) }
         if let cap = maxDistance, let distance, distance > cap { return nil }
@@ -519,7 +536,7 @@ final class PlacesSearch: ObservableObject {
             .filter { $0.isEmpty == false }
             .joined(separator: ", ")
         return NearbyPlace(
-            id: "\(lower)-\(String(format: "%.4f", coord.latitude))-\(String(format: "%.4f", coord.longitude))",
+            id: placeID ?? "\(lower)-\(String(format: "%.4f", coord.latitude))-\(String(format: "%.4f", coord.longitude))",
             name: name,
             category: takeout ? PlaceMode.takeout.title : PlaceMode.sitdown.title,
             address: address,
@@ -528,7 +545,8 @@ final class PlacesSearch: ObservableObject {
             latitude: coord.latitude,
             longitude: coord.longitude,
             distance: distance,
-            mode: takeout ? .takeout : .sitdown
+            mode: takeout ? .takeout : .sitdown,
+            mapItemID: placeID
         )
     }
 }

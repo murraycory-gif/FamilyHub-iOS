@@ -18,7 +18,7 @@ struct CatalogRecipe: Identifiable, Hashable {
             notes: [category, area].filter { !$0.isEmpty }.joined(separator: " · "),
             ingredients: ingredients,
             instructions: instructions,
-            imageURL: RecipeThumbs.url(for: name)?.absoluteString ?? thumb?.absoluteString ?? "",
+            imageURL: thumb?.absoluteString ?? "",
             catalogID: id
         )
     }
