@@ -525,8 +525,11 @@ enum RecipePhotoLoader {
     }()
 
     static func cached(name: String, quality: Quality = .card) -> UIImage? {
+        memory.object(forKey: cacheKey(name, quality) as NSString)
+    }
+
+    private static func diskImage(name: String, quality: Quality) -> UIImage? {
         let key = cacheKey(name, quality) as NSString
-        if let hit = memory.object(forKey: key) { return hit }
         let file = folder.appendingPathComponent(slug(cacheKey(name, quality)) + ".jpg")
         guard let data = try? Data(contentsOf: file), let image = UIImage(data: data) else { return nil }
         memory.setObject(image, forKey: key)
@@ -535,6 +538,8 @@ enum RecipePhotoLoader {
 
     static func image(name: String, quality: Quality = .card) async -> UIImage? {
         if let hit = cached(name: name, quality: quality) { return hit }
+        let disk = await Task.detached(priority: .utility) { diskImage(name: name, quality: quality) }.value
+        if let disk { return disk }
         let remote = quality == .hero ? RecipeThumbs.heroURL(for: name) : RecipeThumbs.smallURL(for: name)
         guard let url = remote else { return nil }
         return await gate.run {

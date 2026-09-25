@@ -12,11 +12,15 @@ final class WeatherLoader: ObservableObject {
 
     private let locator = LocationFinder()
 
-    func forecastDay(on date: Date) -> WeatherDay? {
+    private static let dayStamp: DateFormatter = {
         let stamp = DateFormatter()
         stamp.dateFormat = "yyyy-MM-dd"
         stamp.locale = Locale(identifier: "en_US_POSIX")
-        let iso = stamp.string(from: date)
+        return stamp
+    }()
+
+    func forecastDay(on date: Date) -> WeatherDay? {
+        let iso = Self.dayStamp.string(from: date)
         return days.first { $0.dateISO == iso }
     }
 
@@ -78,6 +82,16 @@ final class WeatherLoader: ObservableObject {
     }
 }
 
+enum HubNetwork {
+    static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 12
+        config.timeoutIntervalForResource = 20
+        config.waitsForConnectivity = false
+        return URLSession(configuration: config)
+    }()
+}
+
 enum WeatherAPI {
     static func searchPlaces(_ query: String) async throws -> [WeatherPlace] {
         var components = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/search")!
@@ -87,7 +101,8 @@ enum WeatherAPI {
             URLQueryItem(name: "language", value: "en"),
             URLQueryItem(name: "format", value: "json"),
         ]
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        guard let url = components.url else { throw URLError(.badURL) }
+        let (data, _) = try await HubNetwork.session.data(from: url)
         let decoded = try JSONDecoder().decode(GeocodeSearch.self, from: data)
         return (decoded.results ?? []).map(\.place)
     }
@@ -110,7 +125,8 @@ enum WeatherAPI {
             URLQueryItem(name: "language", value: "en"),
             URLQueryItem(name: "format", value: "json"),
         ]
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        guard let url = components.url else { throw URLError(.badURL) }
+        let (data, _) = try await HubNetwork.session.data(from: url)
         if let decoded = try? JSONDecoder().decode(GeocodeSearch.self, from: data),
            let first = decoded.results?.first {
             return first.place
@@ -136,7 +152,8 @@ enum WeatherAPI {
             URLQueryItem(name: "timezone", value: "auto"),
             URLQueryItem(name: "forecast_days", value: "16"),
         ]
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        guard let url = components.url else { throw URLError(.badURL) }
+        let (data, _) = try await HubNetwork.session.data(from: url)
         return try JSONDecoder().decode(ForecastResponse.self, from: data).bundle()
     }
 }
@@ -318,6 +335,7 @@ private struct ForecastResponse: Decodable {
 final class LocationFinder: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var continuation: CheckedContinuation<CLLocation, Error>?
+    private let lock = NSLock()
 
     override init() {
         super.init()
@@ -335,25 +353,45 @@ final class LocationFinder: NSObject, CLLocationManagerDelegate {
                 try await Task.sleep(for: .seconds(12))
                 throw LocationError.timeout
             }
-            guard let first = try await group.next() else { throw LocationError.timeout }
-            group.cancelAll()
-            return first
+            do {
+                guard let first = try await group.next() else { throw LocationError.timeout }
+                group.cancelAll()
+                return first
+            } catch {
+                group.cancelAll()
+                finish(.failure(LocationError.timeout))
+                throw error
+            }
         }
     }
 
     private func requestOnce() async throws -> CLLocation {
         try await withCheckedThrowingContinuation { continuation in
+            lock.lock()
+            if self.continuation != nil {
+                lock.unlock()
+                continuation.resume(throwing: LocationError.timeout)
+                return
+            }
             self.continuation = continuation
+            lock.unlock()
             let status = manager.authorizationStatus
             if status == .notDetermined {
                 manager.requestWhenInUseAuthorization()
             } else if status == .denied || status == .restricted {
-                continuation.resume(throwing: LocationError.denied)
-                self.continuation = nil
+                finish(.failure(LocationError.denied))
             } else {
                 manager.requestLocation()
             }
         }
+    }
+
+    private func finish(_ result: Result<CLLocation, Error>) {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume(with: result)
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -361,8 +399,7 @@ final class LocationFinder: NSObject, CLLocationManagerDelegate {
         case .authorizedAlways, .authorizedWhenInUse:
             manager.requestLocation()
         case .denied, .restricted:
-            continuation?.resume(throwing: LocationError.denied)
-            continuation = nil
+            finish(.failure(LocationError.denied))
         default:
             break
         }
@@ -370,13 +407,11 @@ final class LocationFinder: NSObject, CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
-        continuation?.resume(returning: location)
-        continuation = nil
+        finish(.success(location))
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        continuation?.resume(throwing: error)
-        continuation = nil
+        finish(.failure(error))
     }
 }
 

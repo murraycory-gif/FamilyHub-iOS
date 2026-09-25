@@ -51,7 +51,7 @@ struct ListsView: View {
             }
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: 10) {
                     if kind == .reminders {
                         reminderList
                     } else {

@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import UIKit
 import UserNotifications
 
@@ -66,6 +67,7 @@ final class HubPinger: ObservableObject {
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = 12
         let login = Data("\(sid):\(token)".utf8).base64EncodedString()
         request.setValue("Basic \(login)", forHTTPHeaderField: "Authorization")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -287,3 +289,62 @@ final class HubPinger: ObservableObject {
         return raw
     }
 }
+
+enum HubKeychain {
+    private static let service = "com.corymurray.FamilyHub.twilio"
+
+    struct Twilio: Equatable {
+        var sid: String
+        var token: String
+        var from: String
+    }
+
+    static func loadTwilio() -> Twilio? {
+        guard let data = read(),
+              let decoded = try? JSONDecoder().decode(Twilio.self, from: data)
+        else { return nil }
+        return decoded
+    }
+
+    static func saveTwilio(_ value: Twilio) {
+        if value.sid.isEmpty, value.token.isEmpty, value.from.isEmpty {
+            delete()
+            return
+        }
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "sender"
+        ]
+        SecItemDelete(query as CFDictionary)
+        var add = query
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        SecItemAdd(add as CFDictionary, nil)
+    }
+
+    private static func read() -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "sender",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess else { return nil }
+        return item as? Data
+    }
+
+    private static func delete() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "sender"
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+}
+
+extension HubKeychain.Twilio: Codable {}

@@ -42,6 +42,7 @@ struct FamilyHubApp: App {
             .background(AppTheme.bg.ignoresSafeArea())
             .preferredColorScheme(store.appearance.colorScheme)
             .onAppear {
+                LaunchLog.mark("first-frame")
                 UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }
                     .flatMap(\.windows)

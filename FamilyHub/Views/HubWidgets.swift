@@ -313,7 +313,8 @@ struct FlightWidget: View {
             guard let flight = flights.first else { ping = nil; return }
             while !Task.isCancelled {
                 ping = await FlightLive.ping(flight)
-                try? await Task.sleep(for: .seconds(20))
+                let wait: Duration = FlightParse.isLive(flight) ? .seconds(45) : .seconds(180)
+                try? await Task.sleep(for: wait)
             }
         }
     }
@@ -416,6 +417,7 @@ struct FlightDetailSheet: View {
     var others: [TrackedFlight] = []
     @State private var ping: FlightPing?
     @State private var watching: TrackedFlight
+    @Environment(\.scenePhase) private var scenePhase
 
     init(flight: TrackedFlight, others: [TrackedFlight] = []) {
         self.flight = flight
@@ -428,7 +430,7 @@ struct FlightDetailSheet: View {
             HubStickyHeader(lead: "Circle", tail: "Flight") {
                 HubHeaderPill(title: "Close") { dismiss() }
             }
-            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+            TimelineView(.periodic(from: .now, by: scenePhase == .active ? 1 : 60)) { timeline in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         HubPanel(symbol: "airplane", title: "\(FlightParse.airlineName(watching.airline)) \(watching.code)") {
