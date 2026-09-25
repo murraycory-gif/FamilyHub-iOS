@@ -1,6 +1,7 @@
 import XCTest
 @testable import FamilyHub
 
+@MainActor
 final class CalendarMathTests: XCTestCase {
     func testFamilyFilterIncludesEveryone() {
         var calendar = Calendar(identifier: .gregorian)

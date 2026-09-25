@@ -1,3 +1,4 @@
+import CloudKit
 import XCTest
 @testable import FamilyHub
 
@@ -49,7 +50,8 @@ final class RiskReviewTests: XCTestCase {
         let store = HubStore(rootURL: root)
         XCTAssertTrue(store.loadFailed)
         XCTAssertNotEqual(store.householdName, "Restored")
-        XCTAssertNil(await store.restoreNewestBackup())
+        let restored = await store.restoreNewestBackup()
+        XCTAssertNil(restored)
         XCTAssertFalse(store.loadFailed)
         XCTAssertEqual(store.householdName, "Restored")
     }
@@ -97,12 +99,13 @@ final class RiskReviewTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = HubStore(rootURL: root)
-        store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
+        _ = store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
         store.markSetupComplete()
         try Data("{}".utf8).write(to: root.appendingPathComponent("hub-extra.json"))
         store.remote = ScriptedRemote()
 
-        XCTAssertNil(await store.eraseHousehold())
+        let erased = await store.eraseHousehold()
+        XCTAssertNil(erased)
 
         let backups = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
             .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" }
@@ -113,7 +116,7 @@ final class RiskReviewTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = HubStore(rootURL: root)
-        store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
+        _ = store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
         store.markSetupComplete()
         store.ownsPrivateZone = false
         let remote = ScriptedRemote()
@@ -153,7 +156,7 @@ final class RiskReviewTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = HubStore(rootURL: root)
-        store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
+        _ = store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
         store.ownsPrivateZone = false
         store.markSetupComplete()
 
@@ -182,7 +185,8 @@ final class RiskReviewTests: XCTestCase {
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: backup.path))
         let store = HubStore(rootURL: root)
-        XCTAssertNil(await store.restoreNewestBackup())
+        let restored = await store.restoreNewestBackup()
+        XCTAssertNil(restored)
         XCTAssertEqual(store.householdName, "Still here")
     }
 }
