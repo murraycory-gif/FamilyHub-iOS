@@ -74,6 +74,9 @@
 		A916 /* DietFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B916 /* DietFilterTests.swift */; };
 		A917 /* RecipePackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B917 /* RecipePackTests.swift */; };
 		A918 /* RiskReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B918 /* RiskReviewTests.swift */; };
+		A919 /* AppStoreGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B919 /* AppStoreGateTests.swift */; };
+		A930 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B930 /* PrivacyInfo.xcprivacy */; };
+		A931 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B931 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -165,6 +168,9 @@
 		B916 /* DietFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietFilterTests.swift; sourceTree = "<group>"; };
 		B917 /* RecipePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipePackTests.swift; sourceTree = "<group>"; };
 		B918 /* RiskReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskReviewTests.swift; sourceTree = "<group>"; };
+		B919 /* AppStoreGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreGateTests.swift; sourceTree = "<group>"; };
+		B930 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B931 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -214,6 +220,7 @@
 				B905 /* SeedRecipes.json */,
 				B906 /* RecipePhotos */,
 				B901 /* Info.plist */,
+				B930 /* PrivacyInfo.xcprivacy */,
 				B903 /* FamilyHub.entitlements */,
 			);
 			path = FamilyHub;
@@ -297,6 +304,7 @@
 			children = (
 				B052 /* FamilyHubWidgets.swift */,
 				B053 /* Info.plist */,
+				B931 /* PrivacyInfo.xcprivacy */,
 				B054 /* FamilyHubWidgets.entitlements */,
 			);
 			path = FamilyHubWidgets;
@@ -322,6 +330,7 @@
 				B916 /* DietFilterTests.swift */,
 				B917 /* RecipePackTests.swift */,
 				B918 /* RiskReviewTests.swift */,
+				B919 /* AppStoreGateTests.swift */,
 			);
 			path = FamilyHubTests;
 			sourceTree = "<group>";
@@ -427,6 +436,7 @@
 				A904 /* RubikWetPaint-Regular.ttf in Resources */,
 				A905 /* SeedRecipes.json in Resources */,
 				A906 /* RecipePhotos in Resources */,
+				A930 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -459,6 +469,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A931 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -535,6 +546,7 @@
 				A916 /* DietFilterTests.swift in Sources */,
 				A917 /* RecipePackTests.swift in Sources */,
 				A918 /* RiskReviewTests.swift in Sources */,
+				A919 /* AppStoreGateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

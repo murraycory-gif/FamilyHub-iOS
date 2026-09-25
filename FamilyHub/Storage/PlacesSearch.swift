@@ -418,6 +418,7 @@ final class PlacesSearch: ObservableObject {
         let saved = PlaceDiskCache(lat: location.coordinate.latitude, lon: location.coordinate.longitude, areaName: areaName, places: items)
         if let data = try? JSONEncoder().encode(saved) {
             try? data.write(to: Self.cacheURL, options: .atomic)
+            HubFilePrivacy.excludeFromBackup(Self.cacheURL)
         }
     }
 

@@ -35,9 +35,12 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>HUB uses photos for family cards and to scan recipes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>HUB uses your location for weather, restaurants, and to know when someone leaves school or home.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>HUB can ping the house when a family member arrives or leaves School, Home, or Practice.</string>
+	<string>While HUB is open, it uses this iPhone or iPad’s location to show local weather and to search for nearby restaurants. HUB does not track location in the background.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
 	<key>NSCalendarsUsageDescription</key>
 	<string>FamilyHub reads iCloud, Google, and Outlook calendars on this iPad so the family hub stays in sync.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

@@ -186,19 +186,6 @@ final class HubStore: ObservableObject {
             placeLatitude: latitude,
             placeLongitude: longitude
         )
-        Task {
-            _ = await PlaceImages.photo(
-                name: name,
-                address: address,
-                coordinate: {
-                    if let latitude, let longitude, latitude != 0 || longitude != 0 {
-                        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-                    }
-                    return nil
-                }(),
-                website: URL(string: url)
-            )
-        }
     }
 
     private func upsertDinner(
@@ -547,9 +534,18 @@ final class HubStore: ObservableObject {
     }
 
     func refreshJoinCode() {
+        let now = Date().timeIntervalSince1970
+        var times = (UserDefaults.standard.array(forKey: Self.issueTimesKey) as? [Double] ?? [])
+            .filter { now - $0 < 3600 }
+        if times.count >= HubJoinCode.maxIssuesPerHour {
+            errorMessage = "Too many new codes this hour. Try again later."
+            return
+        }
+        times.append(now)
+        UserDefaults.standard.set(times, forKey: Self.issueTimesKey)
         let previous = joinCode
         rememberIssued(previous)
-        joinCode = Self.makeJoinCode()
+        joinCode = HubJoinCode.make()
         rememberIssued(joinCode)
         persist()
         let retired = previous
@@ -585,7 +581,7 @@ final class HubStore: ObservableObject {
         var failed: [String] = []
         for code in codes {
             let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-            guard clean.count == 6 else { continue }
+            guard HubJoinCode.isDeletable(clean) else { continue }
             var removed = false
             for attempt in 0..<max(1, attempts) {
                 do {
@@ -608,8 +604,8 @@ final class HubStore: ObservableObject {
     }
 
     private func rememberIssued(_ code: String) {
-        let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-        guard clean.count == 6 else { return }
+        let clean = HubJoinCode.normalized(code)
+        guard HubJoinCode.isAcceptable(clean) else { return }
         if !issuedJoinCodes.contains(clean) { issuedJoinCodes.append(clean) }
     }
 
@@ -622,8 +618,7 @@ final class HubStore: ObservableObject {
     }
 
     static func makeJoinCode() -> String {
-        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
-        return String((0..<6).compactMap { _ in alphabet.randomElement() })
+        HubJoinCode.make()
     }
 
     func addQuickMember(name: String, role: MemberRole, asOwner: Bool = false) -> FamilyMember {
@@ -1166,6 +1161,7 @@ final class HubStore: ObservableObject {
             }
             try? fileManager.copyItem(at: snapshotURL, to: backup)
             try? fileManager.setAttributes([.modificationDate: Date()], ofItemAtPath: backup.path)
+            HubFilePrivacy.excludeFromBackup(backup)
             pruneCorruptCopies(keeping: 3, protecting: backup.lastPathComponent)
             loadFailed = true
             loadFailureDetail = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
@@ -1193,7 +1189,11 @@ final class HubStore: ObservableObject {
         flights = snapshot.flights ?? []
         packages = snapshot.packages ?? []
         ownerID = snapshot.ownerID ?? snapshot.members.first(where: { $0.role == .parent })?.id
-        joinCode = (snapshot.joinCode?.isEmpty == false) ? (snapshot.joinCode ?? Self.makeJoinCode()) : Self.makeJoinCode()
+        if let existing = snapshot.joinCode, HubJoinCode.isAcceptable(existing) {
+            joinCode = HubJoinCode.normalized(existing)
+        } else {
+            joinCode = HubJoinCode.make()
+        }
         issuedJoinCodes = snapshot.issuedJoinCodes ?? []
         rememberIssued(joinCode)
         signedInMemberID = snapshot.signedInMemberID ?? ownerID
@@ -1220,8 +1220,9 @@ final class HubStore: ObservableObject {
         rememberAccount()
     }
 
-    private func writeSnapshot() {
-        guard !loadFailed else { return }
+    @discardableResult
+    private func writeSnapshot() -> Bool {
+        guard !loadFailed else { return false }
         let snapshot = HubSnapshot(
             householdName: householdName,
             members: members,
@@ -1266,12 +1267,18 @@ final class HubStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
+            // Live hub.json stays in backup so a device restore still has the household.
+            // device-role.json stays too, so a participant is not restored as the owner.
+            // Only hub-*.json, corrupt-hub-*.json, and the places cache are excluded.
+            HubFilePrivacy.protectUntilFirstUnlock(snapshotURL)
             writeTimestampedBackup(data)
             rememberAccount()
             scheduleCloudPublish(data)
             publishWidgets()
+            return true
         } catch {
             errorMessage = "Could not save: \(error.localizedDescription)"
+            return false
         }
     }
 
@@ -1286,10 +1293,12 @@ final class HubStore: ObservableObject {
         }
     }
 
-    private func persistNow() {
+    @discardableResult
+    private func persistNow() -> Bool {
         persistTask?.cancel()
-        writeSnapshot()
+        let saved = writeSnapshot()
         if roleLoaded && writingRole { saveDeviceRole() }
+        return saved
     }
 
     private func publishWidgets() {
@@ -1353,9 +1362,10 @@ final class HubStore: ObservableObject {
         }
     }
 
-    private static let publicCleanupKey = "familyhub.publicHubCleanup.v1"
+    static let publicCleanupKey = "familyhub.publicHubCleanup.v1"
 
-    /// After the private-zone save succeeds, delete old public hub-<code> records one time.
+    /// After the private-zone save succeeds, delete old public hub-<code> records one time,
+    /// then replace a 6-character code. That rotation does not count toward the hourly cap.
     @discardableResult
     func retirePublicRecordsOnce() async -> String? {
         guard !UserDefaults.standard.bool(forKey: Self.publicCleanupKey) else { return nil }
@@ -1365,8 +1375,27 @@ final class HubStore: ObservableObject {
             errorMessage = message
             return message
         }
+        guard rotateLegacyJoinCode() else {
+            return errorMessage ?? "Could not save the new join code. This will try again."
+        }
         UserDefaults.standard.set(true, forKey: Self.publicCleanupKey)
         return nil
+    }
+
+    /// Returns false when a 6-character code still needs replacing and the new code did not save.
+    private func rotateLegacyJoinCode() -> Bool {
+        let current = HubJoinCode.normalized(joinCode)
+        guard current.count == HubJoinCode.legacyLength else { return true }
+        let previous = joinCode
+        rememberIssued(current)
+        joinCode = HubJoinCode.make()
+        rememberIssued(joinCode)
+        guard persistNow() else {
+            issuedJoinCodes.removeAll { $0 == joinCode }
+            joinCode = previous
+            return false
+        }
+        return true
     }
 
     func currentHouseholdData() -> Data? {
@@ -1430,10 +1459,15 @@ final class HubStore: ObservableObject {
     }
 
     static let accountKey = "familyhub.account.join"
+    static let issueTimesKey = "familyhub.join.issueTimes"
+    #if DEBUG
     static var runningUnitTests: Bool {
         let env = ProcessInfo.processInfo.environment
         return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
     }
+    #else
+    static var runningUnitTests: Bool { false }
+    #endif
 
     func restoreAccountIfNeeded() async {
         guard !Self.runningUnitTests else { return }
@@ -1444,7 +1478,7 @@ final class HubStore: ObservableObject {
         }
         let saved = NSUbiquitousKeyValueStore.default.string(forKey: Self.accountKey)
             ?? UserDefaults.standard.string(forKey: Self.accountKey)
-        guard let saved, saved.count == 6 else { return }
+        guard let saved, HubJoinCode.isAcceptable(saved) else { return }
         do {
             try await joinSharedHousehold()
             setupCompleted = true
@@ -1532,6 +1566,7 @@ final class HubStore: ObservableObject {
         let folder = snapshotURL.deletingLastPathComponent()
         let backup = folder.appendingPathComponent("hub-\(stamp).json")
         try? data.write(to: backup, options: [.atomic])
+        HubFilePrivacy.excludeFromBackup(backup)
         pruneBackups(keeping: 5)
     }
 
@@ -1554,6 +1589,9 @@ final class HubStore: ObservableObject {
     private func saveDeviceRole() {
         guard let data = try? JSONEncoder().encode(DeviceRole(ownsPrivateZone: ownsPrivateZone)) else { return }
         try? data.write(to: roleURL, options: [.atomic])
+        // Kept in backup, unlike hub-*.json copies: a restore must not turn a participant into the owner.
+        // Protected until first unlock, same as hub.json, so launch can read it.
+        HubFilePrivacy.protectUntilFirstUnlock(roleURL)
     }
 
     private func backupFiles(in folder: URL) -> [URL] {
