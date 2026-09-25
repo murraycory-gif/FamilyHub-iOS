@@ -89,6 +89,36 @@ enum HubFlags {
     static let circlePlus = false
 }
 
+/// Which screen a section opens. Settings and This iPad both land on Profiles, which is in the More menu.
+enum HubDetailScreen: Equatable {
+    case today, calendar, chores, lists, shopping, meals, plus, more
+    case profiles, looks, invite, calendars, widgets, notify, credits
+
+    var showsPrivacyPolicy: Bool { self == .profiles }
+}
+
+extension HubSection {
+    var detailScreen: HubDetailScreen {
+        switch self {
+        case .today: return .today
+        case .calendar: return .calendar
+        case .allowance, .chores: return .chores
+        case .lists: return .lists
+        case .shopping: return .shopping
+        case .meals: return .meals
+        case .plus: return .plus
+        case .more: return .more
+        case .settings, .family, .profiles, .device: return .profiles
+        case .looks: return .looks
+        case .invite: return .invite
+        case .calendars: return .calendars
+        case .bills, .weather, .widgets: return .widgets
+        case .notify: return .notify
+        case .credits: return .credits
+        }
+    }
+}
+
 final class HubRouter: ObservableObject {
     @Published var section: HubSection? = .today
     @Published var listKind: ListKind = .reminders
@@ -268,10 +298,10 @@ struct MainHubView: View {
 
     @ViewBuilder
     private func view(for section: HubSection) -> some View {
-        switch section {
+        switch section.detailScreen {
         case .today: TodayView().hubChrome()
         case .calendar: CalendarHubView().hubChrome(showBack: true)
-        case .allowance, .chores: ChoresView().hubChrome(showBack: true)
+        case .chores: ChoresView().hubChrome(showBack: true)
         case .lists: ListsView().hubChrome(showBack: true)
         case .shopping: ShoppingListView().hubChrome(showBack: true)
         case .meals: MealsView().hubChrome(showBack: true)
@@ -282,11 +312,11 @@ struct MainHubView: View {
                 MoreHubView()
             }
         case .more: MoreHubView()
-        case .settings, .family, .profiles, .device: ProfilesSettingsView().hubChrome(showBack: true)
+        case .profiles: ProfilesSettingsView().hubChrome(showBack: true)
         case .looks: HubLooksView().hubChrome(showBack: true)
         case .invite: InviteSettingsView().hubChrome(showBack: true)
         case .calendars: CalendarSourcesView().hubChrome(showBack: true)
-        case .bills, .weather, .widgets: HubWidgetPicker().hubChrome(showBack: true)
+        case .widgets: HubWidgetPicker().hubChrome(showBack: true)
         case .notify: NotifySettingsView().hubChrome(showBack: true)
         case .credits: CreditsSettingsView().hubChrome(showBack: true)
         }
@@ -353,15 +383,15 @@ struct MoreHubView: View {
 
     @ViewBuilder
     private func destination(_ section: HubSection) -> some View {
-        switch section {
-        case .chores, .allowance: ChoresView()
+        switch section.detailScreen {
+        case .chores: ChoresView()
         case .lists: ListsView()
         case .plus: CirclePlusView()
-        case .settings, .family, .profiles, .device: ProfilesSettingsView()
+        case .profiles: ProfilesSettingsView()
         case .looks: HubLooksView()
         case .invite: InviteSettingsView()
         case .calendars: CalendarSourcesView()
-        case .bills, .weather, .widgets: HubWidgetPicker()
+        case .widgets: HubWidgetPicker()
         case .notify: NotifySettingsView()
         case .credits: CreditsSettingsView()
         default: EmptyView()

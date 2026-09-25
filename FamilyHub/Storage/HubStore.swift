@@ -581,7 +581,7 @@ final class HubStore: ObservableObject {
         var failed: [String] = []
         for code in codes {
             let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-            guard HubJoinCode.isAcceptable(clean) else { continue }
+            guard HubJoinCode.isDeletable(clean) else { continue }
             var removed = false
             for attempt in 0..<max(1, attempts) {
                 do {
@@ -1356,9 +1356,10 @@ final class HubStore: ObservableObject {
         }
     }
 
-    private static let publicCleanupKey = "familyhub.publicHubCleanup.v1"
+    static let publicCleanupKey = "familyhub.publicHubCleanup.v1"
 
-    /// After the private-zone save succeeds, delete old public hub-<code> records one time.
+    /// After the private-zone save succeeds, delete old public hub-<code> records one time,
+    /// then replace a 6-character code. That rotation does not count toward the hourly cap.
     @discardableResult
     func retirePublicRecordsOnce() async -> String? {
         guard !UserDefaults.standard.bool(forKey: Self.publicCleanupKey) else { return nil }
@@ -1369,7 +1370,17 @@ final class HubStore: ObservableObject {
             return message
         }
         UserDefaults.standard.set(true, forKey: Self.publicCleanupKey)
+        rotateLegacyJoinCode()
         return nil
+    }
+
+    private func rotateLegacyJoinCode() {
+        let current = HubJoinCode.normalized(joinCode)
+        guard current.count == HubJoinCode.legacyLength else { return }
+        rememberIssued(current)
+        joinCode = HubJoinCode.make()
+        rememberIssued(joinCode)
+        persistNow()
     }
 
     func currentHouseholdData() -> Data? {

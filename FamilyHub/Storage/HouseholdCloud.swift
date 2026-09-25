@@ -32,10 +32,12 @@ enum HouseholdCloud {
 
     /// Unsigned test hosts trap inside CKContainer.init. Refuse before any database is touched.
     static func refuseCloudUnderTest() throws {
+        #if DEBUG
         let env = ProcessInfo.processInfo.environment
         if env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil {
             throw HouseholdCloudError.iCloud
         }
+        #endif
     }
 
     private static var privateDB: CKDatabase { container.privateCloudDatabase }
@@ -154,7 +156,7 @@ enum HouseholdCloud {
     static func delete(code: String) async throws {
         try refuseCloudUnderTest()
         let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-        guard HubJoinCode.isAcceptable(clean) else { return }
+        guard HubJoinCode.isDeletable(clean) else { return }
         let id = CKRecord.ID(recordName: "hub-\(clean)")
         do {
             try await publicDB.deleteRecord(withID: id)

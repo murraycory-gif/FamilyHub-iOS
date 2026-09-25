@@ -68,6 +68,7 @@ struct ProfilesSettingsView: View {
     @State private var pendingDelete: FamilyMember?
     @State private var showAddProfile = false
     @State private var editing: FamilyMember?
+    @State private var showPrivacy = false
 
     var body: some View {
         SettingsPageShell(tail: "Profiles", symbol: "person.3.fill", title: "Circle Profiles") {
@@ -170,9 +171,19 @@ struct ProfilesSettingsView: View {
                     .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                Button { showPrivacy = true } label: {
+                    Label("Privacy policy", systemImage: "hand.raised.fill")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .buttonStyle(.plain)
+                Text(HubPrivacy.summary)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
         .hubTour("settings", steps: HubTours.settings.filter { $0.id == "setProfiles" })
+        .sheet(isPresented: $showPrivacy) { PrivacyPolicyView() }
         .sheet(isPresented: $showAddProfile) { EditMemberSheet(member: nil) }
         .sheet(item: $editing) { member in EditMemberSheet(member: member) }
         .hubConfirm(
@@ -194,6 +205,7 @@ struct ProfilesSettingsView: View {
 
 enum HubPrivacy {
     static let summary = "Household data stays in your private iCloud. HUB does not sell it or send it to a server we run."
+    static let hostedURL = URL(string: "https://hubcircle.pages.dev/privacy.html")!
 }
 
 struct PrivacyPolicyView: View {
@@ -208,6 +220,8 @@ struct PrivacyPolicyView: View {
                     Text("Place pictures, when shown, come from Apple Look Around. HUB does not download photos from other websites.")
                     Text("Family photos and recipe scans stay on this device. Calendar events are read on this device to fill the family board.")
                     Text("Invite codes are random. Existing households keep the code they already have. Sharing a HUB uses Apple’s share sheet.")
+                    Link("Full privacy policy", destination: HubPrivacy.hostedURL)
+                        .font(.headline.weight(.bold))
                 }
                 .font(.body.weight(.medium))
                 .foregroundStyle(AppTheme.text)
@@ -266,25 +280,9 @@ struct DeviceSettingsView: View {
                         .buttonStyle(HubPressStyle())
                     }
                 }
-                Button {
-                    showPrivacy = true
-                } label: {
-                    Label("Privacy policy", systemImage: "hand.raised.fill")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(AppTheme.blue)
-                }
-                .buttonStyle(.plain)
-                Text(HubPrivacy.summary)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
-        .sheet(isPresented: $showPrivacy) {
-            PrivacyPolicyView()
-        }
     }
-
-    @State private var showPrivacy = false
 }
 
 struct InviteSettingsView: View {

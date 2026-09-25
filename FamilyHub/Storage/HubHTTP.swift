@@ -78,10 +78,34 @@ enum HubJoinCode {
         raw.replacingOccurrences(of: " ", with: "").uppercased()
     }
 
-    static func isAcceptable(_ raw: String) -> Bool {
+    /// 2026-09-25 plus 90 days. After this, a 6-character code is no longer a join code.
+    static var legacyCutoff: Date {
+        var parts = DateComponents()
+        parts.calendar = Calendar(identifier: .gregorian)
+        parts.timeZone = TimeZone(secondsFromGMT: 0)
+        parts.year = 2026
+        parts.month = 12
+        parts.day = 24
+        return parts.date ?? Date(timeIntervalSince1970: 1_766_534_400)
+    }
+
+    /// Tests move this to check the cutoff. The app leaves it as the current time.
+    static var clock: () -> Date = { Date() }
+
+    static func isAcceptable(_ raw: String, now: Date? = nil) -> Bool {
+        let moment = now ?? clock()
         let clean = normalized(raw)
-        guard clean.count == legacyLength || clean.count == length else { return false }
-        return clean.allSatisfy { alphabet.contains($0) }
+        guard clean.allSatisfy({ alphabet.contains($0) }) else { return false }
+        if clean.count == length { return true }
+        if clean.count == legacyLength { return moment < legacyCutoff }
+        return false
+    }
+
+    /// Public-record cleanup still recognizes a 6-character code after the cutoff.
+    static func isDeletable(_ raw: String) -> Bool {
+        let clean = normalized(raw)
+        guard clean.allSatisfy({ alphabet.contains($0) }) else { return false }
+        return clean.count == legacyLength || clean.count == length
     }
 }
 
