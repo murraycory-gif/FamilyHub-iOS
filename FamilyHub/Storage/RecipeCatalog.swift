@@ -1,6 +1,6 @@
 import Foundation
 
-struct CatalogRecipe: Identifiable, Hashable {
+struct CatalogRecipe: Identifiable, Hashable, Codable {
     var id: String
     var name: String
     var category: String
@@ -10,6 +10,7 @@ struct CatalogRecipe: Identifiable, Hashable {
     var ingredients: [String]
     var sourceURL: URL?
     var youtubeURL: URL?
+    var sourceName: String = ""
 
     func asHubRecipe(kind: RecipeKind = .recipe) -> Recipe {
         Recipe.make(
@@ -27,6 +28,11 @@ struct CatalogRecipe: Identifiable, Hashable {
 @MainActor
 final class RecipeCatalog: ObservableObject {
     @Published var recipes: [CatalogRecipe] = []
+    @Published var trending: [CatalogRecipe] = []
+    @Published var searchKind: RecipeSearchKind = .dish
+    @Published var diets: Set<DietFlag> = []
+    private let provider: any RecipeProviding = RecipeSources.make()
+    var sourceTitle: String { provider.displayName }
     @Published var categories: [String] = [
         "All", "Easy", "Quick", "American", "World", "BBQ", "Southern", "Tex-Mex",
         "Italian", "Mexican", "Asian", "Mediterranean", "Diner", "Comfort", "Weeknight", "Holiday"
@@ -38,26 +44,66 @@ final class RecipeCatalog: ObservableObject {
 
     func load() async {
         applyFilter()
+        await loadTrending()
+    }
+
+    func loadTrending() async {
+        do {
+            trending = try await provider.trending()
+        } catch let error as RecipeProviderError {
+            trending = []
+            message = note(for: error)
+        } catch {
+            message = note(for: .offline)
+        }
     }
 
     func loadMore() async {}
 
     func search() async {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
+        if searchKind == .diet || trimmed.isEmpty {
             applyFilter()
+            if searchKind == .diet {
+                recipes = (trending + recipes).filter { DietMatch.allows($0, flags: diets) }
+                recipes = uniqued(recipes)
+            }
+            if recipes.isEmpty { message = diets.isEmpty ? "No recipes in that category yet." : "No recipes match these diets." }
             return
         }
-        isLoading = false
+        isLoading = true
         message = nil
-        let needle = trimmed.lowercased()
-        var seen = Set<String>()
-        var result: [CatalogRecipe] = []
-        for item in localRecipes where matches(item, needle) {
-            if seen.insert(item.id).inserted { result.append(item) }
+        defer { isLoading = false }
+        do {
+            let remote: [CatalogRecipe]
+            switch searchKind {
+            case .dish: remote = try await provider.searchDish(trimmed)
+            case .ingredient: remote = try await provider.searchIngredient(trimmed)
+            case .cuisine: remote = try await provider.searchCuisine(trimmed)
+            case .diet: remote = []
+            }
+            let needle = trimmed.lowercased()
+            var merged = remote
+            for item in localRecipes where matches(item, needle) {
+                merged.append(item)
+            }
+            recipes = uniqued(merged).filter { DietMatch.allows($0, flags: diets) }
+            if recipes.isEmpty { message = "No recipes for that search." }
+        } catch let error as RecipeProviderError {
+            let needle = trimmed.lowercased()
+            recipes = localRecipes.filter { matches($0, needle) && DietMatch.allows($0, flags: diets) }
+            message = recipes.isEmpty ? note(for: error) : "\(note(for: error)) Showing saved recipes."
+        } catch {
+            message = note(for: .offline)
         }
-        recipes = result
-        if recipes.isEmpty { message = "No recipes for that search." }
+    }
+
+    private func note(for error: RecipeProviderError) -> String {
+        switch error {
+        case .offline: return "Can't reach \(provider.displayName). Check the connection."
+        case .quota: return "\(provider.displayName) is at its free limit. Try again later."
+        case .unavailable: return "\(provider.displayName) didn't answer."
+        }
     }
 
     func detail(id: String) async -> CatalogRecipe? {
@@ -67,7 +113,7 @@ final class RecipeCatalog: ObservableObject {
         if let existing = recipes.first(where: { $0.id == id }), !existing.instructions.isEmpty {
             return existing
         }
-        return try? await MealDB.lookup(id)
+        return try? await provider.lookup(id: id)
     }
 
     private var localRecipes: [CatalogRecipe] { AmericanKitchen.recipes + WorldKitchen.recipes }
@@ -181,6 +227,16 @@ enum MealDB {
         try await get("lookup.php?i=\(id)").first
     }
 
+    static func random() async throws -> CatalogRecipe? {
+        try await get("random.php").first
+    }
+
+    static func filterIngredient(_ name: String) async throws -> [CatalogRecipe] {
+        let encoded = name.replacingOccurrences(of: " ", with: "_")
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name
+        return try await get("filter.php?i=\(encoded)")
+    }
+
     static func categories() async throws -> [String] {
         struct Wrap: Decodable { var categories: [Item]? }
         struct Item: Decodable { var strCategory: String }
@@ -192,8 +248,19 @@ enum MealDB {
     private static func get(_ path: String) async throws -> [CatalogRecipe] {
         struct Wrap: Decodable { var meals: [Meal]? }
         guard let url = URL(string: "\(root)/\(path)") else { return [] }
-        let data = try await HubHTTP.data(from: url)
-        return try JSONDecoder().decode(Wrap.self, from: data).meals?.compactMap(CatalogRecipe.init) ?? []
+        var request = URLRequest(url: url, timeoutInterval: 12)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw RecipeProviderError.offline
+        }
+        if let http = response as? HTTPURLResponse {
+            if http.statusCode == 429 { throw RecipeProviderError.quota }
+            if !(200...299).contains(http.statusCode) { throw RecipeProviderError.unavailable }
+        }
+        return (try? JSONDecoder().decode(Wrap.self, from: data).meals?.compactMap(CatalogRecipe.init)) ?? []
     }
 }
 
@@ -234,6 +301,7 @@ private extension CatalogRecipe {
         instructions = meal.strInstructions ?? ""
         sourceURL = meal.strSource.flatMap(URL.init(string:))
         youtubeURL = meal.strYoutube.flatMap(URL.init(string:))
+        sourceName = "TheMealDB"
         let pairs: [(String?, String?)] = [
             (meal.strIngredient1, meal.strMeasure1), (meal.strIngredient2, meal.strMeasure2),
             (meal.strIngredient3, meal.strMeasure3), (meal.strIngredient4, meal.strMeasure4),

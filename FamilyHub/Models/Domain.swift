@@ -113,9 +113,10 @@ struct FamilyMember: Identifiable, Codable, Hashable {
     var birthday: Date?
     var email: String
     var phone: String
+    var diets: [DietFlag]
 
     enum CodingKeys: String, CodingKey {
-        case id, name, role, colorHex, symbol, allowanceBalanceCents, birthday, email, phone
+        case id, name, role, colorHex, symbol, allowanceBalanceCents, birthday, email, phone, diets
     }
 
     init(
@@ -127,7 +128,8 @@ struct FamilyMember: Identifiable, Codable, Hashable {
         allowanceBalanceCents: Int,
         birthday: Date? = nil,
         email: String = "",
-        phone: String = ""
+        phone: String = "",
+        diets: [DietFlag] = []
     ) {
         self.id = id
         self.name = name
@@ -138,6 +140,7 @@ struct FamilyMember: Identifiable, Codable, Hashable {
         self.birthday = birthday
         self.email = email
         self.phone = phone
+        self.diets = diets
     }
 
     init(from decoder: Decoder) throws {
@@ -151,6 +154,7 @@ struct FamilyMember: Identifiable, Codable, Hashable {
         birthday = try c.decodeIfPresent(Date.self, forKey: .birthday)
         email = try c.decodeIfPresent(String.self, forKey: .email) ?? ""
         phone = try c.decodeIfPresent(String.self, forKey: .phone) ?? ""
+        diets = try c.decodeIfPresent([DietFlag].self, forKey: .diets) ?? []
     }
 
     static func make(name: String, role: MemberRole, colorHex: String, symbol: String) -> FamilyMember {
@@ -585,6 +589,7 @@ struct HubSnapshot: Codable {
                 next.birthday = nil
                 next.allowanceBalanceCents = 0
             }
+            next.diets = []
             return next
         }
         var prefs = (notifyPrefs ?? .off).strippingSecrets()

@@ -63,7 +63,8 @@ final class SnapshotReliabilityTests: XCTestCase {
             symbol: "😎",
             allowanceBalanceCents: 0,
             email: "cory@example.com",
-            phone: "3125550100"
+            phone: "3125550100",
+            diets: [.nutFree, .halal]
         )
         let prefs = HubNotifyPrefs(
             morningBrief: true,
@@ -97,6 +98,7 @@ final class SnapshotReliabilityTests: XCTestCase {
         XCTAssertEqual(cloud.members.map(\.role), [.parent, .child])
         XCTAssertEqual(cloud.members.map(\.phone), ["", ""])
         XCTAssertEqual(cloud.members.map(\.email), ["", ""])
+        XCTAssertEqual(cloud.members.map(\.diets), [[], []])
         XCTAssertNil(cloud.members[1].birthday)
         XCTAssertEqual(cloud.members[1].allowanceBalanceCents, 0)
         XCTAssertEqual(cloud.notifyPrefs?.twilioToken, "")

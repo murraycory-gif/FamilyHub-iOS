@@ -412,6 +412,7 @@ struct MemberProfileView: View {
                         banner(member)
                         stats(member)
                         contact(member)
+                        diets(member)
                         today(member)
                         Button(action: onEdit) {
                             Label("Edit profile", systemImage: "pencil")
@@ -448,6 +449,39 @@ struct MemberProfileView: View {
             }
         }
         .presentationDetents([.large])
+    }
+
+    private func diets(_ member: FamilyMember) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Diet and allergies")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+            Text("Dinner search uses these for \(member.name). Pick more than one. They stay on this device’s household file.")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
+                ForEach(DietFlag.allCases) { flag in
+                    let on = member.diets.contains(flag)
+                    Button {
+                        var next = member
+                        if on {
+                            next.diets.removeAll { $0 == flag }
+                        } else {
+                            next.diets.append(flag)
+                        }
+                        store.updateMember(next)
+                    } label: {
+                        Text(flag.title)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(on ? .white : AppTheme.blue)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(on ? AppTheme.blue : AppTheme.blueSoft, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 
     private func banner(_ member: FamilyMember) -> some View {

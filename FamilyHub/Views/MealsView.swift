@@ -992,6 +992,9 @@ private struct CatalogRecipePicker: View {
             HubStickyHeader(lead: "All", tail: "Recipes") {
                 HubHeaderPill(title: "Close") { onClose() }
             }
+            searchKindPicker
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
             searchBar
                 .onChange(of: catalog.query) { _, value in
                     Task {
@@ -1002,6 +1005,8 @@ private struct CatalogRecipePicker: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 8)
+            dietChips
+                .padding(.horizontal, 20)
             chips
                 .padding(.horizontal, 20)
             if let message = catalog.message {
@@ -1010,6 +1015,29 @@ private struct CatalogRecipePicker: View {
                     .padding(.horizontal, 20)
             }
             ScrollView {
+                if catalog.trending.isEmpty == false {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Trending now")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                        Text(catalog.sourceTitle)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(catalog.trending.filter { DietMatch.allows($0, flags: catalog.diets) }) { recipe in
+                                    Button { opened = recipe } label: {
+                                        recipeTile(recipe)
+                                            .frame(width: 220)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
                     ForEach(Array(catalog.recipes.prefix(80))) { recipe in
                         Button {
@@ -1026,12 +1054,65 @@ private struct CatalogRecipePicker: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .onAppear {
+            if let member = store.member(id: store.signedInMemberID ?? store.ownerID ?? UUID()) {
+                catalog.diets = Set(member.diets)
+            }
             Task { await catalog.load() }
         }
     }
 
+    private var searchKindPicker: some View {
+        HStack(spacing: 8) {
+            ForEach(RecipeSearchKind.allCases) { kind in
+                let on = catalog.searchKind == kind
+                Button {
+                    catalog.searchKind = kind
+                    Task { await catalog.search() }
+                } label: {
+                    Text(kind.title)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(on ? .white : AppTheme.text)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(on ? AppTheme.blue : AppTheme.card, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var dietChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(DietFlag.allCases) { flag in
+                    let on = catalog.diets.contains(flag)
+                    Button {
+                        if on { catalog.diets.remove(flag) } else { catalog.diets.insert(flag) }
+                        saveDiets()
+                        Task { await catalog.search() }
+                    } label: {
+                        Text(flag.title)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(on ? .white : AppTheme.blue)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(on ? AppTheme.blue : AppTheme.blueSoft, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func saveDiets() {
+        guard var member = store.member(id: store.signedInMemberID ?? store.ownerID ?? UUID()) else { return }
+        member.diets = DietFlag.allCases.filter { catalog.diets.contains($0) }
+        store.updateMember(member)
+    }
+
     private var searchBar: some View {
-        HubSearchBar(text: $catalog.query, placeholder: "Burger, chili, tacos…", isLoading: catalog.isLoading) {
+        HubSearchBar(text: $catalog.query, placeholder: catalog.searchKind.placeholder, isLoading: catalog.isLoading) {
             Task { await catalog.search() }
         }
     }
@@ -1084,6 +1165,11 @@ private struct CatalogRecipeDetail: View {
                     Text([recipe.category, recipe.area].filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.blue)
+                    if recipe.sourceName.isEmpty == false {
+                        Text("Source · \(recipe.sourceName)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
                 }
                 .padding(14)
                 .background(AppTheme.card)
