@@ -19,7 +19,7 @@ enum RecipeThumbs {
         if host == "unsplash.com" || host.hasSuffix(".unsplash.com") { return nil }
         if host == "wikimedia.org" || host.hasSuffix(".wikimedia.org") { return nil }
         if host.contains("themealdb.com") { return nil }
-        if url.scheme != "https" && url.scheme != "http" { return nil }
+        if url.scheme?.lowercased() != "https" { return nil }
         return url
     }
 }

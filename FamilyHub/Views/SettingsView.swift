@@ -192,6 +192,38 @@ struct ProfilesSettingsView: View {
     }
 }
 
+enum HubPrivacy {
+    static let summary = "Household data stays in your private iCloud. HUB does not sell it or send it to a server we run."
+}
+
+struct PrivacyPolicyView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("HUB stores the household on this device and in your private iCloud. The developer does not receive names, photos, calendars, or location.")
+                    Text("While HUB is open, location is used only to show local weather and to search MapKit for nearby restaurants. HUB does not track location in the background.")
+                    Text("Place pictures, when shown, come from Apple Look Around. HUB does not download photos from other websites.")
+                    Text("Family photos and recipe scans stay on this device. Calendar events are read on this device to fill the family board.")
+                    Text("Invite codes are random. Existing households keep the code they already have. Sharing a HUB uses Apple’s share sheet.")
+                }
+                .font(.body.weight(.medium))
+                .foregroundStyle(AppTheme.text)
+                .padding(20)
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("Privacy policy")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
 struct DeviceSettingsView: View {
     @EnvironmentObject private var store: HubStore
 
@@ -234,9 +266,25 @@ struct DeviceSettingsView: View {
                         .buttonStyle(HubPressStyle())
                     }
                 }
+                Button {
+                    showPrivacy = true
+                } label: {
+                    Label("Privacy policy", systemImage: "hand.raised.fill")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .buttonStyle(.plain)
+                Text(HubPrivacy.summary)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
+        .sheet(isPresented: $showPrivacy) {
+            PrivacyPolicyView()
+        }
     }
+
+    @State private var showPrivacy = false
 }
 
 struct InviteSettingsView: View {

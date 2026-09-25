@@ -154,7 +154,7 @@ enum HouseholdCloud {
     static func delete(code: String) async throws {
         try refuseCloudUnderTest()
         let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-        guard clean.count == 6 else { return }
+        guard HubJoinCode.isAcceptable(clean) else { return }
         let id = CKRecord.ID(recordName: "hub-\(clean)")
         do {
             try await publicDB.deleteRecord(withID: id)
