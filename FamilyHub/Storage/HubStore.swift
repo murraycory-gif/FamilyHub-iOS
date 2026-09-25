@@ -1222,8 +1222,9 @@ final class HubStore: ObservableObject {
         rememberAccount()
     }
 
-    private func writeSnapshot() {
-        guard !loadFailed else { return }
+    @discardableResult
+    private func writeSnapshot() -> Bool {
+        guard !loadFailed else { return false }
         let snapshot = HubSnapshot(
             householdName: householdName,
             members: members,
@@ -1273,8 +1274,10 @@ final class HubStore: ObservableObject {
             rememberAccount()
             scheduleCloudPublish(data)
             publishWidgets()
+            return true
         } catch {
             errorMessage = "Could not save: \(error.localizedDescription)"
+            return false
         }
     }
 
@@ -1289,10 +1292,12 @@ final class HubStore: ObservableObject {
         }
     }
 
-    private func persistNow() {
+    @discardableResult
+    private func persistNow() -> Bool {
         persistTask?.cancel()
-        writeSnapshot()
+        let saved = writeSnapshot()
         if roleLoaded && writingRole { saveDeviceRole() }
+        return saved
     }
 
     private func publishWidgets() {
@@ -1369,18 +1374,27 @@ final class HubStore: ObservableObject {
             errorMessage = message
             return message
         }
+        guard rotateLegacyJoinCode() else {
+            return errorMessage ?? "Could not save the new join code. This will try again."
+        }
         UserDefaults.standard.set(true, forKey: Self.publicCleanupKey)
-        rotateLegacyJoinCode()
         return nil
     }
 
-    private func rotateLegacyJoinCode() {
+    /// Returns false when a 6-character code still needs replacing and the new code did not save.
+    private func rotateLegacyJoinCode() -> Bool {
         let current = HubJoinCode.normalized(joinCode)
-        guard current.count == HubJoinCode.legacyLength else { return }
+        guard current.count == HubJoinCode.legacyLength else { return true }
+        let previous = joinCode
         rememberIssued(current)
         joinCode = HubJoinCode.make()
         rememberIssued(joinCode)
-        persistNow()
+        guard persistNow() else {
+            issuedJoinCodes.removeAll { $0 == joinCode }
+            joinCode = previous
+            return false
+        }
+        return true
     }
 
     func currentHouseholdData() -> Data? {

@@ -217,9 +217,9 @@ struct PrivacyPolicyView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("HUB stores the household on this device and in your private iCloud. The developer does not receive names, photos, calendars, or location.")
                     Text("While HUB is open, location is used only to show local weather and to search MapKit for nearby restaurants. HUB does not track location in the background.")
-                    Text("Place pictures, when shown, come from Apple Look Around. HUB does not download photos from other websites.")
+                    Text("Place photos come only from Apple Look Around. Recipe images load from our own catalog host.")
                     Text("Family photos and recipe scans stay on this device. Calendar events are read on this device to fill the family board.")
-                    Text("Invite codes are random. Existing households keep the code they already have. Sharing a HUB uses Apple’s share sheet.")
+                    Text("Invite codes are random. Older 6-character codes are replaced automatically after the first private sync. Sharing a HUB uses Apple’s share sheet.")
                     Link("Full privacy policy", destination: HubPrivacy.hostedURL)
                         .font(.headline.weight(.bold))
                 }

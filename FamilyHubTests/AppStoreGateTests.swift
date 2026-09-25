@@ -116,7 +116,46 @@ final class AppStoreGateTests: XCTestCase {
         store.refreshJoinCode()
         XCTAssertEqual(store.joinCode, rotated)
         XCTAssertEqual(store.errorMessage, "Too many new codes this hour. Try again later.")
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: HubStore.publicCleanupKey))
         UserDefaults.standard.removeObject(forKey: HubStore.issueTimesKey)
+        UserDefaults.standard.removeObject(forKey: HubStore.publicCleanupKey)
+    }
+
+    func testLegacySunsetRetriesWhenTheNewCodeDoesNotSave() async throws {
+        HubJoinCode.clock = { HubJoinCode.legacyCutoff.addingTimeInterval(-60) }
+        defer { HubJoinCode.clock = { Date() } }
+        UserDefaults.standard.set(false, forKey: HubStore.publicCleanupKey)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        var snapshot = HubStore.emptySnapshot()
+        snapshot.householdName = "Murray"
+        snapshot.joinCode = "AB12CD"
+        snapshot.issuedJoinCodes = ["AB12CD"]
+        snapshot.schemaVersion = HubSnapshot.currentSchema
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(snapshot).write(to: root.appendingPathComponent("hub.json"))
+        let store = HubStore(rootURL: root)
+        store.remote = GateRemote()
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path) }
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: root.path)
+
+        let blocked = await store.retirePublicRecordsOnce()
+
+        XCTAssertNotNil(blocked)
+        XCTAssertEqual(store.joinCode, "AB12CD")
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: HubStore.publicCleanupKey))
+        let still = try String(contentsOf: root.appendingPathComponent("hub.json"), encoding: .utf8)
+        XCTAssertTrue(still.contains("AB12CD"))
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
+        let saved = await store.retirePublicRecordsOnce()
+        XCTAssertNil(saved)
+        XCTAssertEqual(store.joinCode.count, HubJoinCode.length)
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: HubStore.publicCleanupKey))
+        let written = try String(contentsOf: root.appendingPathComponent("hub.json"), encoding: .utf8)
+        XCTAssertTrue(written.contains(store.joinCode))
+        XCTAssertFalse(written.contains("\"joinCode\":\"AB12CD\""))
         UserDefaults.standard.removeObject(forKey: HubStore.publicCleanupKey)
     }
 

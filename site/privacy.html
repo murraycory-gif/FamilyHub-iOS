@@ -8,6 +8,7 @@
 <body>
   <main>
     <h1>Privacy policy</h1>
+    <p>Effective date: September 25, 2026</p>
     <p>HUB Circle is a family board for parents and guardians. It is not directed at children under 13. A parent or guardian enters a child’s information. Kids do not create their own accounts.</p>
 
     <h2>What stays on the device</h2>
@@ -26,16 +27,25 @@
     <p>No analytics. No tracking. No advertising. No developer server. Place pictures are not downloaded from other websites.</p>
 
     <h2>Erase and Leave</h2>
-    <p>Erase, for the owner, deletes the private iCloud zone and the share, then removes the household from this device. Leave, for someone who was invited, removes this device from the share and clears the local copy. It does not delete the owner’s zone or the owner’s share.</p>
+    <p>Erase, for the owner, deletes the household record in iCloud and its share, then removes the household from this device. Leave, for someone who was invited, removes this device from the share and clears the local copy. It does not delete the owner’s household record or the owner’s share.</p>
 
     <h2>Contact</h2>
     <p>Questions about this policy: <a id="contact" href="#"></a></p>
+    <p id="contact-fallback">Contact email is not set yet. Replace it in config.js before publishing this site.</p>
   </main>
   <script src="config.js"></script>
   <script>
     var link = document.getElementById("contact");
-    link.textContent = CONTACT_EMAIL;
-    link.href = "mailto:" + CONTACT_EMAIL;
+    var fallback = document.getElementById("contact-fallback");
+    var unset = !CONTACT_EMAIL || CONTACT_EMAIL === "CONTACT_EMAIL" || CONTACT_EMAIL.indexOf("@") < 0;
+    if (unset) {
+      link.textContent = "";
+      fallback.hidden = false;
+    } else {
+      link.textContent = CONTACT_EMAIL;
+      link.href = "mailto:" + CONTACT_EMAIL;
+      fallback.hidden = true;
+    }
   </script>
 </body>
 </html>
