@@ -18,6 +18,7 @@ enum HouseholdCloudError: LocalizedError, Equatable {
 
 protocol HouseholdRemote: AnyObject {
     func deletePrivateHouseholdAndShare() async throws
+    func leaveShare() async throws
     func deletePublicCode(_ code: String) async throws
 }
 
@@ -70,19 +71,30 @@ enum HouseholdCloud {
     }
 
     /// Owner's private copy, then a zone shared with this iCloud user.
-    static func fetchShared() async throws -> Data {
+    /// `ownedHere` is false when the payload came from someone else's shared zone.
+    static func fetchShared() async throws -> (data: Data, ownedHere: Bool) {
         let ownID = CKRecord.ID(recordName: recordName, zoneID: ownerZoneID)
         if let record = try? await privateDB.record(for: ownID), let data = record["payload"] as? Data, !data.isEmpty {
-            return data
+            return (data, true)
         }
         let zones = try await sharedDB.allRecordZones()
         for zone in zones where zone.zoneID.zoneName == zoneName {
             let id = CKRecord.ID(recordName: recordName, zoneID: zone.zoneID)
             if let record = try? await sharedDB.record(for: id), let data = record["payload"] as? Data, !data.isEmpty {
-                return data
+                return (data, false)
             }
         }
         throw HouseholdCloudError.missingHouse
+    }
+
+    /// Participant leaves the share. Does not delete the owner's zone or share record.
+    static func leaveShare() async throws {
+        let zones = try await sharedDB.allRecordZones()
+        for zone in zones where zone.zoneID.zoneName == zoneName {
+            let id = CKRecord.ID(recordName: recordName, zoneID: zone.zoneID)
+            guard let record = try? await sharedDB.record(for: id), let shareID = record.share?.recordID else { continue }
+            try await deleteIgnoringMissing(sharedDB, shareID)
+        }
     }
 
     /// Deletes the private-zone household record and its CKShare. Missing records count as already gone.
@@ -118,6 +130,12 @@ enum HouseholdCloud {
         }
     }
 
+    /// A public hub-<code> record created by another iCloud user is not ours to delete.
+    static func isForeignPublicRecord(_ error: Error) -> Bool {
+        guard let ck = error as? CKError else { return false }
+        return ck.code == .permissionFailure
+    }
+
     /// Public database is only for retiring the old hub-<code> records.
     static func delete(code: String) async throws {
         let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
@@ -134,6 +152,10 @@ enum HouseholdCloud {
 final class HouseholdCloudClient: HouseholdRemote {
     func deletePrivateHouseholdAndShare() async throws {
         try await HouseholdCloud.deletePrivateHouseholdAndShare()
+    }
+
+    func leaveShare() async throws {
+        try await HouseholdCloud.leaveShare()
     }
 
     func deletePublicCode(_ code: String) async throws {

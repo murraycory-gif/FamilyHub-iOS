@@ -29,7 +29,7 @@ final class RiskReviewTests: XCTestCase {
         XCTAssertTrue(store.members.isEmpty)
     }
 
-    func testCorruptFileShowsRestoreAndRestoreWorks() throws {
+    func testCorruptFileShowsRestoreAndRestoreWorks() async throws {
         XCTAssertEqual(HubLaunchScreen.choose(splash: false, loadFailed: true, needsSetup: true), .corrupt)
         XCTAssertEqual(HubLaunchScreen.choose(splash: true, loadFailed: true, needsSetup: true), .splash)
         XCTAssertEqual(HubLaunchScreen.choose(splash: false, loadFailed: false, needsSetup: false), .home)
@@ -49,7 +49,7 @@ final class RiskReviewTests: XCTestCase {
         let store = HubStore(rootURL: root)
         XCTAssertTrue(store.loadFailed)
         XCTAssertNotEqual(store.householdName, "Restored")
-        XCTAssertNil(store.restoreNewestBackup())
+        XCTAssertNil(await store.restoreNewestBackup())
         XCTAssertFalse(store.loadFailed)
         XCTAssertEqual(store.householdName, "Restored")
     }
@@ -73,10 +73,65 @@ final class RiskReviewTests: XCTestCase {
         XCTAssertEqual(failed, [])
         XCTAssertEqual(remote.publicDeletes.filter { $0 == "AB12CD" }.count, 3)
     }
+
+    func testBackupPruneKeepsFiveNewest() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = HubStore(rootURL: root)
+        for index in 0..<8 {
+            let file = root.appendingPathComponent(String(format: "hub-2000-01-%02dT00-00-00Z.json", index + 1))
+            try Data("{}".utf8).write(to: file)
+            try FileManager.default.setAttributes(
+                [.modificationDate: Date(timeIntervalSince1970: TimeInterval(index + 1))],
+                ofItemAtPath: file.path
+            )
+        }
+        store.markSetupComplete()
+        let backups = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" }
+        XCTAssertEqual(backups.count, 5)
+        XCTAssertFalse(backups.contains { $0.lastPathComponent.contains("2000-01-01") })
+    }
+
+    func testEraseSuccessRemovesEveryBackup() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = HubStore(rootURL: root)
+        store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
+        store.markSetupComplete()
+        try Data("{}".utf8).write(to: root.appendingPathComponent("hub-extra.json"))
+        store.remote = ScriptedRemote()
+
+        XCTAssertNil(await store.eraseHousehold())
+
+        let backups = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" }
+        XCTAssertEqual(backups, [])
+    }
+
+    func testParticipantEraseSkipsForeignPublicCode() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = HubStore(rootURL: root)
+        store.addQuickMember(name: "Cory", role: .parent, asOwner: true)
+        store.markSetupComplete()
+        store.ownsPrivateZone = false
+        let remote = ScriptedRemote()
+        remote.publicError = CKError(.permissionFailure)
+        store.remote = remote
+
+        let result = await store.eraseHousehold()
+
+        XCTAssertNil(result)
+        XCTAssertEqual(remote.privateDeletes, 0)
+        XCTAssertEqual(remote.leaveCalls, 1)
+        XCTAssertTrue(store.members.isEmpty)
+    }
 }
 
 private final class ScriptedRemote: HouseholdRemote {
     var privateDeletes = 0
+    var leaveCalls = 0
     var publicDeletes: [String] = []
     var privateError: Error?
     var publicError: Error?
@@ -85,6 +140,10 @@ private final class ScriptedRemote: HouseholdRemote {
     func deletePrivateHouseholdAndShare() async throws {
         privateDeletes += 1
         if let privateError { throw privateError }
+    }
+
+    func leaveShare() async throws {
+        leaveCalls += 1
     }
 
     func deletePublicCode(_ code: String) async throws {

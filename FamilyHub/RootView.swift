@@ -83,7 +83,7 @@ struct CorruptHouseView: View {
                 .font(.body.weight(.semibold))
                 .foregroundStyle(AppTheme.textSecondary)
             Button("Restore from backup") {
-                note = store.restoreNewestBackup()
+                Task { note = await store.restoreNewestBackup() }
             }
             .buttonStyle(.borderedProminent)
             if let note {

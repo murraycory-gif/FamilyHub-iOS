@@ -52,6 +52,8 @@ final class HubStore: ObservableObject {
     @Published private(set) var loadFailed = false
     @Published private(set) var loadFailureDetail: String?
     var remote: any HouseholdRemote = HouseholdCloudClient()
+    /// False after this device joins someone else's share. Erase then only leaves that share.
+    var ownsPrivateZone = true
     private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
     private var memberPhotoFolder: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("member-photos", isDirectory: true) }
 
@@ -588,6 +590,10 @@ final class HubStore: ObservableObject {
                     removed = true
                     break
                 } catch {
+                    if HouseholdCloud.isForeignPublicRecord(error) {
+                        removed = true
+                        break
+                    }
                     let retry = HouseholdCloud.isTransient(error) && attempt < attempts - 1
                     if !retry { break }
                     try? await Task.sleep(for: .milliseconds(50 * (attempt + 1)))
@@ -1151,6 +1157,7 @@ final class HubStore: ObservableObject {
             let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
             let backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-\(stamp).json")
             try? fileManager.copyItem(at: snapshotURL, to: backup)
+            pruneBackups(keeping: 5)
             loadFailed = true
             loadFailureDetail = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
         }
@@ -1377,7 +1384,9 @@ final class HubStore: ObservableObject {
     }
 
     func joinSharedHousehold() async throws {
-        let data = try await HouseholdCloud.fetchShared()
+        let fetched = try await HouseholdCloud.fetchShared()
+        let data = fetched.data
+        ownsPrivateZone = fetched.ownedHere
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let snapshot = try decoder.decode(HubSnapshot.self, from: data)
@@ -1423,10 +1432,15 @@ final class HubStore: ObservableObject {
         }
     }
 
-    /// Deletes the private-zone record and CKShare first. Local data stays if iCloud does not confirm.
+    /// Owner deletes the private-zone record and CKShare. A participant only leaves the share.
+    /// Local data stays if iCloud does not confirm.
     func eraseHousehold() async -> String? {
         do {
-            try await remote.deletePrivateHouseholdAndShare()
+            if ownsPrivateZone {
+                try await remote.deletePrivateHouseholdAndShare()
+            } else {
+                try await remote.leaveShare()
+            }
         } catch {
             let message = "Could not erase the iCloud copy. This HUB is still on this device. \(error.localizedDescription)"
             errorMessage = message
@@ -1442,9 +1456,32 @@ final class HubStore: ObservableObject {
         return nil
     }
 
-    func restoreNewestBackup() -> String? {
+    func restoreNewestBackup() async -> String? {
         let folder = snapshotURL.deletingLastPathComponent()
-        let files = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+        let data = await Task.detached(priority: .userInitiated) {
+            Self.newestDecodableBackup(in: folder)
+        }.value
+        guard let data else {
+            return "No readable backup was found. The original file is still untouched."
+        }
+        do {
+            try data.write(to: snapshotURL, options: [.atomic])
+        } catch {
+            return "Could not restore the backup. \(error.localizedDescription)"
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let snapshot = try? decoder.decode(HubSnapshot.self, from: data) else {
+            return "No readable backup was found. The original file is still untouched."
+        }
+        loadFailed = false
+        loadFailureDetail = nil
+        apply(snapshot)
+        return nil
+    }
+
+    nonisolated static func newestDecodableBackup(in folder: URL) -> Data? {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
             .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" } ?? []
         let ordered = files.sorted { lhs, rhs in
             let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
@@ -1457,28 +1494,45 @@ final class HubStore: ObservableObject {
             guard let data = try? Data(contentsOf: file),
                   (try? decoder.decode(HubSnapshot.self, from: data)) != nil
             else { continue }
-            do {
-                try data.write(to: snapshotURL, options: [.atomic])
-            } catch {
-                return "Could not restore the backup. \(error.localizedDescription)"
-            }
-            loadFailed = false
-            loadFailureDetail = nil
-            if let snapshot = try? decoder.decode(HubSnapshot.self, from: data) {
-                apply(snapshot)
-            }
-            return nil
+            return data
         }
-        return "No readable backup was found. The original file is still untouched."
+        return nil
     }
 
+    private var writingBackup = true
+
     private func writeTimestampedBackup(_ data: Data) {
+        guard writingBackup else { return }
         let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let backup = snapshotURL.deletingLastPathComponent().appendingPathComponent("hub-\(stamp).json")
+        let folder = snapshotURL.deletingLastPathComponent()
+        let backup = folder.appendingPathComponent("hub-\(stamp).json")
         try? data.write(to: backup, options: [.atomic])
+        pruneBackups(keeping: 5)
+    }
+
+    private func pruneBackups(keeping limit: Int) {
+        let folder = snapshotURL.deletingLastPathComponent()
+        let files = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]))?
+            .filter { $0.lastPathComponent.hasPrefix("hub-") && $0.pathExtension == "json" } ?? []
+        let ordered = files.sorted { lhs, rhs in
+            let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return left > right
+        }
+        for old in ordered.dropFirst(limit) {
+            try? fileManager.removeItem(at: old)
+        }
+    }
+
+    private func deleteAllBackups() {
+        pruneBackups(keeping: 0)
     }
 
     private func clearLocalHouse() {
+        writingBackup = false
+        defer { writingBackup = true }
+        deleteAllBackups()
+        ownsPrivateZone = true
         UserDefaults.standard.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.removeObject(forKey: Self.accountKey)
         NSUbiquitousKeyValueStore.default.synchronize()
