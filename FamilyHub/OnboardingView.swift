@@ -478,9 +478,10 @@ struct OnboardingView: View {
 
     @MainActor
     private func personRow(_ member: FamilyMember) -> some View {
-        HStack(spacing: 12) {
+        let photo = store.photo(for: member)
+        return HStack(spacing: 12) {
             PhotosPicker(selection: $photoItem, matching: .images) {
-                bannerThumb(store.photo(for: member))
+                bannerThumb(photo)
                     .overlay(alignment: .bottomTrailing) {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 9, weight: .bold))
