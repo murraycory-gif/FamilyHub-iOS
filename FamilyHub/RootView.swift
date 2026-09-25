@@ -36,8 +36,9 @@ struct RootView: View {
         .preferredColorScheme(store.appearance.colorScheme)
         .tint(AppTheme.blue)
         .background(AppTheme.bg.ignoresSafeArea())
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            .onAppear {
+                LaunchTiming.mark("first frame")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 withAnimation(.easeInOut(duration: 0.4)) {
                     showSplash = false
                 }

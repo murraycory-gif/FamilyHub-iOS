@@ -155,7 +155,8 @@ struct TodayView: View {
             WhiteboardEditor()
                 .environmentObject(store)
         }
-        .task {
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
             await refreshWeatherFromHere()
             while !Task.isCancelled {
                 await weather.load(place: store.weatherPlace ?? .chicago, units: store.units)

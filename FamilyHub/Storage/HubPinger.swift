@@ -64,7 +64,7 @@ final class HubPinger: ObservableObject {
             lastError = "Could not reach the text service."
             return
         }
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: url, timeoutInterval: 12)
         request.httpMethod = "POST"
         let login = Data("\(sid):\(token)".utf8).base64EncodedString()
         request.setValue("Basic \(login)", forHTTPHeaderField: "Authorization")

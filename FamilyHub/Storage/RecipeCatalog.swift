@@ -184,15 +184,15 @@ enum MealDB {
     static func categories() async throws -> [String] {
         struct Wrap: Decodable { var categories: [Item]? }
         struct Item: Decodable { var strCategory: String }
-        let url = URL(string: "\(root)/categories.php")!
-        let (data, _) = try await URLSession.shared.data(from: url)
+        guard let url = URL(string: "\(root)/categories.php") else { return [] }
+        let data = try await HubHTTP.data(from: url)
         return try JSONDecoder().decode(Wrap.self, from: data).categories?.map(\.strCategory) ?? []
     }
 
     private static func get(_ path: String) async throws -> [CatalogRecipe] {
         struct Wrap: Decodable { var meals: [Meal]? }
-        let url = URL(string: "\(root)/\(path)")!
-        let (data, _) = try await URLSession.shared.data(from: url)
+        guard let url = URL(string: "\(root)/\(path)") else { return [] }
+        let data = try await HubHTTP.data(from: url)
         return try JSONDecoder().decode(Wrap.self, from: data).meals?.compactMap(CatalogRecipe.init) ?? []
     }
 }

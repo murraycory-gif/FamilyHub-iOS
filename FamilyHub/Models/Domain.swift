@@ -1537,6 +1537,18 @@ struct HubNotifyPrefs: Codable, Equatable {
         !twilioSID.isEmpty && !twilioToken.isEmpty && !twilioFrom.isEmpty
     }
 
+    var hasEmbeddedSecrets: Bool {
+        !twilioSID.isEmpty || !twilioToken.isEmpty || !twilioFrom.isEmpty
+    }
+
+    func strippingSecrets() -> HubNotifyPrefs {
+        var copy = self
+        copy.twilioSID = ""
+        copy.twilioToken = ""
+        copy.twilioFrom = ""
+        return copy
+    }
+
     static func minutes(from date: Date) -> Int {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
         return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)

@@ -245,6 +245,7 @@ struct FlightWidget: View {
     let day: Date
     var onAdd: () -> Void
     @Environment(\.hubAccent) private var accent
+    @Environment(\.scenePhase) private var scenePhase
     @State private var opened: TrackedFlight?
     @State private var ping: FlightPing?
 
@@ -309,11 +310,11 @@ struct FlightWidget: View {
             FlightDetailSheet(flight: flight, others: flights)
                 .environmentObject(store)
         }
-        .task(id: flights.first?.code) {
-            guard let flight = flights.first else { ping = nil; return }
+        .task(id: "\(flights.first?.code ?? "")-\(scenePhase == .active)") {
+            guard scenePhase == .active, let flight = flights.first else { ping = nil; return }
             while !Task.isCancelled {
                 ping = await FlightLive.ping(flight)
-                try? await Task.sleep(for: .seconds(20))
+                try? await Task.sleep(for: .seconds(90))
             }
         }
     }
@@ -412,6 +413,7 @@ struct FlightDetailSheet: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     let flight: TrackedFlight
     var others: [TrackedFlight] = []
     @State private var ping: FlightPing?
@@ -496,11 +498,12 @@ struct FlightDetailSheet: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .task(id: watching.code) {
+        .task(id: "\(watching.code)-\(scenePhase == .active)") {
             ping = nil
+            guard scenePhase == .active else { return }
             while !Task.isCancelled {
                 ping = await FlightLive.ping(watching)
-                try? await Task.sleep(for: .seconds(15))
+                try? await Task.sleep(for: .seconds(60))
             }
         }
     }
