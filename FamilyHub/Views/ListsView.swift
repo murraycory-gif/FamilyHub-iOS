@@ -51,7 +51,7 @@ struct ListsView: View {
             }
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: 10) {
                     if kind == .reminders {
                         reminderList
                     } else {
@@ -295,7 +295,7 @@ struct ShoppingListView: View {
             }
             .coachSpot("shopHeader")
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     addRow
                         .coachSpot("shopAdd")
                 if openItems.isEmpty && checkedItems.isEmpty {
