@@ -57,7 +57,7 @@ struct HubShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: WhatsOnTodayIntent(), phrases: ["What's on today in \(.applicationName)", "What's on today's agenda in \(.applicationName)"], shortTitle: "What's on today", systemImageName: "calendar")
         AppShortcut(intent: NextEventIntent(), phrases: ["Next event in \(.applicationName)", "What's next in \(.applicationName)"], shortTitle: "Next event", systemImageName: "clock")
-        AppShortcut(intent: AddGroceryIntent(), phrases: ["Add \(\.$item) to the grocery list in \(.applicationName)"], shortTitle: "Add grocery item", systemImageName: "cart")
+        AppShortcut(intent: AddGroceryIntent(), phrases: ["Add to the grocery list in \(.applicationName)"], shortTitle: "Add grocery item", systemImageName: "cart")
     }
 }
 

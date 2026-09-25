@@ -476,6 +476,7 @@ struct OnboardingView: View {
         )
     }
 
+    @MainActor
     private func personRow(_ member: FamilyMember) -> some View {
         HStack(spacing: 12) {
             PhotosPicker(selection: $photoItem, matching: .images) {

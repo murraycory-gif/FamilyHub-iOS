@@ -1,6 +1,7 @@
 import XCTest
 @testable import FamilyHub
 
+@MainActor
 final class SnapshotReliabilityTests: XCTestCase {
     func testNotifyPrefsDropLegacyTwilioOnDecode() throws {
         let raw = """
