@@ -55,6 +55,7 @@ final class HubStore: ObservableObject {
     /// False after this device joins someone else's share. Erase then only leaves that share.
     /// Restored from device-role.json so a relaunch does not treat a participant as the owner.
     var ownsPrivateZone = true
+    @Published var circlePhase: CircleLaunch.Phase = .pending
     private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
     private var memberPhotoFolder: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("member-photos", isDirectory: true) }
 
@@ -1545,22 +1546,71 @@ final class HubStore: ObservableObject {
     #endif
 
     func restoreAccountIfNeeded() async {
+        await discoverExistingCircle()
+    }
+
+    /// Looks in this Apple ID’s private database and accepted shares before offering Create or Join.
+    /// A join code in iCloud Key-Value Storage is not required.
+    func discoverExistingCircle() async {
         guard !Self.runningUnitTests else { return }
         guard !loadFailed else { return }
-        if setupCompleted || !members.isEmpty {
+        if CircleLaunch.hasLocalCircle(setupCompleted: setupCompleted, memberCount: members.count) {
+            circlePhase = .found
             rememberAccount()
+            await republishOwnedCircle()
             return
         }
-        let saved = NSUbiquitousKeyValueStore.default.string(forKey: Self.accountKey)
-            ?? UserDefaults.standard.string(forKey: Self.accountKey)
-        guard let saved, HubJoinCode.isAcceptable(saved) else { return }
+        circlePhase = .pending
+        let account: CircleLaunch.Account
         do {
-            try await joinSharedHousehold()
-            setupCompleted = true
-            persist()
+            account = try await HouseholdCloud.currentAccount()
         } catch {
-            // Stay on setup if the cloud house is not published yet.
+            circlePhase = .failed
+            return
         }
+        var remote: CircleLaunch.Remote?
+        if account == .available {
+            do {
+                let fetched = try await HouseholdCloud.fetchShared()
+                try adoptRemoteCircle(fetched.data, ownedHere: fetched.ownedHere)
+                remote = .found
+            } catch let error as HouseholdCloudError where error == .missingHouse {
+                remote = .missing
+            } catch {
+                if HouseholdCloud.isNoAccount(error) {
+                    circlePhase = .noICloud
+                    return
+                }
+                remote = .failed
+            }
+        }
+        circlePhase = CircleLaunch.phase(hasLocal: CircleLaunch.hasLocalCircle(setupCompleted: setupCompleted, memberCount: members.count), account: account, remote: remote)
+    }
+
+    /// The device that already has the family writes it to this build’s iCloud environment.
+    private func republishOwnedCircle() async {
+        guard ownsPrivateZone, let data = currentHouseholdData() else { return }
+        try? await HouseholdCloud.publish(data: data)
+    }
+
+    private func adoptRemoteCircle(_ data: Data, ownedHere: Bool) throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let snapshot = try decoder.decode(HubSnapshot.self, from: data)
+        guard CircleLaunch.snapshotHasCircle(setupCompleted: snapshot.setupCompleted, memberCount: snapshot.members.count) else {
+            throw HouseholdCloudError.missingHouse
+        }
+        apply(snapshot)
+        if ownedHere {
+            signedInMemberID = snapshot.signedInMemberID ?? ownerID
+        } else {
+            signedInMemberID = nil
+        }
+        ownsPrivateZone = ownedHere
+        setupCompleted = true
+        saveDeviceRole()
+        persistNow()
+        rememberAccount()
     }
 
     /// Owner deletes the private-zone record and CKShare. A participant only leaves the share.

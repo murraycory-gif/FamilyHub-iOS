@@ -34,6 +34,33 @@ enum HouseholdCloud {
 
     static var container: CKContainer { CKContainer(identifier: containerID) }
 
+    /// Debug and Xcode installs use the CloudKit Development environment.
+    /// TestFlight and the App Store use Production. Records do not cross between them.
+    static func currentAccount() async throws -> CircleLaunch.Account {
+        try refuseCloudUnderTest()
+        let status: CKAccountStatus
+        do {
+            status = try await container.accountStatus()
+        } catch {
+            if isNoAccount(error) { return .noAccount }
+            throw error
+        }
+        switch status {
+        case .available: return .available
+        case .noAccount: return .noAccount
+        case .restricted: return .restricted
+        case .couldNotDetermine: return .couldNotDetermine
+        case .temporarilyUnavailable: return .temporarilyUnavailable
+        @unknown default: return .couldNotDetermine
+        }
+    }
+
+    static func isNoAccount(_ error: Error) -> Bool {
+        if let cloud = error as? HouseholdCloudError, cloud == .iCloud { return true }
+        guard let ck = error as? CKError else { return false }
+        return ck.code == .notAuthenticated
+    }
+
     /// Unsigned test hosts trap inside CKContainer.init. Refuse before any database is touched.
     static func refuseCloudUnderTest() throws {
         #if DEBUG
@@ -223,13 +250,67 @@ final class HouseholdCloudClient: HouseholdRemote {
 }
 
 enum HubLaunchScreen: Equatable {
-    case splash, corrupt, setup, home
+    case splash, finding, noICloud, corrupt, setup, home
 
     static func choose(splash: Bool, loadFailed: Bool, needsSetup: Bool) -> HubLaunchScreen {
         if splash { return .splash }
         if loadFailed { return .corrupt }
         if needsSetup { return .setup }
         return .home
+    }
+
+    /// Launch after the local file is read. A Circle already on this iCloud account skips Create and Join.
+    static func restored(splash: Bool, loadFailed: Bool, hasLocalCircle: Bool, phase: CircleLaunch.Phase) -> HubLaunchScreen {
+        if splash { return .splash }
+        if loadFailed { return .corrupt }
+        if hasLocalCircle { return .home }
+        switch phase {
+        case .pending, .failed: return .finding
+        case .found: return .home
+        case .empty: return .setup
+        case .noICloud: return .noICloud
+        }
+    }
+}
+
+/// Decides whether this Apple ID already has a Circle before onboarding is offered.
+enum CircleLaunch {
+    enum Account: Equatable {
+        case available, noAccount, restricted, couldNotDetermine, temporarilyUnavailable
+    }
+
+    enum Remote: Equatable {
+        case found, missing, failed
+    }
+
+    enum Phase: Equatable {
+        case pending, found, empty, noICloud, failed
+    }
+
+    static func hasLocalCircle(setupCompleted: Bool, memberCount: Int) -> Bool {
+        setupCompleted || memberCount > 0
+    }
+
+    static func snapshotHasCircle(setupCompleted: Bool?, memberCount: Int) -> Bool {
+        if setupCompleted == true { return true }
+        return memberCount > 0
+    }
+
+    static func phase(hasLocal: Bool, account: Account, remote: Remote?) -> Phase {
+        if hasLocal { return .found }
+        switch account {
+        case .noAccount, .restricted:
+            return .noICloud
+        case .couldNotDetermine, .temporarilyUnavailable:
+            return .failed
+        case .available:
+            switch remote {
+            case .none: return .pending
+            case .found: return .found
+            case .missing: return .empty
+            case .failed: return .failed
+            }
+        }
     }
 }
 

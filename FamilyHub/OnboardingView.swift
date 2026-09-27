@@ -290,9 +290,10 @@ struct OnboardingView: View {
                     HStack(alignment: .center, spacing: 28) {
                         HubBrandLockup(markSize: 88, hubSize: 36, circleSize: 28)
                         VStack(spacing: 12) {
-                            Text("Calendars, dinner, chores, and the people in your house — one place.")
-                                .font(.body.weight(.medium))
-                                .foregroundStyle(AppTheme.textSecondary)
+                        Text("Calendars, dinner, chores, and the people in your house — one place.")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        CloudEnvironmentNote()
                             pathCard("Create this Circle", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
                                 path = .create
                             }
@@ -308,6 +309,7 @@ struct OnboardingView: View {
                             .font(.body.weight(.medium))
                             .foregroundStyle(AppTheme.textSecondary)
                             .multilineTextAlignment(.center)
+                        CloudEnvironmentNote()
                         pathCard("Create this Circle", "You’re the owner. Invite the family after setup.", "house.fill", path == .create) {
                             path = .create
                         }

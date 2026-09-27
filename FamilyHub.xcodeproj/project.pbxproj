@@ -79,6 +79,7 @@
 		A920 /* CircleContrastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B922 /* CircleContrastTests.swift */; };
 		A921 /* ChoreReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B921 /* ChoreReviewTests.swift */; };
 		A923 /* PhoneLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B923 /* PhoneLayoutTests.swift */; };
+		A924 /* CircleLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B924 /* CircleLaunchTests.swift */; };
 		A930 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B930 /* PrivacyInfo.xcprivacy */; };
 		A931 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B931 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -177,6 +178,7 @@
 		B921 /* ChoreReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoreReviewTests.swift; sourceTree = "<group>"; };
 		B922 /* CircleContrastTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleContrastTests.swift; sourceTree = "<group>"; };
 		B923 /* PhoneLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLayoutTests.swift; sourceTree = "<group>"; };
+		B924 /* CircleLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleLaunchTests.swift; sourceTree = "<group>"; };
 		B930 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B931 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -343,6 +345,7 @@
 				B921 /* ChoreReviewTests.swift */,
 				B922 /* CircleContrastTests.swift */,
 				B923 /* PhoneLayoutTests.swift */,
+				B924 /* CircleLaunchTests.swift */,
 			);
 			path = FamilyHubTests;
 			sourceTree = "<group>";
@@ -563,6 +566,7 @@
 				A920 /* CircleContrastTests.swift in Sources */,
 				A921 /* ChoreReviewTests.swift in Sources */,
 				A923 /* PhoneLayoutTests.swift in Sources */,
+				A924 /* CircleLaunchTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

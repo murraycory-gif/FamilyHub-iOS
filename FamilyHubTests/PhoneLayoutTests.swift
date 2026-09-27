@@ -3,6 +3,21 @@ import XCTest
 
 @MainActor
 final class PhoneLayoutTests: XCTestCase {
+    func testSettingsListIsShortAndFlat() {
+        let titles = SettingsCatalog.groups.map(\.title)
+        XCTAssertEqual(titles, ["Family", "Notifications", "Appearance", "Account and privacy", "Help", "More"])
+        let sections = SettingsCatalog.groups.flatMap { $0.rows.map(\.section) }
+        XCTAssertEqual(Set(sections).count, sections.count)
+        XCTAssertEqual(SettingsCatalog.groups.first { $0.title == "Family" }?.rows.map(\.section), [.profiles, .invite])
+        XCTAssertEqual(SettingsCatalog.groups.first { $0.title == "Appearance" }?.rows.map(\.section), [.looks])
+        XCTAssertEqual(SettingsCatalog.groups.first { $0.title == "More" }?.rows.map(\.section), [.calendars, .widgets, .layouts, .allowance])
+        XCTAssertFalse(sections.contains(.shopping))
+        XCTAssertFalse(sections.contains(.lists))
+        XCTAssertEqual(HubSection.looks.detailScreen, .looks)
+        XCTAssertEqual(HubSection.privacy.detailScreen, .privacy)
+        XCTAssertNotEqual(HubSection.allowance.detailScreen, .chores)
+    }
+
     func testPhoneTabsKeepChoresOneTapAway() {
         XCTAssertEqual(HubSection.phoneTabs, [.today, .calendar, .chores, .meals, .more])
         XCTAssertTrue(HubSection.phoneTabs.contains(.chores))
