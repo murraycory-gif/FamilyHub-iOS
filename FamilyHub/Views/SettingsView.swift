@@ -8,18 +8,16 @@ struct SettingsPageShell<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Circle", tail: tail)
-            ScrollView {
-                HubPanel(symbol: symbol, title: title) {
-                    content
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 24)
+        ScrollView {
+            HubPanel(symbol: symbol, title: title) {
+                content
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("")
+        .navigationTitle(tail)
+        .navigationBarTitleDisplayMode(.large)
     }
 }
 

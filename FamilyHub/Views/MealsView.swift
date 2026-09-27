@@ -5,24 +5,21 @@ import UIKit
 struct MealsView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var router: HubRouter
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var pickLaunch: DinnerLaunch?
     @State private var confirmClearAll = false
     @State private var tourFocus = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Meal", tail: "Planning")
-                .coachSpot("mealHeader")
             ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    Color.clear.frame(height: 1).coachSpot("mealHeader")
                     HubPanel(symbol: "fork.knife", title: "Next 2 Weeks", trailing: {
                         Button("Clear all") { confirmClearAll = true }
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(.white.opacity(0.22), in: Capsule())
+                            .foregroundStyle(AppTheme.blue)
                     }) {
                         weekGrid
                     }
@@ -40,7 +37,8 @@ struct MealsView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("")
+        .navigationTitle("Meals")
+        .navigationBarTitleDisplayMode(.large)
         .hubTour("meals", steps: HubTours.meals) { id in
             tourFocus = id
         }
@@ -64,7 +62,10 @@ struct MealsView: View {
     }
 
     private var weekGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+        let columns = sizeClass == .compact
+            ? [GridItem(.flexible(), spacing: 14)]
+            : [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+        return LazyVGrid(columns: columns, spacing: 14) {
             ForEach(week, id: \.self) { day in
                 MealDayCard(day: day) {
                     pickLaunch = DinnerLaunch(day: day, pick: store.dinner(on: day) == nil)
@@ -103,16 +104,15 @@ private struct MealDayCard: View {
                 Text(dayLabel)
                     .font(.title2.weight(.bold))
                     .foregroundStyle(AppTheme.blue)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(title ?? "Nothing planned")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(title == nil ? AppTheme.textSecondary : AppTheme.text)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(kindLabel)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.textTertiary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
@@ -120,7 +120,7 @@ private struct MealDayCard: View {
                 .foregroundStyle(AppTheme.textTertiary)
         }
         .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 164, maxHeight: 164, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
         .background(AppTheme.card)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)

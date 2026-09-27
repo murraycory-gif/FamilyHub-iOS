@@ -498,7 +498,7 @@ struct HubWeatherTile: View {
                             Text("Weather unavailable")
                                 .font(.headline.weight(.semibold))
                                 .foregroundStyle(AppTheme.text)
-                            Text("WeatherKit did not return a forecast.")
+                            Text("Check the connection, then try again.")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(AppTheme.textSecondary)
                             Button(action: onRetry) {

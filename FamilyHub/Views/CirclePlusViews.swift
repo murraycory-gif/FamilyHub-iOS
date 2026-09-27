@@ -12,7 +12,6 @@ struct CirclePlusView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Circle", tail: "Plus")
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     schoolCard
@@ -27,6 +26,8 @@ struct CirclePlusView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("Circle+")
+        .navigationBarTitleDisplayMode(.large)
     }
 
     private var schoolCard: some View {

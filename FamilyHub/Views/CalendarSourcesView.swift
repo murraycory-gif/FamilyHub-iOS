@@ -8,11 +8,6 @@ struct CalendarSourcesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Circle", tail: "Calendars") {
-                HubHeaderPill(title: ingest.isSyncing ? "Syncing" : "Sync") {
-                    Task { await ingest.sync(into: store) }
-                }
-            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("HUB syncs any calendar already on this device — iCloud, Google, Outlook, Yahoo, Exchange, Fastmail, Proton, CalDAV, and subscribed links. Add the account in Settings → Calendar → Accounts, then tap Sync. Changes here write back to writable calendars.")
@@ -37,8 +32,18 @@ struct CalendarSourcesView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("Calendars")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(ingest.isSyncing ? "Syncing" : "Sync") {
+                    Task { await ingest.sync(into: store) }
+                }
+                .font(.headline.weight(.bold))
+                .disabled(ingest.isSyncing)
+            }
+        }
         .hubTour("calendars", steps: HubTours.calendars)
-        .navigationTitle("")
         .onAppear {
             ingest.refreshStatus()
             if ingest.isAuthorized {

@@ -15,10 +15,6 @@ struct ListsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(
-                lead: "Family",
-                tail: kind == .reminders ? "Reminders" : "To-dos"
-            )
             Picker("List", selection: $kind) {
                 ForEach(ListKind.allCases) { item in
                     Text(item.title).tag(item)
@@ -49,6 +45,7 @@ struct ListsView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
@@ -64,7 +61,8 @@ struct ListsView: View {
             .coachSpot("listBody")
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("")
+        .navigationTitle(kind.title)
+        .navigationBarTitleDisplayMode(.large)
         .hubTour("lists", steps: HubTours.lists)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -276,26 +274,10 @@ struct ShoppingListView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Shopping", tail: "List") {
-                HStack(spacing: 8) {
-                    if let url = GrocerySend.instacartURL(items: openItems.map(\.name)) {
-                        Link(destination: url) {
-                            Text("Instacart").font(.subheadline.weight(.bold))
-                        }
-                    }
-                    if let url = GrocerySend.amazonFreshURL(items: openItems.map(\.name)) {
-                        Link(destination: url) {
-                            Text("Amazon Fresh").font(.subheadline.weight(.bold))
-                        }
-                    }
-                    if !store.shoppingItems.isEmpty {
-                        HubHeaderPill(title: "Clear all") { confirmClearAll = true }
-                    }
-                }
-            }
-            .coachSpot("shopHeader")
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
+                    storeLinks
+                        .coachSpot("shopHeader")
                     addRow
                         .coachSpot("shopAdd")
                 if openItems.isEmpty && checkedItems.isEmpty {
@@ -334,6 +316,8 @@ struct ShoppingListView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("Shopping")
+        .navigationBarTitleDisplayMode(.large)
         .hubTour("shopping", steps: HubTours.shopping)
         .hubConfirm(
             "Clear the whole list?",
@@ -348,6 +332,32 @@ struct ShoppingListView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HubIconButton(symbol: "plus", label: "Add") { adding = true }
+            }
+        }
+    }
+
+    private var storeLinks: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let url = GrocerySend.instacartURL(items: openItems.map(\.name)) {
+                Link(destination: url) {
+                    Label("Instacart", systemImage: "cart")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.blue)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            if let url = GrocerySend.amazonFreshURL(items: openItems.map(\.name)) {
+                Link(destination: url) {
+                    Label("Amazon Fresh", systemImage: "bag")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.blue)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            if !store.shoppingItems.isEmpty {
+                Button("Clear all") { confirmClearAll = true }
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.blue)
             }
         }
     }

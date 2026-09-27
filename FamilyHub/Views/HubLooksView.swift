@@ -27,13 +27,6 @@ struct HubLooksView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             AppearancePicker()
-            HStack(spacing: 10) {
-                Text("Hub")
-                    .foregroundStyle(AppTheme.text)
-                Text("Looks")
-                    .foregroundStyle(AppTheme.blue)
-            }
-            .font(.system(size: 36, weight: .bold))
             Text("New set. Inspired by Skylight, Cozi, TimeTree, Echo Show, Things 3, Fantastical, and Apple Home. Swipe, then tap Use this look.")
                 .font(.title3)
                 .foregroundStyle(AppTheme.textSecondary)
@@ -49,6 +42,8 @@ struct HubLooksView: View {
         }
         .padding(20)
         .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("Display")
+        .navigationBarTitleDisplayMode(.large)
         .onAppear {
             if pickedLook > 0 { page = pickedLook }
         }

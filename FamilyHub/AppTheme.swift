@@ -2,44 +2,50 @@ import SwiftUI
 import UIKit
 
 /// Hex values verified for WCAG AA 4.5:1 of label text on Hub surfaces.
+/// Light is warm paper. Dark is soft charcoal, not navy.
 enum HubPalette {
-    static let darkBackground = "0B1220"
-    static let darkCard = "152036"
-    static let darkTable = "10192B"
-    static let lightBackground = "F3F5F8"
+    static let darkBackground = "2E3338"
+    static let darkCard = "3C4248"
+    static let darkTable = "343A40"
+    static let lightBackground = "F7F2EA"
     static let lightCard = "FFFFFF"
-    static let labelDark = "F2F5FA"
-    static let labelLight = "141A29"
-    static let secondaryDark = "C5D0E0"
-    static let secondaryLight = "3E475C"
-    static let tertiaryDark = "B4C0D2"
-    static let tertiaryLight = "5C6578"
-    static let borderLight = "C5D4E4"
-    static let borderDark = "3A4F6E"
-    static let chipChoreInkLight = "991B1B"
-    static let chipChoreInkDark = "FECACA"
-    static let chipChoreFillLight = "FEE2E2"
-    static let chipChoreFillDark = "4A2024"
-    static let chipReminderInkLight = "92400E"
+    static let labelDark = "F6F3EE"
+    static let labelLight = "241C14"
+    static let secondaryDark = "E4DDD4"
+    static let secondaryLight = "4A433A"
+    static let tertiaryDark = "D0C9BF"
+    static let tertiaryLight = "5C5348"
+    static let borderLight = "E4D9CC"
+    static let borderDark = "4E565E"
+    static let chipChoreInkLight = "9F1239"
+    static let chipChoreInkDark = "FECDD3"
+    static let chipChoreFillLight = "FFE4E6"
+    static let chipChoreFillDark = "4C1D2A"
+    static let chipReminderInkLight = "9A3412"
     static let chipReminderInkDark = "FDE68A"
-    static let chipReminderFillLight = "FEF3C7"
-    static let chipReminderFillDark = "4A3A14"
-    static let chipTodoInkLight = "065F46"
-    static let chipTodoInkDark = "A7F3D0"
-    static let chipTodoFillLight = "D1FAE5"
-    static let chipTodoFillDark = "0F3D32"
+    static let chipReminderFillLight = "FFEDD5"
+    static let chipReminderFillDark = "4A3218"
+    static let chipTodoInkLight = "14532D"
+    static let chipTodoInkDark = "BBF7D0"
+    static let chipTodoFillLight = "DCFCE7"
+    static let chipTodoFillDark = "14352A"
+    static let celebrateInkLight = "9A3412"
+    static let celebrateInkDark = "FDE68A"
+    static let celebrateFillLight = "FFEDD5"
+    static let celebrateFillDark = "4A3218"
+    static let brand = "0C5F78"
 }
 
-/// EnviroMap paper in light, navy glass in dark. Brand blue stays Heartbeat 003DA5.
+/// Warm paper in light, soft charcoal in dark. One teal-blue accent.
 enum AppTheme {
-    static let blue = Color(hex: "2B7AE8")
-    static let blueSoft = adaptive(light: "D9EAFF", dark: "0B2A4A")
-    static let blueDeep = Color(hex: "06101C")
-    static let space = Color(hex: "06101C")
+    static let blue = Color(hex: HubPalette.brand)
+    static let blueSoft = adaptive(light: "D7EEF3", dark: "1A3C48")
+    static let blueDeep = Color(hex: "1C1917")
+    static let space = Color(hex: "1C1917")
 
     static let navy = blue
     static let navySoft = blueSoft
-    static let navyMuted = adaptive(light: "616B80", dark: "9AA6B8")
+    static let navyMuted = adaptive(light: "6B5E52", dark: "D4C8BA")
     static let ice = blue
 
     static let forest = blue
@@ -49,7 +55,7 @@ enum AppTheme {
     static let bg = adaptive(light: HubPalette.lightBackground, dark: HubPalette.darkBackground)
     static let elevated = adaptive(light: HubPalette.lightCard, dark: HubPalette.darkCard)
     static let card = adaptive(light: HubPalette.lightCard, dark: HubPalette.darkCard)
-    static let tableFill = adaptive(light: "F7F8FB", dark: HubPalette.darkTable)
+    static let tableFill = adaptive(light: "F4EBE0", dark: HubPalette.darkTable)
     static let cardBorder = adaptive(light: HubPalette.borderLight, dark: HubPalette.borderDark)
 
     /// Light ink for type and marks that sit on blue or the dark splash.
@@ -74,6 +80,9 @@ enum AppTheme {
     static let chipReminderFill = adaptive(light: HubPalette.chipReminderFillLight, dark: HubPalette.chipReminderFillDark)
     static let chipTodoInk = adaptive(light: HubPalette.chipTodoInkLight, dark: HubPalette.chipTodoInkDark)
     static let chipTodoFill = adaptive(light: HubPalette.chipTodoFillLight, dark: HubPalette.chipTodoFillDark)
+    /// Warm accent for “Great job” and other celebrations.
+    static let celebrateInk = adaptive(light: HubPalette.celebrateInkLight, dark: HubPalette.celebrateInkDark)
+    static let celebrateFill = adaptive(light: HubPalette.celebrateFillLight, dark: HubPalette.celebrateFillDark)
 
     static let radiusL: CGFloat = 20
     static let radiusM: CGFloat = 14

@@ -18,12 +18,13 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     }
 
     /// iPhone tab bar stays at five. Everything else lives under More.
+    /// Circle, Calendar, Chores, Meals, and More. Shopping opens from Circle or More, so Chores is not an extra hop.
     static var phoneTabs: [HubSection] {
-        [.today, .calendar, .meals, .shopping, .more]
+        [.today, .calendar, .chores, .meals, .more]
     }
 
     static var moreItems: [HubSection] {
-        var items: [HubSection] = [.chores, .lists]
+        var items: [HubSection] = [.shopping, .lists]
         if HubFlags.circlePlus { items.append(.plus) }
         items.append(contentsOf: settingsItems)
         return items
@@ -129,7 +130,7 @@ final class HubRouter: ObservableObject {
     @Published var calendarDay = Date()
     @Published var focusedEventID: UUID?
     @Published var mealsDay = Date()
-    @Published var chromeHex: String = "06101C"
+    @Published var chromeHex: String = HubPalette.darkBackground
 
     func open(_ section: HubSection, list: ListKind? = nil) {
         if let list { listKind = list }
@@ -188,6 +189,7 @@ struct MainHubView: View {
                         .tag(item)
                     }
                 }
+                .environment(\.hubUsesTabBar, true)
             }
         }
         .environmentObject(router)
@@ -233,15 +235,10 @@ struct MainHubView: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(AppTheme.bg)
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("Circle")
         .toolbarBackground(AppTheme.bg, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                HubNavLogo(onDark: false)
-            }
-        }
         .safeAreaInset(edge: .top, spacing: 0) {
             Text(store.householdName.uppercased())
                 .font(.caption.weight(.semibold))
@@ -328,28 +325,7 @@ struct MoreHubView: View {
     }
 
     var body: some View {
-        if let pushed {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Button {
-                        router.section = .more
-                    } label: {
-                        Label("More", systemImage: "chevron.left")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(AppTheme.blue)
-                    }
-                    .buttonStyle(.plain)
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                destination(pushed)
-            }
-            .background(AppTheme.bg.ignoresSafeArea())
-        } else {
-            VStack(alignment: .leading, spacing: 0) {
-                HubStickyHeader(lead: "More", tail: "")
-                List {
+        List {
                     Section("House") {
                         ForEach(HubSection.moreItems.filter { HubSection.settingsItems.contains($0) == false }) { item in
                             moreRow(item)
@@ -361,10 +337,19 @@ struct MoreHubView: View {
                         }
                     }
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("More")
+        .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(isPresented: Binding(
+            get: { pushed != nil },
+            set: { if $0 == false { router.section = .more } }
+        )) {
+            if let pushed {
+                destination(pushed)
+                    .navigationBarTitleDisplayMode(.large)
             }
-            .background(AppTheme.bg.ignoresSafeArea())
         }
     }
 
@@ -381,6 +366,7 @@ struct MoreHubView: View {
     private func destination(_ section: HubSection) -> some View {
         switch section.detailScreen {
         case .chores: ChoresView()
+        case .shopping: ShoppingListView()
         case .lists: ListsView()
         case .plus: CirclePlusView()
         case .profiles: ProfilesSettingsView()

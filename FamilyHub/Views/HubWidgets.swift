@@ -19,7 +19,7 @@ struct HubWidgetPickSheet: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
             ScrollView {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 148), spacing: 14)], spacing: 14) {
                     ForEach(HubWidgetKind.choosable) { kind in
                         Button {
                             onPick(kind)
@@ -31,8 +31,7 @@ struct HubWidgetPickSheet: View {
                                 Text(kind.title)
                                     .font(.title3.weight(.bold))
                                     .multilineTextAlignment(.center)
-                                    .minimumScaleFactor(0.8)
-                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                             .foregroundStyle(current == kind ? .white : AppTheme.text)
                             .frame(maxWidth: .infinity, minHeight: 132)
@@ -280,9 +279,10 @@ struct FlightWidget: View {
                             Text("No flights this day")
                                 .font(.headline.weight(.bold))
                                 .foregroundStyle(AppTheme.text)
-                            Text("HUB reads flights from the calendar. Tap to add one.")
+                            Text("Flights on the calendar show up here. Tap to add one.")
                                 .font(.subheadline)
                                 .foregroundStyle(AppTheme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
                             Text("Add flight")
                                 .font(.headline.weight(.bold))
                                 .foregroundStyle(.white)

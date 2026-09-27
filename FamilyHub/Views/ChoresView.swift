@@ -24,11 +24,6 @@ struct ChoresView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        Text("Chores")
-                            .font(.largeTitle.weight(.bold))
-                            .foregroundStyle(AppTheme.text)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityAddTraits(.isHeader)
                         switch mode {
                         case .kid(let id):
                             kidBoard(id, now: timeline.date)
@@ -51,7 +46,7 @@ struct ChoresView: View {
         }
         .background(AppTheme.bg.ignoresSafeArea())
         .navigationTitle("Chores")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .hubTour("chores", steps: HubTours.chores) { id in
             tourFocus = id
         }
@@ -495,11 +490,11 @@ struct KidChoreCard: View {
                 .font(.title.weight(.bold))
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .foregroundStyle(AppTheme.chipTodoInk)
+        .foregroundStyle(AppTheme.celebrateInk)
         .frame(maxWidth: .infinity, minHeight: ChoreDesk.doneButtonMinHeight, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(AppTheme.chipTodoFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(AppTheme.celebrateFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var cardFill: Color {
