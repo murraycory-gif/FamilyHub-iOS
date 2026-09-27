@@ -1,8 +1,33 @@
 import SwiftUI
 import UIKit
+import UserNotifications
+
+final class HubAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        let center = UNUserNotificationCenter.current()
+        MainActor.assumeIsolated {
+            center.delegate = ChoreReviewCenter.shared
+            ChoreReviewCenter.registerCategories()
+        }
+        application.registerForRemoteNotifications()
+        return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any]
+    ) async -> UIBackgroundFetchResult {
+        NotificationCenter.default.post(name: .hubCloudChanged, object: nil)
+        return .newData
+    }
+}
 
 @main
 struct FamilyHubApp: App {
+    @UIApplicationDelegateAdaptor(HubAppDelegate.self) private var appDelegate
     @StateObject private var store = HubStore()
     @StateObject private var ingest = CalendarIngestor()
 

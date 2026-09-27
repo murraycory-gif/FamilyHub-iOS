@@ -101,6 +101,16 @@ struct HubOrbitMark: View {
     }
 }
 
+/// Pipe and “Circle” use the secondary label, at full opacity, so they stay readable on light cards and on the dark setup screen.
+enum HubWordmarkStyle {
+    static let circleRole = "secondaryLabel"
+
+    static func circleHex(onDark: Bool, interface: ColorScheme) -> String {
+        if onDark || interface == .dark { return HubPalette.secondaryDark }
+        return HubPalette.secondaryLight
+    }
+}
+
 struct HubWordmark: View {
     var onDark: Bool = false
     var hubSize: CGFloat = 28
@@ -114,14 +124,20 @@ struct HubWordmark: View {
                 .tracking(0.8)
             Text("|")
                 .font(.system(size: hubSize * 0.72, weight: .semibold))
-                .foregroundStyle((onDark ? AppTheme.inkOnFill : AppTheme.space).opacity(0.45))
+                .foregroundStyle(circleInk)
             Text("Circle")
                 .font(.system(size: circleSize, weight: .regular))
-                .foregroundStyle(onDark ? AppTheme.inkOnFill.opacity(0.9) : AppTheme.space)
+                .foregroundStyle(circleInk)
                 .tracking(1.6)
         }
         .lineLimit(1)
-        .minimumScaleFactor(0.7)
+        .minimumScaleFactor(0.8)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// On a navy bar, force the dark-mode secondary ink. Otherwise follow the adaptive secondary label.
+    private var circleInk: Color {
+        onDark ? Color(hex: HubWordmarkStyle.circleHex(onDark: true, interface: .dark)) : AppTheme.textSecondary
     }
 }
 

@@ -1,37 +1,45 @@
+import PhotosUI
 import SwiftUI
+import UIKit
 
 struct ChoresView: View {
     @EnvironmentObject private var store: HubStore
     @State private var showAddChore = false
-    @State private var assignChore: Chore?
-    @State private var selectedKid: UUID?
+    @State private var focusedKidID: UUID?
     @State private var tourFocus = ""
     @State private var payMember: FamilyMember?
     @State private var payAmount = ""
     @State private var payReason = "Allowance payout"
+    @State private var sendBackID: UUID?
+    @State private var sendBackReason = ""
+    @State private var justFinished: UUID?
+
+    private var mode: ChoreDesk.Mode {
+        let person = store.signedInMember()
+        return ChoreDesk.mode(role: person?.role, memberID: person?.id, focusedKidID: focusedKidID)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Circle", tail: "Chores") {
-                HubHeaderPill(title: "Add chore") { showAddChore = true }
-            }
+        TimelineView(.periodic(from: .now, by: 1)) { timeline in
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        peopleRow
-                            .coachSpot("chorePay")
-                        gameRow
-                        HStack(alignment: .top, spacing: 16) {
-                            assignedPanel
-                                .frame(maxWidth: .infinity)
-                                .coachSpot("choreBoard")
-                            catalogPanel
-                                .frame(maxWidth: .infinity)
-                                .coachSpot("choreCatalog")
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Chores")
+                            .font(.largeTitle.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityAddTraits(.isHeader)
+                        switch mode {
+                        case .kid(let id):
+                            kidBoard(id, now: timeline.date)
+                        case .parent:
+                            parentBoard
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 28)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .onChange(of: tourFocus) { _, id in
                     guard !id.isEmpty else { return }
@@ -42,14 +50,12 @@ struct ChoresView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("")
+        .navigationTitle("Chores")
+        .navigationBarTitleDisplayMode(.inline)
         .hubTour("chores", steps: HubTours.chores) { id in
             tourFocus = id
         }
         .sheet(isPresented: $showAddChore) { AddChoreSheet() }
-        .sheet(item: $assignChore) { chore in
-            AssignChoreSheet(chore: chore)
-        }
         .alert("Pay \(payMember?.name ?? "")", isPresented: Binding(
             get: { payMember != nil },
             set: { if !$0 { payMember = nil } }
@@ -72,212 +78,305 @@ struct ChoresView: View {
         } message: {
             Text("Use a minus to take money out.")
         }
+        .alert("Not yet", isPresented: Binding(
+            get: { sendBackID != nil },
+            set: { if !$0 { sendBackID = nil } }
+        )) {
+            TextField("Short reason (optional)", text: $sendBackReason)
+            Button("Send back") {
+                if let id = sendBackID {
+                    store.sendBackAssignment(id, reason: sendBackReason)
+                }
+                sendBackID = nil
+                sendBackReason = ""
+            }
+            Button("Cancel", role: .cancel) {
+                sendBackID = nil
+                sendBackReason = ""
+            }
+        } message: {
+            Text("The chore goes back to the kid.")
+        }
     }
 
     private var kids: [FamilyMember] { store.kids() }
 
-    private var totalCents: Int {
-        kids.reduce(0) { $0 + $1.allowanceBalanceCents }
+    @ViewBuilder
+    private func kidBoard(_ id: UUID, now: Date) -> some View {
+        if store.signedInMember()?.role != .child {
+            Button("All kids") { focusedKidID = nil }
+                .font(.body.weight(.semibold))
+                .foregroundStyle(noteInk)
+        }
+        if let kid = store.member(id: id) {
+            Text(kid.name)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        let rows = ChoreDesk.kidCards(store.assignments.filter { $0.memberID == id }, now: now)
+        if rows.isEmpty {
+            Text("Nothing to do right now.")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            ForEach(rows) { assignment in
+                if let chore = store.chore(id: assignment.choreID) {
+                    KidChoreCard(
+                        assignment: assignment,
+                        chore: chore,
+                        now: now,
+                        justFinished: justFinished == assignment.id,
+                        proofNote: store.latestProof(for: assignment.id)?.note,
+                        onDone: { markDone(assignment.id) },
+                        onUndo: { store.reopenAssignment(assignment.id) }
+                    )
+                }
+            }
+        }
     }
 
-    private var peopleRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Kids")
-                .font(.headline.weight(.bold))
+    private var parentBoard: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            needsOK
+                .coachSpot("choreBoard")
+            whosDoing
+            addChoreButton
+                .coachSpot("choreCatalog")
+            allowance
+                .coachSpot("chorePay")
+        }
+    }
+
+    private var needsOK: some View {
+        let waiting = ChoreDesk.waiting(store.assignments)
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Needs your OK (\(waiting.count))")
+                .font(.title2.weight(.bold))
                 .foregroundStyle(AppTheme.text)
-            if kids.isEmpty {
-                Text("Add a kid in Profiles to track chores and allowance.")
-                    .font(.subheadline.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            if waiting.isEmpty {
+                Text("All caught up.")
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        kidCard(
-                            name: "Everyone",
-                            cents: totalCents,
-                            color: AppTheme.blue,
-                            avatar: nil,
-                            selected: selectedKid == nil,
-                            openCount: store.openAssignments(for: nil).count,
-                            onSelect: { selectedKid = nil },
-                            onPay: nil
-                        )
-                        ForEach(kids) { kid in
-                            kidCard(
-                                name: kid.name,
-                                cents: kid.allowanceBalanceCents,
-                                color: Color(hex: kid.colorHex),
-                                avatar: kid,
-                                selected: selectedKid == kid.id,
-                                openCount: store.openAssignments(for: kid.id).count,
-                                onSelect: { selectedKid = kid.id },
-                                onPay: {
-                                    payMember = kid
-                                    payAmount = ""
-                                    payReason = "Paid out"
-                                }
-                            )
-                        }
+                ForEach(waiting) { assignment in
+                    if let chore = store.chore(id: assignment.choreID),
+                       let kid = store.member(id: assignment.memberID) {
+                        needsRow(assignment: assignment, chore: chore, kid: kid)
                     }
-                    .padding(.vertical, 4)
                 }
-                .scrollClipDisabled()
             }
         }
     }
 
-    private func kidCard(
-        name: String,
-        cents: Int,
-        color: Color,
-        avatar: FamilyMember?,
-        selected: Bool,
-        openCount: Int,
-        onSelect: @escaping () -> Void,
-        onPay: (() -> Void)?
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button(action: onSelect) {
-                HStack(spacing: 10) {
-                    if let avatar {
-                        MemberAvatar(member: avatar, size: 44)
-                            .overlay(Circle().stroke(color, lineWidth: 3))
-                    } else {
-                        ZStack {
-                            Circle().fill(AppTheme.blueSoft)
-                            Image(systemName: "person.3.fill")
-                                .foregroundStyle(AppTheme.blue)
-                        }
-                        .frame(width: 44, height: 44)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(name)
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(AppTheme.text)
-                            .lineLimit(1)
-                        Text(Money.cents(cents))
-                            .font(.title3.weight(.bold).monospacedDigit())
-                            .foregroundStyle(AppTheme.blue)
-                        Text(openCount == 0 ? "Clear" : "\(openCount) open")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(openCount == 0 ? AppTheme.todo : AppTheme.reminder)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
+    private func needsRow(assignment: ChoreAssignment, chore: Chore, kid: FamilyMember) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(ChoreReview.title(kid: kid.name, chore: chore.title))
+                .font(.title3.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+                .fixedSize(horizontal: false, vertical: true)
+            if let note = store.latestProof(for: assignment.id)?.note, !note.isEmpty {
+                Text(note)
+                    .font(.body)
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.plain)
-            if let onPay {
-                Button("Pay", action: onPay)
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(AppTheme.blue, in: Capsule())
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    approveButton(assignment.id)
+                    notYetButton(assignment.id)
+                }
+                VStack(spacing: 8) {
+                    approveButton(assignment.id)
+                    notYetButton(assignment.id)
+                }
             }
         }
-        .padding(14)
-        .frame(width: 210, alignment: .leading)
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(selected ? color : AppTheme.cardBorder, lineWidth: selected ? 2.5 : 1)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(selected ? 0.12 : 0.08), radius: selected ? 10 : 6, y: selected ? 5 : 3)
     }
 
-    private var gameRow: some View {
-        HubPanel(symbol: "flame.fill", title: "Streaks") {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(kids) { kid in
-                    let xp = CircleXP.total(memberID: kid.id, assignments: store.assignments, chores: store.chores)
-                    let streak = CircleXP.streak(memberID: kid.id, assignments: store.assignments)
-                    HStack {
-                        Text(kid.name).font(.headline)
-                        Spacer()
-                        Text("Lv \(CircleXP.level(xp: xp))")
-                            .font(.subheadline.weight(.heavy))
-                            .foregroundStyle(AppTheme.blue)
-                        Text("\(streak) day streak")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(AppTheme.textSecondary)
-                    }
-                }
-                Text("Kids can attach a proof note when they tap done.")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.textSecondary)
-            }
+    private func approveButton(_ id: UUID) -> some View {
+        Button("Approve") { store.approveAssignment(id) }
+            .font(.headline.weight(.bold))
+            .foregroundStyle(Color(hex: ChoreDesk.actionInk))
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(Color(hex: ChoreDesk.actionFill), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .buttonStyle(.plain)
+    }
+
+    private func notYetButton(_ id: UUID) -> some View {
+        Button("Not yet") {
+            sendBackReason = ""
+            sendBackID = id
         }
+        .font(.headline.weight(.bold))
+        .foregroundStyle(noteInk)
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(noteInk, lineWidth: 1.5)
+        )
+        .buttonStyle(.plain)
     }
 
-    private var assignedPanel: some View {
-        HubPanel(symbol: "checkmark.circle.fill", title: assignedTitle) {
-            let items = store.openAssignments(for: selectedKid)
-            if items.isEmpty {
-                Text(selectedKid == nil ? "Nothing assigned yet." : "This kid is clear.")
-                    .font(.subheadline.weight(.semibold))
+    private var whosDoing: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Who's doing chores?")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+                .fixedSize(horizontal: false, vertical: true)
+            if kids.isEmpty {
+                Text("Add a kid in Profiles to hand out chores.")
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
-                    .padding(.vertical, 8)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
-                VStack(spacing: 10) {
-                    ForEach(items) { assignment in
-                        if let chore = store.chore(id: assignment.choreID),
-                           let kid = store.member(id: assignment.memberID) {
-                            AssignmentCard(assignment: assignment, chore: chore, kid: kid)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 88, maximum: 140), spacing: 12)], alignment: .leading, spacing: 12) {
+                    ForEach(kids) { kid in
+                        Button {
+                            focusedKidID = kid.id
+                        } label: {
+                            VStack(spacing: 6) {
+                                MemberAvatar(member: kid, size: 64)
+                                Text(kid.name)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(AppTheme.text)
+                                    .multilineTextAlignment(.center)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(kid.name), show chores")
                     }
+                }
+                ForEach(kids) { kid in
+                    kidList(kid)
                 }
             }
         }
     }
 
-    private var assignedTitle: String {
-        if let id = selectedKid, let kid = store.member(id: id) {
-            return "\(kid.name)’s chores"
-        }
-        return "Assigned"
-    }
-
-    private var catalogPanel: some View {
-        HubPanel(symbol: "list.bullet", title: "Jobs") {
-            if store.chores.isEmpty {
-                Text("Add a chore to hand out work.")
-                    .font(.subheadline.weight(.semibold))
+    private func kidList(_ kid: FamilyMember) -> some View {
+        let rows = store.assignments.filter { $0.memberID == kid.id && $0.status != .paid }
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(kid.name)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+            if rows.isEmpty {
+                Text("No chores yet.")
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(AppTheme.textSecondary)
             } else {
-                VStack(spacing: 8) {
-                    ForEach(store.chores) { chore in
-                        HStack(spacing: 10) {
+                ForEach(rows) { assignment in
+                    if let chore = store.chore(id: assignment.choreID) {
+                        HStack(alignment: .top, spacing: 8) {
+                            choreIcon(chore.icon, size: 22)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(chore.title)
-                                    .font(.headline.weight(.bold))
+                                    .font(.body.weight(.semibold))
                                     .foregroundStyle(AppTheme.text)
-                                    .lineLimit(1)
-                                Text("\(chore.cadence.label) · \(Money.cents(chore.rewardCents))")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(AppTheme.blue)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text(assignment.status == .done ? "Waiting for grown-up" : assignment.status.kidLabel)
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
-                            Spacer(minLength: 0)
-                            Button("Assign") { assignChore = chore }
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background(AppTheme.blue, in: Capsule())
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .padding(12)
-                        .background(AppTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(AppTheme.cardBorder, lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
                     }
                 }
             }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+    }
+
+    private var addChoreButton: some View {
+        Button {
+            showAddChore = true
+        } label: {
+            Text("Add chore")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Color(hex: ChoreDesk.actionInk))
+                .frame(maxWidth: .infinity, minHeight: ChoreDesk.doneButtonMinHeight)
+        }
+        .buttonStyle(.plain)
+        .background(Color(hex: ChoreDesk.actionFill), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityHint("Name, icon, kid, and an optional reward")
+    }
+
+    private var allowance: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Allowance")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+            if kids.isEmpty {
+                Text("Allowance shows up here after you add a kid.")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(kids) { kid in
+                    allowanceRow(kid)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+    }
+
+    private func allowanceRow(_ kid: FamilyMember) -> some View {
+        let streak = CircleXP.streak(memberID: kid.id, assignments: store.assignments)
+        let xp = CircleXP.total(memberID: kid.id, assignments: store.assignments, chores: store.chores)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(kid.name)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+            Text("\(Money.cents(kid.allowanceBalanceCents)) · Lv \(CircleXP.level(xp: xp)) · \(streak) day streak")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Pay") {
+                payMember = kid
+                payAmount = ""
+                payReason = "Paid out"
+            }
+            .font(.headline.weight(.bold))
+            .foregroundStyle(noteInk)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func markDone(_ id: UUID) {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        justFinished = id
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            store.completeAssignment(id)
+        }
+    }
+
+    private var noteInk: Color {
+        AppTheme.adaptive(light: ChoreDesk.noteInkLight, dark: ChoreDesk.noteInkDark)
     }
 
     private func centsFrom(_ raw: String) -> Int {
@@ -285,83 +384,218 @@ struct ChoresView: View {
         guard let value = Double(cleaned) else { return 0 }
         return Int((value * 100).rounded())
     }
+
+    @ViewBuilder
+    private func choreIcon(_ icon: String, size: CGFloat) -> some View {
+        if ChoreDesk.symbolIcon(icon) {
+            Image(systemName: icon)
+                .font(.system(size: size))
+                .foregroundStyle(noteInk)
+                .frame(width: size + 8, height: size + 8)
+        } else {
+            Text(icon)
+                .font(.system(size: size))
+        }
+    }
 }
 
-struct AssignmentCard: View {
+struct KidChoreCard: View {
     @EnvironmentObject private var store: HubStore
     let assignment: ChoreAssignment
     let chore: Chore
-    let kid: FamilyMember
+    let now: Date
+    let justFinished: Bool
+    let proofNote: String?
+    var onDone: () -> Void
+    var onUndo: () -> Void
+    @State private var showProof = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                MemberAvatar(member: kid, size: 44)
-                    .overlay(Circle().stroke(Color(hex: kid.colorHex), lineWidth: 3))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(chore.title)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(AppTheme.text)
-                    Text("\(kid.name) · due \(assignment.dueOn.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
-                Spacer(minLength: 0)
-                Text(Money.cents(chore.rewardCents))
-                    .font(.title3.weight(.bold).monospacedDigit())
-                    .foregroundStyle(AppTheme.blue)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 14) {
+                icon
+                Text(chore.title)
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            HStack(spacing: 8) {
-                Text(assignment.status.label)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(statusColor)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(statusColor.opacity(0.14), in: Capsule())
-                Spacer()
-                switch assignment.status {
-                case .pending:
-                    actionPill("Mark done") { store.completeAssignment(assignment.id) }
-                case .done:
-                    Button("Undo") { store.reopenAssignment(assignment.id) }
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(AppTheme.blue)
-                    actionPill("Approve \(Money.cents(chore.rewardCents))") {
-                        store.approveAssignment(assignment.id)
-                    }
-                case .approved:
-                    actionPill("Mark paid") { store.markAssignmentPaid(assignment.id) }
-                case .paid:
-                    EmptyView()
+            if assignment.status == .pending, let reason = assignment.returnReason, !reason.isEmpty {
+                Text("Not yet. \(reason)")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.text)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let proofNote, !proofNote.isEmpty {
+                Text(proofNote)
+                    .font(.body)
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            switch assignment.status {
+            case .pending:
+                Button(action: onDone) {
+                    Label("Done", systemImage: "checkmark")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(Color(hex: ChoreDesk.actionInk))
+                        .frame(maxWidth: .infinity, minHeight: ChoreDesk.doneButtonMinHeight)
+                        .background(Color(hex: ChoreDesk.actionFill), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Done, \(chore.title)")
+                Button("Add a note") { showProof = true }
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(noteInk)
+                    .accessibilityHint("Optional note or photo")
+            case .done:
+                waiting
+            case .approved, .paid:
+                greatJob
             }
         }
-        .padding(14)
-        .background(AppTheme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFill, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
-    }
-
-    private var statusColor: Color {
-        switch assignment.status {
-        case .pending: return AppTheme.reminder
-        case .done: return AppTheme.blue
-        case .approved: return AppTheme.todo
-        case .paid: return AppTheme.textSecondary
+        .sheet(isPresented: $showProof) {
+            ChoreProofSheet(assignmentID: assignment.id)
         }
     }
 
-    private func actionPill(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
-            .font(.headline.weight(.bold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(AppTheme.blue, in: Capsule())
+    private var waiting: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title)
+                    .symbolEffect(.bounce, value: justFinished)
+                Text("Waiting for grown-up")
+                    .font(.title2.weight(.bold))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(AppTheme.text)
+            if ChoreReview.offersUndo(status: assignment.status, completedAt: assignment.completedAt, now: now) {
+                Button("Undo", action: onUndo)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(noteInk)
+                    .frame(minHeight: 44)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: ChoreDesk.doneButtonMinHeight, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var greatJob: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: "star.fill")
+                .font(.title2)
+            Text("Great job!")
+                .font(.title.weight(.bold))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(AppTheme.chipTodoInk)
+        .frame(maxWidth: .infinity, minHeight: ChoreDesk.doneButtonMinHeight, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(AppTheme.chipTodoFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var cardFill: Color {
+        switch assignment.status {
+        case .done: return AppTheme.blueSoft
+        case .approved, .paid: return AppTheme.card
+        case .pending: return AppTheme.card
+        }
+    }
+
+    private var noteInk: Color {
+        AppTheme.adaptive(light: ChoreDesk.noteInkLight, dark: ChoreDesk.noteInkDark)
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        if ChoreDesk.symbolIcon(chore.icon) {
+            Image(systemName: chore.icon)
+                .font(.largeTitle)
+                .foregroundStyle(noteInk)
+                .frame(minWidth: 56, minHeight: 56)
+                .accessibilityHidden(true)
+        } else {
+            Text(chore.icon)
+                .font(.largeTitle)
+                .frame(minWidth: 56, minHeight: 56)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+struct ChoreProofSheet: View {
+    @EnvironmentObject private var store: HubStore
+    @Environment(\.dismiss) private var dismiss
+    let assignmentID: UUID
+    @State private var note = ""
+    @State private var photoItem: PhotosPickerItem?
+    @State private var jpeg: Data?
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Add a note")
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                TextField("What did you do?", text: $note, axis: .vertical)
+                    .font(.body)
+                    .lineLimit(2...4)
+                    .padding(12)
+                    .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    Label(jpeg == nil ? "Add a photo" : "Photo ready", systemImage: "camera")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.adaptive(light: ChoreDesk.noteInkLight, dark: ChoreDesk.noteInkDark))
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        store.addChoreProof(assignmentID: assignmentID, note: note, photoJPEG: jpeg)
+                        dismiss()
+                    }
+                    .fontWeight(.bold)
+                }
+            }
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self) {
+                        jpeg = ChoreProofSheet.jpeg(from: data)
+                    }
+                }
+            }
+        }
+    }
+
+    static func jpeg(from data: Data) -> Data? {
+        guard let image = UIImage(data: data) else { return nil }
+        let longest = max(image.size.width, image.size.height)
+        guard longest > 1 else { return image.jpegData(compressionQuality: 0.6) }
+        let maxSide: CGFloat = 800
+        let scale = min(1, maxSide / longest)
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let rendered = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+        return rendered.jpegData(compressionQuality: 0.6)
     }
 }
 
@@ -369,35 +603,50 @@ struct AddChoreSheet: View {
     @EnvironmentObject private var store: HubStore
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
-    @State private var details = ""
-    @State private var dollars = "2.00"
+    @State private var icon = "sparkles"
+    @State private var memberID: UUID?
+    @State private var dollars = ""
     @State private var cadence: ChoreCadence = .weekly
+
+    private let symbols = ["sparkles", "fork.knife", "trash.fill", "bed.double.fill", "tshirt.fill", "pawprint.fill", "book.fill", "drop.fill"]
+    private let emoji = ["🧹", "🍽️", "🛏️", "🐕", "📚", "🗑️"]
 
     var body: some View {
         HubSheetStack(
             lead: "New",
             tail: "Chore",
             confirm: "Add",
-            confirmEnabled: !title.trimmingCharacters(in: .whitespaces).isEmpty,
+            confirmEnabled: canSave,
             onCancel: { dismiss() },
-            onConfirm: {
-                store.addChore(.make(
-                    title: title.trimmingCharacters(in: .whitespaces),
-                    details: details,
-                    rewardCents: centsFrom(dollars),
-                    cadence: cadence
-                ))
-                dismiss()
-            }
+            onConfirm: save
         ) {
             HubField(label: "Chore") {
                 TextField("Chore name", text: $title)
             }
-            HubField(label: "Details") {
-                TextField("Details", text: $details)
+            HubField(label: "Icon") {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(symbols, id: \.self) { symbol in
+                        iconButton(symbol)
+                    }
+                    ForEach(emoji, id: \.self) { item in
+                        iconButton(item)
+                    }
+                }
             }
-            HubField(label: "Reward") {
-                TextField("Reward ($)", text: $dollars).keyboardType(.decimalPad)
+            HubField(label: "Assign to") {
+                if store.kids().isEmpty {
+                    Text("Add a kid in Profiles, then assign this chore.")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Picker("Assign to", selection: $memberID) {
+                        ForEach(store.kids()) { kid in
+                            Text(kid.name).tag(Optional(kid.id))
+                        }
+                    }
+                    .labelsHidden()
+                }
             }
             HubField(label: "Repeat") {
                 Picker("Repeat", selection: $cadence) {
@@ -407,52 +656,60 @@ struct AddChoreSheet: View {
                 }
                 .labelsHidden()
             }
-        }
-    }
-
-    private func centsFrom(_ raw: String) -> Int {
-        let cleaned = raw.replacingOccurrences(of: "$", with: "")
-        guard let value = Double(cleaned) else { return 0 }
-        return Int((value * 100).rounded())
-    }
-}
-
-struct AssignChoreSheet: View {
-    @EnvironmentObject private var store: HubStore
-    @Environment(\.dismiss) private var dismiss
-    let chore: Chore
-    @State private var memberID: UUID?
-    @State private var dueOn = Date()
-
-    var body: some View {
-        HubSheetStack(
-            lead: "Assign",
-            tail: "Chore",
-            confirm: "Assign",
-            confirmEnabled: memberID != nil,
-            onCancel: { dismiss() },
-            onConfirm: {
-                if let memberID {
-                    store.assign(choreID: chore.id, to: memberID, dueOn: dueOn)
-                }
-                dismiss()
-            }
-        ) {
-            Text(chore.title)
-                .font(.title2.weight(.bold))
-            HubField(label: "Assign to") {
-                Picker("Assign to", selection: $memberID) {
-                    ForEach(store.kids()) { kid in
-                        Text(kid.name).tag(Optional(kid.id))
-                    }
-                }
-                .labelsHidden()
-            }
-            HubField(label: "Due") {
-                DatePicker("Due", selection: $dueOn, displayedComponents: .date)
-                    .labelsHidden()
+            HubField(label: "Reward (optional)") {
+                TextField("0.00", text: $dollars)
+                    .keyboardType(.decimalPad)
             }
         }
         .onAppear { memberID = store.kids().first?.id }
+    }
+
+    private var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && (store.kids().isEmpty || memberID != nil)
+    }
+
+    private func save() {
+        let chore = Chore.make(
+            title: title.trimmingCharacters(in: .whitespaces),
+            rewardCents: centsFrom(dollars),
+            cadence: cadence,
+            icon: icon
+        )
+        store.addChore(chore)
+        if let memberID {
+            store.assign(choreID: chore.id, to: memberID, dueOn: Date())
+        }
+        dismiss()
+    }
+
+    private func iconButton(_ value: String) -> some View {
+        Button {
+            icon = value
+        } label: {
+            Group {
+                if ChoreDesk.symbolIcon(value) {
+                    Image(systemName: value)
+                        .font(.title3)
+                        .foregroundStyle(AppTheme.text)
+                } else {
+                    Text(value).font(.title3)
+                }
+            }
+            .frame(width: 52, height: 52)
+            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(icon == value ? Color(hex: ChoreDesk.actionFill) : AppTheme.cardBorder, lineWidth: icon == value ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(value)
+        .accessibilityAddTraits(icon == value ? .isSelected : AccessibilityTraits())
+    }
+
+    private func centsFrom(_ raw: String) -> Int {
+        let cleaned = raw.replacingOccurrences(of: "$", with: "").trimmingCharacters(in: .whitespaces)
+        guard !cleaned.isEmpty, let value = Double(cleaned) else { return 0 }
+        return Int((value * 100).rounded())
     }
 }

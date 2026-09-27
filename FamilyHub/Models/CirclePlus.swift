@@ -135,6 +135,38 @@ struct ChoreProof: Identifiable, Codable, Hashable {
     var assignmentID: UUID
     var note: String
     var createdAt: Date
+    /// File name of an optional photo saved on this device. The note itself syncs with the household.
+    var photoName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, assignmentID, note, createdAt, photoName
+    }
+
+    init(id: UUID, assignmentID: UUID, note: String, createdAt: Date, photoName: String? = nil) {
+        self.id = id
+        self.assignmentID = assignmentID
+        self.note = note
+        self.createdAt = createdAt
+        self.photoName = photoName
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        assignmentID = try c.decode(UUID.self, forKey: .assignmentID)
+        note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        photoName = try c.decodeIfPresent(String.self, forKey: .photoName)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(assignmentID, forKey: .assignmentID)
+        try c.encode(note, forKey: .note)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encodeIfPresent(photoName, forKey: .photoName)
+    }
 }
 
 enum CircleXP {

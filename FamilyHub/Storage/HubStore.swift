@@ -1003,6 +1003,14 @@ final class HubStore: ObservableObject {
     func reopenAssignment(_ id: UUID) {
         guard let idx = assignments.firstIndex(where: { $0.id == id }) else { return }
         assignments[idx] = ChoreEngine.reopen(assignments[idx])
+        ChoreReviewCenter.withdraw(id)
+        persist()
+    }
+
+    func sendBackAssignment(_ id: UUID, reason: String) {
+        guard let idx = assignments.firstIndex(where: { $0.id == id }) else { return }
+        assignments[idx] = ChoreEngine.sendBack(assignments[idx], reason: reason)
+        ChoreReviewCenter.withdraw(id)
         persist()
     }
 
@@ -1013,6 +1021,7 @@ final class HubStore: ObservableObject {
               let result = ChoreEngine.approve(assignments[idx], chore: chore)
         else { return false }
         assignments[idx] = result.0
+        ChoreReviewCenter.withdraw(id)
         ledger.insert(result.1, at: 0)
         if let memberIdx = members.firstIndex(where: { $0.id == result.1.memberID }) {
             members[memberIdx].allowanceBalanceCents = ChoreEngine.applyLedger(
@@ -1106,9 +1115,20 @@ final class HubStore: ObservableObject {
         persist()
     }
 
-    func addChoreProof(assignmentID: UUID, note: String) {
-        choreProofs.insert(ChoreProof(id: UUID(), assignmentID: assignmentID, note: note, createdAt: Date()), at: 0)
+    func addChoreProof(assignmentID: UUID, note: String, photoJPEG: Data? = nil) {
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let photoName = photoJPEG.flatMap { ChoreProofStore.save($0) }
+        let text = trimmed.isEmpty ? (photoName == nil ? "" : "Photo") : trimmed
+        guard text.isEmpty == false || photoName != nil else { return }
+        choreProofs.insert(
+            ChoreProof(id: UUID(), assignmentID: assignmentID, note: text, createdAt: Date(), photoName: photoName),
+            at: 0
+        )
         persist()
+    }
+
+    func latestProof(for assignmentID: UUID) -> ChoreProof? {
+        choreProofs.first { $0.assignmentID == assignmentID }
     }
 
     func addQuickEvent(from text: String, memberID: UUID? = nil) -> CalendarEvent? {
@@ -1346,20 +1366,75 @@ final class HubStore: ObservableObject {
 
     private func scheduleCloudPublish(_ data: Data) {
         guard !Self.runningUnitTests else { return }
-        guard signedInMemberID != nil, signedInMemberID == ownerID else { return }
+        guard setupCompleted else { return }
+        let shareFromParticipant = !ownsPrivateZone
         cloudPublishTask?.cancel()
         cloudPublishTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1.2))
             guard !Task.isCancelled else { return }
+            let outbound = await MainActor.run { self?.payloadPinnedToOwner(data) ?? data }
             do {
-                try await HouseholdCloud.publish(data: data)
-                if let note = await self?.retirePublicRecordsOnce() {
-                    await MainActor.run { self?.errorMessage = note }
+                if shareFromParticipant {
+                    try await HouseholdCloud.publishShared(data: outbound)
+                } else {
+                    try await HouseholdCloud.publish(data: outbound)
+                    if let note = await self?.retirePublicRecordsOnce() {
+                        await MainActor.run { self?.errorMessage = note }
+                    }
                 }
             } catch {
                 await MainActor.run { self?.errorMessage = error.localizedDescription }
             }
         }
+    }
+
+    /// Subscribes this database for household changes, then pulls. Silent if the push capability is missing.
+    func ensureChoreSubscription() async {
+        guard !Self.runningUnitTests else { return }
+        guard setupCompleted else { return }
+        await HouseholdCloud.ensureDatabaseSubscription(shared: !ownsPrivateZone)
+    }
+
+    /// Pulls the shared household and posts a local “finished” notice for completions this device did not already have.
+    func pullHousehold() async {
+        guard !Self.runningUnitTests else { return }
+        guard setupCompleted else { return }
+        do {
+            let fetched = try await HouseholdCloud.fetchShared()
+            let local = currentHouseholdData() ?? Data()
+            if payloadPinnedToOwner(local) == payloadPinnedToOwner(fetched.data) { return }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let snapshot = try decoder.decode(HubSnapshot.self, from: fetched.data)
+            let before = assignments
+            let viewerIsChild = signedInMember()?.role == .child
+            let keptSignIn = signedInMemberID
+            apply(snapshot)
+            signedInMemberID = keptSignIn
+            let drafts = ChoreReview.incomingDone(
+                before: before,
+                after: assignments,
+                members: members,
+                chores: chores,
+                viewerIsChild: viewerIsChild
+            )
+            await ChoreReviewCenter.post(drafts)
+            persistNow()
+        } catch {
+            // Stay on the local copy when iCloud is quiet.
+        }
+    }
+
+    /// The shared record keeps the owner's signed-in id so a kid's phone does not replace it.
+    private func payloadPinnedToOwner(_ data: Data) -> Data {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard var snapshot = try? decoder.decode(HubSnapshot.self, from: data) else { return data }
+        snapshot.signedInMemberID = ownerID
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return (try? encoder.encode(snapshot)) ?? data
     }
 
     static let publicCleanupKey = "familyhub.publicHubCleanup.v1"

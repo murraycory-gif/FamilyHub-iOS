@@ -46,6 +46,12 @@ struct RootView: View {
             if phase == .active || phase == .background {
                 HubPinger.shared.refresh(store)
             }
+            if phase == .active {
+                Task { await refreshChoresFromCloud() }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .hubCloudChanged)) { _ in
+            Task { await refreshChoresFromCloud() }
         }
         .alert("HUB", isPresented: Binding(
             get: { store.errorMessage != nil },
@@ -57,13 +63,26 @@ struct RootView: View {
         }
         .onAppear {
             LaunchTiming.mark("first frame")
-                HubPinger.shared.refresh(store)
+            HubPinger.shared.refresh(store)
+            ChoreReviewCenter.shared.handler = { action, id in
+                if action == ChoreReview.approveAction {
+                    store.approveAssignment(id)
+                } else if action == ChoreReview.sendBackAction {
+                    store.sendBackAssignment(id, reason: "")
+                }
+            }
+            Task { await refreshChoresFromCloud() }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 withAnimation(.easeInOut(duration: 0.4)) {
                     showSplash = false
                 }
             }
         }
+    }
+
+    private func refreshChoresFromCloud() async {
+        await store.ensureChoreSubscription()
+        await store.pullHousehold()
     }
 }
 

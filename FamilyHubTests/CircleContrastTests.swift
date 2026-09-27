@@ -86,6 +86,20 @@ final class CircleContrastTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(contrast(HubPalette.chipTodoInkLight, HubPalette.chipTodoFillLight), 4.5)
     }
 
+    func testWordmarkCircleUsesSecondaryInk() {
+        XCTAssertEqual(HubWordmarkStyle.circleRole, "secondaryLabel")
+        XCTAssertEqual(HubWordmarkStyle.circleHex(onDark: false, interface: .light), HubPalette.secondaryLight)
+        XCTAssertEqual(HubWordmarkStyle.circleHex(onDark: false, interface: .dark), HubPalette.secondaryDark)
+        XCTAssertEqual(HubWordmarkStyle.circleHex(onDark: true, interface: .light), HubPalette.secondaryDark)
+        let setupNavy = "06101C"
+        XCTAssertGreaterThanOrEqual(contrast(HubPalette.secondaryDark, setupNavy), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(HubPalette.secondaryDark, HubPalette.darkBackground), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(HubPalette.secondaryLight, HubPalette.lightCard), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(ChoreDesk.actionInk, ChoreDesk.actionFill), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(ChoreDesk.noteInkLight, HubPalette.lightCard), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(ChoreDesk.noteInkDark, HubPalette.darkCard), 4.5)
+    }
+
     func testCircleSourcesKeepOneNavControlAndTheCorrectedCopy() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -102,6 +116,14 @@ final class CircleContrastTests: XCTestCase {
         XCTAssertTrue(chrome.contains("showsCustomMenu"))
         XCTAssertTrue(chrome.contains("hubUsesSystemSidebar"))
         XCTAssertTrue(hub.contains("hubUsesSystemSidebar"))
+        let brand = try String(contentsOf: root.appendingPathComponent("FamilyHub/Views/HubBrand.swift"), encoding: .utf8)
+        XCTAssertFalse(brand.contains("opacity(0.45)"))
+        XCTAssertTrue(brand.contains("HubWordmarkStyle"))
+        let chores = try String(contentsOf: root.appendingPathComponent("FamilyHub/Views/ChoresView.swift"), encoding: .utf8)
+        XCTAssertFalse(chores.contains("HubStickyHeader"))
+        XCTAssertFalse(chores.contains("frame(width: 210"))
+        XCTAssertTrue(chores.contains("ChoreDesk.doneButtonMinHeight"))
+        XCTAssertTrue(chores.contains("Needs your OK"))
     }
 
     private func contrast(_ foreground: String, _ background: String) -> Double {

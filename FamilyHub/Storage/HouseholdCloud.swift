@@ -27,6 +27,10 @@ enum HouseholdCloud {
     static let recordType = "HubHousehold"
     static let zoneName = "FamilyHub"
     static let recordName = "household"
+    /// Silent database subscription on the owner's private zone.
+    static let privateChangeSubscriptionID = "hub.private.changes"
+    /// Silent database subscription for participants reading the shared zone.
+    static let sharedChangeSubscriptionID = "hub.shared.changes"
 
     static var container: CKContainer { CKContainer(identifier: containerID) }
 
@@ -80,6 +84,44 @@ enum HouseholdCloud {
             return stored
         }
         return share
+    }
+
+    /// Writes the household into the shared zone. Participants use this so a kid's "done" reaches the owner's devices.
+    static func publishShared(data: Data) async throws {
+        try refuseCloudUnderTest()
+        let zones = try await sharedDB.allRecordZones()
+        guard let zone = zones.first(where: { $0.zoneID.zoneName == zoneName }) else {
+            throw HouseholdCloudError.missingHouse
+        }
+        let id = CKRecord.ID(recordName: recordName, zoneID: zone.zoneID)
+        guard let record = try? await sharedDB.record(for: id) else {
+            throw HouseholdCloudError.missingHouse
+        }
+        record["payload"] = data as CKRecordValue
+        record["updatedAt"] = Date() as CKRecordValue
+        _ = try await sharedDB.save(record)
+    }
+
+    /// CKDatabaseSubscription wakes other devices when the household record changes.
+    /// Delivery needs the Push Notifications capability and the CloudKit container in the Apple Developer portal.
+    /// Without those, saves fail quietly and the app falls back to a local notification the next time it syncs.
+    static func ensureDatabaseSubscription(shared: Bool) async {
+        do {
+            try refuseCloudUnderTest()
+        } catch {
+            return
+        }
+        let database = shared ? sharedDB : privateDB
+        let subscriptionID = shared ? sharedChangeSubscriptionID : privateChangeSubscriptionID
+        let subscription = CKDatabaseSubscription(subscriptionID: subscriptionID)
+        let info = CKSubscription.NotificationInfo()
+        info.shouldSendContentAvailable = true
+        subscription.notificationInfo = info
+        do {
+            _ = try await database.save(subscription)
+        } catch {
+            // Missing aps-environment, or the container is not allowed to subscribe yet.
+        }
     }
 
     /// Owner's private copy, then a zone shared with this iCloud user.

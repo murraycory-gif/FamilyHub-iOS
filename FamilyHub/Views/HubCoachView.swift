@@ -273,9 +273,9 @@ enum HubTours {
     ]
 
     static let chores: [CoachStep] = [
-        .init(id: "chorePay", symbol: "banknote.fill", title: "Allowance", detail: "Balances live on Chores. Pay out here. Approved chores add to the balance."),
-        .init(id: "choreBoard", symbol: "checkmark.circle.fill", title: "Assigned", detail: "Kids check work off. You approve it, then it can hit their allowance."),
-        .init(id: "choreCatalog", symbol: "list.bullet", title: "Chore catalog", detail: "Build the list of jobs and tap Assign to hand one out.")
+        .init(id: "choreBoard", symbol: "checkmark.circle.fill", title: "Needs your OK", detail: "When a kid taps Done, it waits here. Approve it, or send it back."),
+        .init(id: "choreCatalog", symbol: "plus", title: "Add chore", detail: "Name it, pick an icon, and hand it to a kid. A reward is optional."),
+        .init(id: "chorePay", symbol: "banknote.fill", title: "Allowance", detail: "Pay lives down here, after the chores. Approved work adds to the balance.")
     ]
 
     static let lists: [CoachStep] = [
