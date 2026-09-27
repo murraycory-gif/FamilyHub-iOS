@@ -335,22 +335,21 @@ struct AppleWeatherCard: View {
             }
             .buttonStyle(.plain)
 
-            if isLoading && now == nil {
+            if case .loading = heroReadout {
                 ProgressView().tint(AppTheme.inkOnFill).padding(.vertical, 16)
-            } else if let errorMessage, now == nil, days.isEmpty {
-                Text(errorMessage)
-                    .font(.subheadline)
-                    .opacity(0.85)
+            } else if case .unavailable = heroReadout {
+                Text(errorMessage ?? "Weather unavailable")
+                    .font(.subheadline.weight(.semibold))
                     .padding(.vertical, 12)
-            } else {
-                Text("\(now?.temp ?? days.first?.high ?? 0)°")
+            } else if case .ready(let reading) = heroReadout {
+                Text("\(reading.temp)°")
                     .font(.system(size: 72, weight: .thin))
                     .monospacedDigit()
                     .padding(.top, -6)
-                Text(now?.condition ?? WeatherIcon.condition(for: days.first?.code ?? 2))
+                Text(reading.condition)
                     .font(.headline.weight(.medium))
                     .opacity(0.95)
-                Text("H:\(nowHigh)°  L:\(nowLow)°")
+                Text("H:\(reading.high)°  L:\(reading.low)°")
                     .font(.subheadline.weight(.semibold).monospacedDigit())
                     .opacity(0.9)
                     .padding(.top, 2)
@@ -431,8 +430,9 @@ struct AppleWeatherCard: View {
         placeLabel.split(separator: ",").first.map(String.init) ?? placeLabel
     }
 
-    private var nowHigh: Int { days.first?.high ?? now?.temp ?? 0 }
-    private var nowLow: Int { days.first?.low ?? now?.temp ?? 0 }
+    private var heroReadout: WeatherReadout {
+        WeatherReadout.resolve(now: now, day: days.first, isLoading: isLoading, failed: errorMessage != nil || (now == nil && days.isEmpty && !isLoading))
+    }
 }
 
 struct HubWeatherTile: View {
@@ -442,34 +442,30 @@ struct HubWeatherTile: View {
     let hours: [WeatherHour]
     let isToday: Bool
     let isLoading: Bool
+    var errorMessage: String? = nil
     var live: Bool = true
     var onOpen: () -> Void
     var onChangePlace: () -> Void
+    var onRetry: () -> Void = {}
     @Environment(\.hubAccent) private var hubAccent
 
-    private var temp: Int {
-        if isToday { return now?.temp ?? day?.high ?? 0 }
-        return day?.high ?? 0
-    }
-
-    private var condition: String {
-        if isToday { return now?.condition ?? WeatherIcon.condition(for: day?.code ?? 2) }
-        return WeatherIcon.condition(for: day?.code ?? 2)
-    }
-
-    private var symbol: String {
-        if isToday { return now?.symbolName ?? day?.symbolName ?? "cloud.sun.fill" }
-        return day?.symbolName ?? "cloud.sun.fill"
+    private var readout: WeatherReadout {
+        WeatherReadout.resolve(
+            now: isToday ? now : nil,
+            day: day,
+            isLoading: isLoading,
+            failed: errorMessage != nil
+        )
     }
 
     private var skyIsDay: Bool {
-        if isToday { return now?.isDay ?? false }
+        if isToday { return now?.isDay ?? true }
         return true
     }
 
     private var skyCode: Int {
-        if isToday { return now?.code ?? day?.code ?? 2 }
-        return day?.code ?? 2
+        if isToday { return now?.code ?? day?.code ?? 3 }
+        return day?.code ?? 3
     }
 
     var body: some View {
@@ -483,29 +479,49 @@ struct HubWeatherTile: View {
                 .buttonStyle(.plain)
             }
             ZStack(alignment: .topLeading) {
-                WeatherAtmosphere(code: skyCode, isDay: skyIsDay, live: live && isToday)
-                LinearGradient(
-                    colors: [.black.opacity(0.08), .black.opacity(0.22)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                if case .ready = readout {
+                    WeatherAtmosphere(code: skyCode, isDay: skyIsDay, live: live && isToday)
+                    LinearGradient(
+                        colors: [AppTheme.space.opacity(0.05), AppTheme.space.opacity(0.4)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                } else {
+                    AppTheme.tableFill
+                }
                 VStack(alignment: .leading, spacing: 6) {
-                    if isLoading && now == nil && day == nil {
-                        ProgressView().tint(AppTheme.inkOnFill)
-                    } else {
+                    switch readout {
+                    case .loading:
+                        ProgressView().tint(AppTheme.text)
+                    case .unavailable:
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Weather unavailable")
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(AppTheme.text)
+                            Text("Check the connection, then try again.")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Button(action: onRetry) {
+                                Label("Retry", systemImage: "arrow.clockwise")
+                                    .font(.caption.weight(.bold))
+                                    .hubAdaptivePill()
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    case .ready(let reading):
                         HStack(alignment: .top, spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(condition)
+                                Text(reading.condition)
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(AppTheme.inkOnFill.opacity(0.95))
-                                Text("H:\(day?.high ?? temp)°  L:\(day?.low ?? temp)°")
+                                    .foregroundStyle(AppTheme.inkOnFill)
+                                Text("H:\(reading.high)°  L:\(reading.low)°")
                                     .font(.caption.weight(.bold).monospacedDigit())
-                                    .foregroundStyle(AppTheme.inkOnFill.opacity(0.88))
-                                Text("\(temp)°")
+                                    .foregroundStyle(AppTheme.inkOnFill)
+                                Text("\(reading.temp)°")
                                     .font(.system(size: 40, weight: .thin))
                                     .monospacedDigit()
                                     .foregroundStyle(AppTheme.inkOnFill)
-                                    .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
+                                    .shadow(color: AppTheme.space.opacity(0.35), radius: 8, y: 1)
                                     .minimumScaleFactor(0.5)
                                     .lineLimit(1)
                             }
@@ -522,28 +538,32 @@ struct HubWeatherTile: View {
                                 }
                             }
                             .font(.caption.weight(.bold).monospacedDigit())
-                            .foregroundStyle(AppTheme.inkOnFill.opacity(0.9))
+                            .foregroundStyle(AppTheme.inkOnFill)
                         }
                     }
-                    Spacer(minLength: 4)
-                    HStack(spacing: 0) {
-                        ForEach(Array(hours.prefix(5).enumerated()), id: \.element.id) { index, hour in
-                            VStack(spacing: 4) {
-                                Text(index == 0 && isToday ? "Now" : hourLabel(hour.at))
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(AppTheme.inkOnFill.opacity(0.8))
-                                Image(systemName: hour.symbolName)
-                                    .font(.body)
-                                    .symbolRenderingMode(.multicolor)
-                                    .frame(height: 18)
-                                Text("\(hour.temp)°")
-                                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                                    .foregroundStyle(AppTheme.inkOnFill)
+                    if case .ready = readout, hours.isEmpty == false {
+                        Spacer(minLength: 4)
+                        HStack(spacing: 0) {
+                            ForEach(Array(hours.prefix(5).enumerated()), id: \.element.id) { index, hour in
+                                VStack(spacing: 4) {
+                                    Text(index == 0 && isToday ? "Now" : hourLabel(hour.at))
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(AppTheme.inkOnFill)
+                                    Image(systemName: hour.symbolName)
+                                        .font(.body)
+                                        .symbolRenderingMode(.multicolor)
+                                        .frame(height: 18)
+                                    Text("\(hour.temp)°")
+                                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                                        .foregroundStyle(AppTheme.inkOnFill)
+                                }
+                                .frame(maxWidth: .infinity)
                             }
-                            .frame(maxWidth: .infinity)
                         }
+                        .padding(.bottom, 8)
+                    } else {
+                        Spacer(minLength: 0)
                     }
-                    .padding(.bottom, 8)
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
@@ -641,10 +661,12 @@ struct WeatherOutlookView: View {
                     hero
                         .coachSpot("wxHero")
                     dayPager
-                    detailsGrid
-                    hourlyCard
-                    dailyCard
-                        .coachSpot("wxDays")
+                    if showsForecast {
+                        detailsGrid
+                        hourlyCard
+                        dailyCard
+                            .coachSpot("wxDays")
+                    }
                 }
                 .padding(20)
             }
@@ -687,28 +709,68 @@ struct WeatherOutlookView: View {
         }
     }
 
+    private var heroReadout: WeatherReadout {
+        WeatherReadout.resolve(
+            now: isToday ? now : nil,
+            day: selected,
+            isLoading: weather.isLoading,
+            failed: weather.errorMessage != nil
+        )
+    }
+
+    private var showsForecast: Bool {
+        if case .ready = heroReadout { return true }
+        return false
+    }
+
     private var hero: some View {
         ZStack {
-            WeatherAtmosphere(code: skyCode, isDay: skyIsDay, showPhotos: false)
+            if case .ready = heroReadout {
+                WeatherAtmosphere(code: skyCode, isDay: skyIsDay, showPhotos: false)
+            } else {
+                AppTheme.elevated
+            }
             VStack(spacing: 6) {
-                WeatherGlyph(code: skyCode, isDay: skyIsDay, size: 44)
-                Text("\(isToday ? (now?.temp ?? selected?.high ?? 0) : (selected?.high ?? 0))°")
-                    .font(.system(size: 84, weight: .thin))
-                    .monospacedDigit()
-                Text(isToday ? (now?.condition ?? WeatherIcon.condition(for: skyCode, isDay: skyIsDay)) : WeatherIcon.condition(for: selected?.code ?? 2))
-                    .font(.title2.weight(.semibold))
-                Text("H:\(selected?.high ?? 0)°   L:\(selected?.low ?? 0)°")
-                    .font(.title3.weight(.semibold).monospacedDigit())
-                if isToday, let feels = now?.feelsLike {
-                    Text("Feels like \(feels)°")
-                        .font(.headline.weight(.medium))
-                        .opacity(0.9)
+                switch heroReadout {
+                case .loading:
+                    ProgressView().tint(AppTheme.text).padding(.vertical, 28)
+                case .unavailable:
+                    Image(systemName: "cloud.slash")
+                        .font(.system(size: 44, weight: .semibold))
+                        .foregroundStyle(AppTheme.text)
+                        .symbolRenderingMode(.monochrome)
+                    Text("Weather unavailable")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(AppTheme.text)
+                    Button {
+                        Task { await weather.load(place: store.weatherPlace ?? .chicago, units: store.units) }
+                    } label: {
+                        Label("Retry", systemImage: "arrow.clockwise")
+                            .font(.subheadline.weight(.bold))
+                            .hubAdaptivePill()
+                    }
+                    .buttonStyle(.plain)
+                case .ready(let reading):
+                    WeatherGlyph(code: skyCode, isDay: skyIsDay, size: 44)
+                    Text("\(reading.temp)°")
+                        .font(.system(size: 84, weight: .thin))
+                        .monospacedDigit()
+                    Text(reading.condition)
+                        .font(.title2.weight(.semibold))
+                    Text("H:\(reading.high)°   L:\(reading.low)°")
+                        .font(.title3.weight(.semibold).monospacedDigit())
+                    if isToday, let feels = now?.feelsLike {
+                        Text("Feels like \(feels)°")
+                            .font(.headline.weight(.medium))
+                    }
                 }
             }
-            .foregroundStyle(AppTheme.inkOnFill)
-            .shadow(color: .black.opacity(0.25), radius: 8, y: 1)
-            WeatherAttributionMark()
-                .padding(.bottom, 10)
+            .foregroundStyle(showsForecast ? AppTheme.inkOnFill : AppTheme.text)
+            .shadow(color: AppTheme.space.opacity(0.25), radius: 8, y: 1)
+            if showsForecast {
+                WeatherAttributionMark()
+                    .padding(.bottom, 10)
+            }
         }
         .frame(maxWidth: .infinity)
         .frame(minHeight: 260)

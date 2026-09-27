@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 enum HubHTTP {
     static let session: URLSession = {
@@ -37,11 +38,15 @@ enum ICSLink {
         if lower.hasPrefix("webcals://") {
             return "https://" + text.dropFirst("webcals://".count)
         }
+        if lower.hasPrefix("http://") {
+            return "https://" + text.dropFirst("http://".count)
+        }
         return text
     }
 
     static func httpsURL(from raw: String) -> URL? {
-        URL(string: normalize(raw))
+        guard let url = URL(string: normalize(raw)), url.scheme?.lowercased() == "https" else { return nil }
+        return url
     }
 
     /// Only a successful calendar body may replace imported events.
@@ -50,5 +55,76 @@ enum ICSLink {
         let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
         guard text.contains("BEGIN:VCALENDAR") else { return nil }
         return text
+    }
+}
+
+enum HubJoinCode {
+    /// Households created before this change keep their 6-character code.
+    static let legacyLength = 6
+    static let length = 20
+    static let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+    static let maxIssuesPerHour = 5
+
+    static func make() -> String {
+        var bytes = [UInt8](repeating: 0, count: length)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        if status != errSecSuccess {
+            return String((0..<length).map { _ in alphabet[Int.random(in: 0..<alphabet.count)] })
+        }
+        return String(bytes.map { alphabet[Int($0) % alphabet.count] })
+    }
+
+    static func normalized(_ raw: String) -> String {
+        raw.replacingOccurrences(of: " ", with: "").uppercased()
+    }
+
+    /// 2026-09-25 plus 90 days. After this, a 6-character code is no longer a join code.
+    static var legacyCutoff: Date {
+        var parts = DateComponents()
+        parts.calendar = Calendar(identifier: .gregorian)
+        parts.timeZone = TimeZone(secondsFromGMT: 0)
+        parts.year = 2026
+        parts.month = 12
+        parts.day = 24
+        return parts.date ?? Date(timeIntervalSince1970: 1_766_534_400)
+    }
+
+    /// Tests move this to check the cutoff. The app leaves it as the current time.
+    static var clock: () -> Date = { Date() }
+
+    static func isAcceptable(_ raw: String, now: Date? = nil) -> Bool {
+        let moment = now ?? clock()
+        let clean = normalized(raw)
+        guard clean.allSatisfy({ alphabet.contains($0) }) else { return false }
+        if clean.count == length { return true }
+        if clean.count == legacyLength { return moment < legacyCutoff }
+        return false
+    }
+
+    /// Public-record cleanup still recognizes a 6-character code after the cutoff.
+    static func isDeletable(_ raw: String) -> Bool {
+        let clean = normalized(raw)
+        guard clean.allSatisfy({ alphabet.contains($0) }) else { return false }
+        return clean.count == legacyLength || clean.count == length
+    }
+}
+
+enum HubFilePrivacy {
+    /// Regenerable or redundant copies stay off iCloud and computer backup.
+    static func excludeFromBackup(_ url: URL) {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var copy = url
+        try? copy.setResourceValues(values)
+        protectUntilFirstUnlock(url)
+    }
+
+    /// Available after the first unlock, which is when HUB reads hub.json.
+    static func protectUntilFirstUnlock(_ url: URL) {
+        try? FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+            ofItemAtPath: url.path
+        )
     }
 }

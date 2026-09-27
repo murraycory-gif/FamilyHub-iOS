@@ -6,10 +6,51 @@ private struct HubAccentKey: EnvironmentKey {
     static let defaultValue: Color = AppTheme.space
 }
 
+private struct HubBannerTrailingReserveKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+private struct HubSystemSidebarKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+private struct HubTabBarKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
     var hubAccent: Color {
         get { self[HubAccentKey.self] }
         set { self[HubAccentKey.self] = newValue }
+    }
+
+    /// Empty space at the end of a tile banner so an overlaid control does not cover the title.
+    var hubBannerTrailingReserve: CGFloat {
+        get { self[HubBannerTrailingReserveKey.self] }
+        set { self[HubBannerTrailingReserveKey.self] = newValue }
+    }
+
+    /// True inside NavigationSplitView, which already shows the system sidebar toggle.
+    var hubUsesSystemSidebar: Bool {
+        get { self[HubSystemSidebarKey.self] }
+        set { self[HubSystemSidebarKey.self] = newValue }
+    }
+
+    /// True inside the iPhone tab bar. The tab bar is the navigation control, so screens do not add a menu or a second back button.
+    var hubUsesTabBar: Bool {
+        get { self[HubTabBarKey.self] }
+        set { self[HubTabBarKey.self] = newValue }
+    }
+}
+
+/// Card headers use the section name on its own. The HUB wordmark stays on the landing page.
+enum HubTileTitle {
+    static func text(lead: String, title: String) -> String {
+        let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.isEmpty == false { return clean }
+        let fallback = lead.trimmingCharacters(in: .whitespacesAndNewlines)
+        if fallback.isEmpty || fallback == "HUB" { return "Circle" }
+        return fallback
     }
 }
 
@@ -226,31 +267,42 @@ struct HubNavLogo: View {
 struct HubChromeModifier: ViewModifier {
     @EnvironmentObject private var router: HubRouter
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.hubUsesSystemSidebar) private var usesSystemSidebar
+    @Environment(\.hubUsesTabBar) private var usesTabBar
     var showBack: Bool
+
+    /// iPad and Mac use NavigationSplitView, which already puts one sidebar toggle in the unified toolbar.
+    /// iPhone tabs are the other single control. A menu button appears only when neither of those exists.
+    private var showsCustomMenu: Bool {
+        usesSystemSidebar == false && usesTabBar == false && sizeClass != .regular
+    }
+
+    /// One back control. The tab bar and the system sidebar already navigate, so they do not get a second chevron.
+    private var showsBack: Bool {
+        showBack && usesSystemSidebar == false && usesTabBar == false
+    }
 
     func body(content: Content) -> some View {
         content
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationTitle("")
-            .toolbarBackground(Color(hex: router.chromeHex), for: .navigationBar)
+            .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(AppTheme.bg, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar(removing: .sidebarToggle)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    HStack(spacing: 8) {
-                        HubIconButton(symbol: "line.3.horizontal", label: "Menu") {
-                            router.openMenu(regular: sizeClass == .regular)
-                        }
-                        if showBack {
-                            HubIconButton(symbol: "chevron.left", label: "Back to HUB") {
-                                router.open(.today)
+                if showsCustomMenu || showsBack {
+                    ToolbarItem(placement: .topBarLeading) {
+                        HStack(spacing: 8) {
+                            if showsCustomMenu {
+                                HubIconButton(symbol: "line.3.horizontal", label: "Menu") {
+                                    router.openMenu(regular: false)
+                                }
+                            }
+                            if showsBack {
+                                HubIconButton(symbol: "chevron.left", label: "Back") {
+                                    router.open(.today)
+                                }
                             }
                         }
                     }
-                }
-                ToolbarItem(placement: .principal) {
-                    HubNavLogo()
                 }
             }
     }
@@ -263,49 +315,6 @@ extension View {
 
     func backToHub(visible: Bool = true) -> some View {
         hubChrome(showBack: visible)
-    }
-}
-
-struct HideSystemSidebarToggle: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let view = Sentinel()
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        (uiView as? Sentinel)?.hideSoon()
-    }
-
-    final class Sentinel: UIView {
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            hideSoon()
-        }
-
-        func hideSoon() {
-            hideNow()
-            DispatchQueue.main.async { self.hideNow() }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self.hideNow() }
-        }
-
-        private func hideNow() {
-            guard let root = window?.rootViewController else { return }
-            hide(in: root)
-        }
-
-        private func hide(in controller: UIViewController) {
-            if let split = controller as? UISplitViewController {
-                split.displayModeButtonVisibility = .never
-            }
-            for child in controller.children {
-                hide(in: child)
-            }
-            if let presented = controller.presentedViewController {
-                hide(in: presented)
-            }
-        }
     }
 }
 
@@ -571,23 +580,19 @@ struct HubStickyHeader<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            HubBrandLockup(markSize: 40, hubSize: 22, circleSize: 20, onDark: true)
-            if !pageLabel.isEmpty {
-                Text(pageLabel)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(AppTheme.inkOnFill.opacity(0.92))
-                    .minimumScaleFactor(0.7)
-                    .lineLimit(1)
-            }
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(pageLabel)
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             trailing
         }
         .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.space)
+        .background(AppTheme.bg)
     }
 
     private var pageLabel: String {
@@ -837,6 +842,7 @@ struct HubTileBanner<Trailing: View>: View {
     let symbol: String
     let title: String
     @Environment(\.hubAccent) private var accent
+    @Environment(\.hubBannerTrailingReserve) private var trailingReserve
     @ViewBuilder var trailing: Trailing
 
     init(symbol: String, title: String, lead: String = "HUB", @ViewBuilder trailing: () -> Trailing) {
@@ -847,29 +853,26 @@ struct HubTileBanner<Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: symbol)
                 .font(.body.weight(.bold))
-            Text(lead)
-                .font(.headline.weight(.heavy))
-                .tracking(0.2)
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
-            Text("|")
-                .font(.subheadline.weight(.semibold))
-                .opacity(0.55)
-            Text(title)
-                .font(.headline.weight(.regular))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Spacer(minLength: 0)
+                .foregroundStyle(AppTheme.blue)
+            Text(HubTileTitle.text(lead: lead, title: title))
+                .font(.title3.weight(.bold))
+                .foregroundStyle(AppTheme.text)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
             trailing
+            if trailingReserve > 0 {
+                Color.clear
+                    .frame(width: trailingReserve, height: 1)
+                    .accessibilityHidden(true)
+            }
         }
-        .foregroundStyle(AppTheme.inkOnFill)
         .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(accent)
+        .background(AppTheme.card)
     }
 }
 
@@ -935,9 +938,9 @@ struct HubLift: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(accent, lineWidth: selected ? 2 : 1.5)
+                    .stroke(selected ? AppTheme.blue : AppTheme.cardBorder, lineWidth: selected ? 2 : 1)
             )
-            .shadow(color: Color.black.opacity(selected ? 0.10 : 0.07), radius: selected ? 16 : 14, y: selected ? 6 : 5)
+            .shadow(color: Color.black.opacity(selected ? 0.12 : 0.06), radius: selected ? 12 : 8, y: selected ? 4 : 3)
     }
 }
 
@@ -995,7 +998,6 @@ struct HubFilterBanner: View {
     let symbol: String
     let title: String
     var chevron = true
-    @Environment(\.hubAccent) private var accent
 
     var body: some View {
         HStack(spacing: 8) {
@@ -1003,16 +1005,17 @@ struct HubFilterBanner: View {
                 .font(.body.weight(.bold))
             Text(title)
                 .font(.headline.weight(.bold))
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
             if chevron {
                 Image(systemName: "chevron.down")
                     .font(.caption.weight(.bold))
             }
         }
-        .foregroundStyle(AppTheme.inkOnFill)
+        .foregroundStyle(Color.white)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

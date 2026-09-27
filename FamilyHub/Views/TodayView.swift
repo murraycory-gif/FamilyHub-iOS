@@ -8,9 +8,58 @@ enum HubProfile: Hashable {
     case member(UUID)
 }
 
+enum HubTextRole: String, Equatable {
+    case label
+    case secondaryLabel
+}
+
+enum HubGreeting: Equatable {
+    static let lead = "Good"
+
+    static func tail(hour: Int) -> String {
+        if hour < 12 { return "Morning" }
+        if hour < 17 { return "Afternoon" }
+        return "Evening"
+    }
+
+    /// Both words paint with the primary label (`AppTheme.text` / `UIColor.label`).
+    static let textRole = HubTextRole.label
+}
+
+enum AgendaBanner {
+    static func lead(isToday: Bool, dayTitle: String) -> String {
+        isToday ? "Today" : dayTitle
+    }
+
+    /// Household or member name. Blank names are omitted. Does not append "family".
+    static func scope(_ name: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+enum DinnerEmptyCopy {
+    static let addButton = "Add dinner"
+    static let title = "Nothing planned"
+    static let hint = "Tap to plan dinner"
+}
+
+enum StatusChipAccessibility {
+    static func label(count: Int, title: String) -> String {
+        "\(count) \(title)"
+    }
+}
+
+/// The Circle landing page is one vertical scroll. The family cards sit in that scroll.
+enum LandingLayout {
+    static let scrollsAsOnePage = true
+    static let familyIsPinned = false
+}
+
 struct TodayView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var router: HubRouter
+    @Environment(\.hubUsesSystemSidebar) private var usesSystemSidebar
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
     @State private var profile: HubProfile = .family
@@ -49,9 +98,9 @@ struct TodayView: View {
     private func syncChrome() {
         switch profile {
         case .family:
-            router.chromeHex = "06101C"
+            router.chromeHex = HubPalette.darkBackground
         case .member(let id):
-            router.chromeHex = store.member(id: id)?.colorHex ?? "06101C"
+            router.chromeHex = store.member(id: id)?.colorHex ?? HubPalette.darkBackground
         }
     }
 
@@ -59,24 +108,21 @@ struct TodayView: View {
         GeometryReader { geo in
             let compact = sizeClass == .compact
             let portrait = geo.size.height > geo.size.width
-            let padX: CGFloat = compact ? 14 : 22
-            let familyH = familyStripHeight(portrait: portrait, compact: compact, screen: geo.size.height)
-            VStack(alignment: .leading, spacing: compact ? 10 : 14) {
-                header(compact: compact, portrait: portrait)
-                dayPager(portrait: portrait, compact: compact)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                familySection(
-                    portrait: portrait,
-                    compact: compact
-                )
-                .frame(height: familyH)
+            let padX: CGFloat = compact ? 16 : 24
+            ScrollView {
+                VStack(alignment: .leading, spacing: compact ? 16 : 20) {
+                    HubBrandLockup(markSize: compact ? 48 : 64, hubSize: compact ? 26 : 32, circleSize: compact ? 18 : 22)
+                    header(compact: compact, portrait: portrait)
+                    dashboard(for: selectedDay, portrait: portrait, compact: compact)
+                    familySection(portrait: portrait, compact: compact)
+                }
+                .padding(.horizontal, padX)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .animation(nil, value: selectedDay)
-            .padding(.horizontal, padX)
-            .padding(.top, compact ? 2 : 4)
-            .padding(.bottom, compact ? 8 : 12)
-            .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
+        .toolbar(usesSystemSidebar ? .visible : .hidden, for: .navigationBar)
         .background(AppTheme.bg.ignoresSafeArea())
         .environment(\.hubAccent, accent)
         .onAppear {
@@ -86,7 +132,7 @@ struct TodayView: View {
             pageIndex = indexOfDay(start)
         }
         .onChange(of: profile) { _, _ in syncChrome() }
-        .onDisappear { router.chromeHex = "06101C" }
+        .onDisappear { router.chromeHex = HubPalette.darkBackground }
         .onChange(of: pageIndex) { _, idx in
             guard let idx else { return }
             let day = dayAt(idx)
@@ -206,70 +252,19 @@ struct TodayView: View {
         let low = tiles[safe: 1] ?? .shopping
         let tall = tiles[safe: 2] ?? .dinner
         let extra = tiles[safe: 3]
-        let gap: CGFloat = compact ? 8 : 12
-        if compact && portrait {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: gap) {
-                    agenda(for: day)
-                        .frame(minHeight: 210)
-                    widgetSlot(top, day: day, index: 0)
-                        .frame(height: 168)
-                    widgetSlot(low, day: day, index: 1)
-                        .frame(height: 168)
-                    if let extra {
-                        widgetSlot(tall, day: day, index: 2, offerExpand: true)
-                            .frame(height: 176)
-                        widgetSlot(extra, day: day, index: 3)
-                            .frame(height: 168)
-                    } else {
-                        widgetSlot(tall, day: day, index: 2, offerAddUnder: true)
-                            .frame(height: 176)
-                    }
-                }
-                .padding(.bottom, 8)
-            }
-        } else if portrait {
-            VStack(spacing: gap) {
-                HStack(alignment: .top, spacing: gap) {
-                    agenda(for: day)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    VStack(spacing: gap) {
-                        widgetSlot(top, day: day, index: 0)
-                        widgetSlot(low, day: day, index: 1)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                if let extra {
-                    HStack(spacing: gap) {
-                        widgetSlot(tall, day: day, index: 2, offerExpand: true)
-                        widgetSlot(extra, day: day, index: 3)
-                    }
-                    .frame(height: compact ? 132 : 176)
-                } else {
-                    widgetSlot(tall, day: day, index: 2, offerAddUnder: true)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: compact ? 132 : 176)
-                }
-            }
-        } else {
-            HStack(alignment: .top, spacing: gap) {
-                agenda(for: day)
-                    .frame(maxWidth: compact ? 220 : .infinity, maxHeight: .infinity)
-                VStack(spacing: gap) {
-                    widgetSlot(top, day: day, index: 0)
-                    widgetSlot(low, day: day, index: 1)
-                }
-                .frame(maxWidth: .infinity)
-                if let extra {
-                    VStack(spacing: gap) {
-                        widgetSlot(tall, day: day, index: 2, offerExpand: true)
-                        widgetSlot(extra, day: day, index: 3)
-                    }
-                    .frame(maxWidth: .infinity)
-                } else {
-                    widgetSlot(tall, day: day, index: 2, offerAddUnder: true)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+        let gap: CGFloat = compact ? 12 : 16
+        return VStack(spacing: gap) {
+            agenda(for: day)
+                .frame(minHeight: portrait ? 200 : 180)
+            widgetSlot(top, day: day, index: 0)
+                .frame(minHeight: 150)
+            widgetSlot(low, day: day, index: 1)
+                .frame(minHeight: 150)
+            widgetSlot(tall, day: day, index: 2, offerAddUnder: extra == nil, offerExpand: extra != nil)
+                .frame(minHeight: 160)
+            if let extra {
+                widgetSlot(extra, day: day, index: 3)
+                    .frame(minHeight: 150)
             }
         }
     }
@@ -351,49 +346,50 @@ struct TodayView: View {
         offerAddUnder: Bool = false,
         offerExpand: Bool = false
     ) -> some View {
-        widgetTile(kind, day: day, live: Calendar.current.isDate(day, inSameDayAs: selectedDay))
+        let tile = widgetTile(kind, day: day, live: Calendar.current.isDate(day, inSameDayAs: selectedDay))
+            .environment(\.hubBannerTrailingReserve, 78)
             .overlay(alignment: .topTrailing) {
                 Button { pickSlot = index } label: {
                     Text("Change")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.white, in: Capsule())
+                        .hubAdaptivePill(horizontal: 10, vertical: 6)
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 8)
                 .padding(.trailing, 10)
             }
-            .overlay(alignment: .bottom) {
-                if offerAddUnder {
-                    Button {
-                        store.addWidgetUnderRight()
-                    } label: {
-                        Label("Add one under", systemImage: "plus")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(.white, in: Capsule())
+        if offerExpand || (offerAddUnder && kind != .dinner) {
+            tile.safeAreaInset(edge: .bottom, spacing: 0) {
+                HStack {
+                    Spacer(minLength: 0)
+                    if offerAddUnder {
+                        Button {
+                            store.addWidgetUnderRight()
+                        } label: {
+                            Label("Add a box", systemImage: "plus")
+                                .font(.caption.weight(.bold))
+                                .hubAdaptivePill()
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button {
+                            store.makeRightWidgetBigger()
+                        } label: {
+                            Label("Make bigger", systemImage: "arrow.up.left.and.arrow.down.right")
+                                .font(.caption.weight(.bold))
+                                .hubAdaptivePill()
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.bottom, 10)
-                } else if offerExpand {
-                    Button {
-                        store.makeRightWidgetBigger()
-                    } label: {
-                        Label("Make bigger", systemImage: "arrow.up.left.and.arrow.down.right")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(.white, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.bottom, 10)
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .background(AppTheme.card)
             }
+        } else {
+            tile
+        }
     }
 
     @ViewBuilder
@@ -427,13 +423,9 @@ struct TodayView: View {
         }
     }
 
-    private var greetingLead: String { "Good" }
-
-    private var greetingTail: String {
+    private var greetingModel: (lead: String, tail: String) {
         let hour = Calendar.current.component(.hour, from: Date())
-        if hour < 12 { return "Morning" }
-        if hour < 17 { return "Afternoon" }
-        return "Evening"
+        return (HubGreeting.lead, HubGreeting.tail(hour: hour))
     }
 
     private func filterPanel(width: CGFloat, height: CGFloat) -> some View {
@@ -448,10 +440,7 @@ struct TodayView: View {
                 } label: {
                     Text("Done")
                         .font(.headline.weight(.bold))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.white, in: Capsule())
+                        .hubAdaptivePill(horizontal: 12, vertical: 6)
                 }
                 .buttonStyle(.plain)
             }
@@ -510,36 +499,36 @@ struct TodayView: View {
     }
 
     private func header(compact: Bool, portrait: Bool) -> some View {
+        _ = portrait
         Group {
-            if compact && portrait {
+            if compact {
                 VStack(alignment: .leading, spacing: 8) {
                     greeting
-                    HStack(spacing: 8) {
-                        dateButton(compact: true)
-                        profileButton(compact: true)
-                    }
+                    dateButton(compact: true)
+                    profileButton(compact: true)
                 }
             } else {
-                HStack(alignment: .center, spacing: compact ? 8 : 12) {
+                HStack(alignment: .center, spacing: 12) {
                     greeting
                     Spacer(minLength: 8)
-                    dateButton(compact: compact)
-                    profileButton(compact: compact)
+                    dateButton(compact: false)
+                    profileButton(compact: false)
                 }
             }
         }
     }
 
     private var greeting: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(greetingLead)
-                .foregroundStyle(AppTheme.text)
-            Text(greetingTail)
-                .foregroundStyle(accent)
+        let model = greetingModel
+        let ink = HubGreeting.textRole == .label ? AppTheme.text : AppTheme.textSecondary
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(model.lead)
+            Text(model.tail)
         }
-        .font(.system(size: sizeClass == .compact ? 26 : 34, weight: .bold))
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
+        .foregroundStyle(ink)
+        .font(.largeTitle.weight(.bold))
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
     }
 
     private var dateButton: some View { dateButton(compact: false) }
@@ -566,15 +555,15 @@ struct TodayView: View {
                 .font((compact ? Font.subheadline : Font.body).weight(.bold))
             Text(title)
                 .font((compact ? Font.subheadline : Font.headline).weight(.bold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .fixedSize(horizontal: false, vertical: true)
             Image(systemName: "chevron.down")
                 .font(.caption.weight(.bold))
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, compact ? 10 : 14)
-        .padding(.vertical, compact ? 8 : 12)
-        .background(accent, in: RoundedRectangle(cornerRadius: compact ? 12 : 14, style: .continuous))
+        .foregroundStyle(Color.white)
+        .padding(.horizontal, compact ? 12 : 14)
+        .padding(.vertical, compact ? 10 : 12)
+        .frame(maxWidth: compact ? .infinity : nil, alignment: .leading)
+        .background(AppTheme.blue, in: RoundedRectangle(cornerRadius: compact ? 12 : 14, style: .continuous))
     }
 
     private func filterChoiceRow(title: String, detail: String = "", selected: Bool, color: Color = AppTheme.blue) -> some View {
@@ -635,10 +624,12 @@ struct TodayView: View {
         }
     }
 
-    private var profileTitle: String {
+    private var agendaScopeName: String? {
         switch profile {
-        case .family: return "\(store.householdName) family"
-        case .member(let id): return store.member(id: id)?.name ?? "Family"
+        case .family:
+            return AgendaBanner.scope(store.householdName)
+        case .member(let id):
+            return AgendaBanner.scope(store.member(id: id)?.name ?? "")
         }
     }
 
@@ -673,22 +664,6 @@ struct TodayView: View {
 
     private func dayStamp(_ date: Date) -> Int {
         Int(Calendar.current.startOfDay(for: date).timeIntervalSince1970)
-    }
-
-    private func dayPager(portrait: Bool, compact: Bool) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 0) {
-                ForEach(0..<hubDayCount, id: \.self) { index in
-                    dashboard(for: dayAt(index), portrait: portrait, compact: compact)
-                        .containerRelativeFrame(.horizontal)
-                        .id(index)
-                }
-            }
-            .scrollTargetLayout()
-        }
-        .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $pageIndex)
-        .clipped()
     }
 
     private var upcomingDays: [Date] {
@@ -812,12 +787,14 @@ struct TodayView: View {
             HubTileBanner(
                 symbol: "calendar",
                 title: "Agenda",
-                lead: Calendar.current.isDateInToday(day) ? "What's On Today's" : "What's On"
+                lead: AgendaBanner.lead(isToday: Calendar.current.isDateInToday(day), dayTitle: headline(for: day))
             ) {
-                Text(profileTitle)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+                if let agendaScopeName {
+                    Text(agendaScopeName)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(AppTheme.inkOnFill)
+                        .lineLimit(1)
+                }
             }
             .contentShape(Rectangle())
             VStack(alignment: .leading, spacing: 10) {
@@ -827,7 +804,7 @@ struct TodayView: View {
                     Spacer()
                     Text("\(items.count)")
                         .font(.subheadline.weight(.bold).monospacedDigit())
-                        .foregroundStyle(AppTheme.textTertiary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
                 if items.isEmpty {
                     Text(emptyDayCopy)
@@ -870,12 +847,16 @@ struct TodayView: View {
             hours: weather.hoursForTile(on: day, count: 5),
             isToday: Calendar.current.isDateInToday(day),
             isLoading: weather.isLoading,
+            errorMessage: weather.errorMessage,
             live: live && Calendar.current.isDate(day, inSameDayAs: selectedDay),
             onOpen: {
                 outlookDay = day
                 showWeatherOutlook = true
             },
-            onChangePlace: { showWeatherPlace = true }
+            onChangePlace: { showWeatherPlace = true },
+            onRetry: {
+                Task { await weather.load(place: store.weatherPlace ?? .chicago, units: store.units) }
+            }
         )
     }
 
@@ -887,10 +868,7 @@ struct TodayView: View {
                     if open.isEmpty == false {
                         Text("\(open.count)")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.white, in: Capsule())
+                            .hubAdaptivePill(horizontal: 8, vertical: 4)
                     }
                     Button {
                         shoppingDraft = ""
@@ -898,8 +876,7 @@ struct TodayView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .background(.white, in: Circle())
+                            .hubAdaptiveCircle(side: 28)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Add to shopping list")
@@ -914,10 +891,10 @@ struct TodayView: View {
                             Spacer(minLength: 0)
                             Text("Nothing to get")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.textSecondary)
+                                .foregroundStyle(AppTheme.text)
                             Text("Tap to open the list")
-                                .font(.caption)
-                                .foregroundStyle(AppTheme.textTertiary)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1015,50 +992,95 @@ struct TodayView: View {
                     } label: {
                         Image(systemName: "trash.fill")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(7)
-                            .background(.white.opacity(0.22), in: Circle())
+                            .foregroundStyle(AppTheme.inkOnFill)
+                            .frame(width: 28, height: 28)
+                            .background(AppTheme.inkOnFill.opacity(0.16), in: Circle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Delete dinner")
                 }
             }
-            Button { openDinner() } label: {
-                ZStack(alignment: .bottom) {
-                    dinnerPhoto(plan: plan, recipe: recipe, title: title)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(dinnerEyebrow(plan))
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.9))
-                        Text(title ?? "Nothing planned")
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                        if let side = store.dinnerSide(on: day) {
-                            Text("with \(side.name)")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.white.opacity(0.95))
-                                .lineLimit(1)
+            if plan == nil {
+                dinnerEmpty(plan: plan, recipe: recipe)
+            } else {
+                Button { openDinner() } label: {
+                    ZStack(alignment: .bottom) {
+                        dinnerPhoto(plan: plan, recipe: recipe, title: title)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        LinearGradient(
+                            colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.88)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(dinnerEyebrow(plan))
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(AppTheme.inkOnFill)
+                            Text(title ?? DinnerEmptyCopy.title)
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(AppTheme.inkOnFill)
+                                .lineLimit(2)
+                            if let side = store.dinnerSide(on: day) {
+                                Text("with \(side.name)")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(AppTheme.inkOnFill)
+                                    .lineLimit(1)
+                            }
+                            Text(dinnerHint(plan, recipe: recipe))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.inkOnFill)
+                                .lineLimit(2)
                         }
-                        Text(dinnerHint(plan, recipe: recipe))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.85))
-                            .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .background(AppTheme.card)
         .hubLift(accent: accent)
+    }
+
+    private func dinnerEmpty(plan: DinnerPlan?, recipe: Recipe?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button { openDinner() } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(dinnerEyebrow(plan))
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .lineLimit(1)
+                    Text(DinnerEmptyCopy.title)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.text)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                    Text(dinnerHint(plan, recipe: recipe))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 8)
+            Button { openDinner() } label: {
+                Label(DinnerEmptyCopy.addButton, systemImage: "plus")
+                    .font(.caption.weight(.bold))
+                    .hubAdaptivePill()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(DinnerEmptyCopy.addButton)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.tableFill)
     }
 
     @ViewBuilder
@@ -1309,7 +1331,7 @@ struct TodayView: View {
         if recipe != nil { return "Tap for ingredients and steps" }
         if plan?.placeName != nil { return "Tap for address and directions" }
         if plan != nil { return "Tap to see the plan" }
-        return "Tap to plan dinner"
+        return DinnerEmptyCopy.hint
     }
 
     private var callouts: some View {
@@ -1359,94 +1381,63 @@ struct TodayView: View {
         .background(soft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func familyStripHeight(portrait: Bool, compact: Bool, screen: CGFloat) -> CGFloat {
-        if compact {
-            return portrait ? max(260, screen * 0.40) : max(150, screen * 0.48)
-        }
-        if portrait {
-            return max(400, screen * 0.40)
-        }
-        return max(440, screen * 0.50)
-    }
-
-    private func familyVisibleCount(portrait: Bool, compact: Bool) -> Int {
-        let members = max(1, store.members.count + 1)
-        let target = compact ? (portrait ? 2 : 3) : (portrait ? 3 : 4)
-        return min(members, target)
-    }
-
     private func familySection(portrait: Bool, compact: Bool) -> some View {
-        let visible = familyVisibleCount(portrait: portrait, compact: compact)
-        let gap: CGFloat = compact ? 8 : 12
-        return VStack(alignment: .leading, spacing: 0) {
-            HubTileBanner(symbol: "house.fill", title: "Circle") {
+        _ = portrait
+        let photoH: CGFloat = compact ? 96 : 140
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Family")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
                 Button { showAddMember = true } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "person.badge.plus")
-                        if compact == false {
-                            Text("Add Hub Member")
-                        }
-                    }
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(accent)
-                    .padding(.horizontal, compact ? 8 : 10)
-                    .padding(.vertical, 6)
-                    .background(.white, in: Capsule())
+                    Label("Add", systemImage: "person.badge.plus")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.blue)
+                        .labelStyle(.titleAndIcon)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Add Hub Member")
             }
-            GeometryReader { inner in
-                let pad: CGFloat = compact ? 8 : 12
-                let cardW = max(132, floor((inner.size.width - pad * 2 - gap * CGFloat(max(0, visible - 1))) / CGFloat(visible)))
-                let cardH = max(120, inner.size.height - pad * 2)
-                let photoH = min(cardH * 0.46, compact ? 78 : 168)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .center, spacing: gap) {
-                        ForEach(store.members) { member in
-                            MemberHomeCard(
-                                member: member,
-                                selected: profile == .member(member.id),
-                                day: selectedDay,
-                                photoHeight: photoH,
-                                onSelect: { profile = .member(member.id) },
-                                onEvent: { event in
-                                    router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
-                                }
-                            )
-                            .frame(width: cardW, height: cardH)
-                            .opacity(draggingMemberID == member.id ? 0.72 : 1)
-                            .onDrag {
-                                draggingMemberID = member.id
-                                return NSItemProvider(object: member.id.uuidString as NSString)
-                            }
-                            .onDrop(
-                                of: [.text],
-                                delegate: MemberReorderDelegate(
-                                    targetID: member.id,
-                                    draggingID: $draggingMemberID,
-                                    onMove: { store.moveMemberLive(id: $0, before: $1) },
-                                    onFinished: { store.persistMembers() }
-                                )
-                            )
-                        }
-                        FamilyFocusCard(
-                            selected: profile == .family,
-                            day: selectedDay,
-                            photoHeight: photoH,
-                            onSelect: { profile = .family },
-                            onEvent: { event in
-                                router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
-                            }
-                        )
-                        .frame(width: cardW, height: cardH)
-                    }
-                    .padding(pad)
+            FamilyFocusCard(
+                selected: profile == .family,
+                day: selectedDay,
+                photoHeight: photoH,
+                onSelect: { profile = .family },
+                onEvent: { event in
+                    router.openCalendar(filter: .family, day: selectedDay, eventID: event.id)
                 }
+            )
+            .frame(maxWidth: .infinity)
+            ForEach(store.members) { member in
+                MemberHomeCard(
+                    member: member,
+                    selected: profile == .member(member.id),
+                    day: selectedDay,
+                    photoHeight: photoH,
+                    onSelect: { profile = .member(member.id) },
+                    onEvent: { event in
+                        router.openCalendar(filter: .member(member.id), day: selectedDay, eventID: event.id)
+                    }
+                )
+                .frame(maxWidth: .infinity)
+                .opacity(draggingMemberID == member.id ? 0.72 : 1)
+                .onDrag {
+                    draggingMemberID = member.id
+                    return NSItemProvider(object: member.id.uuidString as NSString)
+                }
+                .onDrop(
+                    of: [.text],
+                    delegate: MemberReorderDelegate(
+                        targetID: member.id,
+                        draggingID: $draggingMemberID,
+                        onMove: { store.moveMemberLive(id: $0, before: $1) },
+                        onFinished: { store.persistMembers() }
+                    )
+                )
             }
         }
-        .background(AppTheme.card)
-        .hubLift(accent: accent)
     }
 }
 
@@ -1579,7 +1570,6 @@ private struct FamilyFocusCard: View {
                 onTodos: { router.open(.lists, list: .todos) }
             )
             EventScroll(events: events, onEvent: onEvent)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .sheet(isPresented: $showStudio) {
             BannerStudio(title: "Family", current: store.familyPhotoData) { data in
@@ -1640,7 +1630,6 @@ private struct MemberHomeCard: View {
                 onTodos: { router.open(.lists, list: .todos) }
             )
             EventScroll(events: events, onEvent: onEvent)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .sheet(isPresented: $showStudio) {
             BannerStudio(title: firstName, current: store.photo(for: member)) { data in
@@ -1680,59 +1669,46 @@ private struct AmazonPersonCard<Content: View>: View {
                         } else {
                             Image(systemName: fallback ?? "person.fill")
                                 .font(.system(size: 44, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.5))
+                                .symbolRenderingMode(.monochrome)
+                                .foregroundStyle(AppTheme.inkOnFill)
                         }
                     }
                 }
                 .clipped()
-                .overlay(alignment: .top) {
-                    LinearGradient(
-                        colors: [.white.opacity(0.28), .clear],
-                        startPoint: .top,
-                        endPoint: .center
-                    )
-                    .frame(height: 36)
-                    .allowsHitTesting(false)
-                }
                 .overlay(alignment: .bottom) {
                     LinearGradient(
-                        colors: [.clear, .black.opacity(0.55), .black.opacity(0.88)],
+                        colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.9)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: 88)
+                    .frame(height: max(72, photoHeight * 0.62))
                     .allowsHitTesting(false)
                 }
-                .overlay(alignment: .bottomLeading) {
-                    HStack(alignment: .bottom, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(name.isEmpty ? "Profile" : name)
-                                .font(.title2.weight(.bold))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.55)
-                                .shadow(color: .black.opacity(0.7), radius: 8, y: 1)
-                            Text(eventCount == 1 ? "1 EVENT" : "\(eventCount) EVENTS")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(ring, in: Capsule())
-                                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
-                        }
-                        Spacer(minLength: 0)
-                        Button(action: onCamera) {
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 32, height: 32)
-                                .background(.black.opacity(0.45), in: Circle())
-                                .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
+                .overlay(alignment: .topTrailing) {
+                    Button(action: onCamera) {
+                        Image(systemName: "camera.fill")
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(AppTheme.text)
+                            .frame(width: 36, height: 36)
+                            .background(.regularMaterial, in: Circle())
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .buttonStyle(.plain)
+                    .padding(10)
+                    .accessibilityLabel("Change photo")
+                }
+                .overlay(alignment: .bottomLeading) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(name.isEmpty ? "Profile" : name)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(AppTheme.inkOnFill)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .shadow(color: AppTheme.space.opacity(0.7), radius: 8, y: 1)
+                        Text(eventCount == 1 ? "1 event" : "\(eventCount) events")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.inkOnFill)
+                            .accessibilityLabel(eventCount == 1 ? "1 event" : "\(eventCount) events")
+                    }
+                    .padding(12)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { onSelect() }
@@ -1746,11 +1722,11 @@ private struct AmazonPersonCard<Content: View>: View {
                     content
                 }
                 .padding(12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .background(AppTheme.tableFill)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(AppTheme.card)
         .hubLift(accent: ring, selected: selected)
     }
@@ -1787,7 +1763,7 @@ private func posterBanner<Trailing: View>(
             }
         }
         .overlay(alignment: .bottom) {
-            LinearGradient(colors: [.clear, .black.opacity(0.88)], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.88)], startPoint: .top, endPoint: .bottom)
                 .frame(height: 100)
                 .overlay(alignment: .bottomLeading) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -1824,13 +1800,23 @@ private struct DayStatusRow: View {
     var onTodos: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            box(AppTheme.chore, AppTheme.choreSoft, "checkmark.circle.fill", chores, "Chores", onChores)
-            if let bills, let onBills {
-                box(AppTheme.reminder, AppTheme.reminderSoft, "dollarsign.circle.fill", bills, "Bills Due", onBills)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                chipRow(chores: chores, bills: bills, todos: todos, onBills: onBills)
             }
-            box(AppTheme.todo, AppTheme.todoSoft, "square.and.pencil", todos, "To-dos", onTodos)
+            VStack(alignment: .leading, spacing: 8) {
+                chipRow(chores: chores, bills: bills, todos: todos, onBills: onBills)
+            }
         }
+    }
+
+    @ViewBuilder
+    private func chipRow(chores: Int, bills: Int?, todos: Int, onBills: (() -> Void)?) -> some View {
+        box(AppTheme.chipChoreInk, AppTheme.chipChoreFill, "checkmark.circle.fill", chores, "Chores", onChores)
+        if let bills, let onBills {
+            box(AppTheme.chipReminderInk, AppTheme.chipReminderFill, "dollarsign.circle.fill", bills, "Bills Due", onBills)
+        }
+        box(AppTheme.chipTodoInk, AppTheme.chipTodoFill, "square.and.pencil", todos, "To-dos", onTodos)
     }
 
     private func box(_ color: Color, _ soft: Color, _ symbol: String, _ count: Int, _ title: String, _ action: @escaping () -> Void) -> some View {
@@ -1838,6 +1824,7 @@ private struct DayStatusRow: View {
             HStack(spacing: 5) {
                 Image(systemName: symbol)
                     .font(.system(size: 12, weight: .bold))
+                    .symbolRenderingMode(.monochrome)
                 Text("\(count)")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .monospacedDigit()
@@ -1852,11 +1839,12 @@ private struct DayStatusRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(color.opacity(0.18), lineWidth: 1)
+                    .stroke(color.opacity(0.45), lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(HubPressStyle())
+        .accessibilityLabel(StatusChipAccessibility.label(count: count, title: title))
     }
 }
 
@@ -1937,17 +1925,16 @@ private struct EventScroll: View {
     }
 
     var body: some View {
-        let rows = uniqueEvents(events)
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 8) {
+        let rows = Array(uniqueEvents(events).prefix(3))
+        VStack(alignment: .leading, spacing: 8) {
                 Text("Up next")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.textTertiary)
-                    .textCase(.uppercase)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(AppTheme.textSecondary)
                 if rows.isEmpty {
                     Text("Free this day")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(AppTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     ForEach(Array(rows.enumerated()), id: \.offset) { _, event in
                         Button {
@@ -1960,11 +1947,11 @@ private struct EventScroll: View {
                                 Text(event.allDay ? "All day" : Date.hubClock(event.startAt))
                                     .font(.caption.weight(.bold).monospacedDigit())
                                     .foregroundStyle(accent)
-                                    .frame(width: 58, alignment: .leading)
-                                Text(String(event.title.prefix(48)))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text(event.title)
                                     .font(.subheadline.weight(.bold))
                                     .foregroundStyle(AppTheme.text)
-                                    .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .multilineTextAlignment(.leading)
                                 Spacer(minLength: 0)
                             }
@@ -1982,10 +1969,8 @@ private struct EventScroll: View {
                         .buttonStyle(HubPressStyle())
                     }
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -2120,7 +2105,7 @@ struct BannerStudio: View {
                     LinearGradient(colors: [AppTheme.navy, AppTheme.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
                 }
             }
-            LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+            LinearGradient(colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.82)], startPoint: .center, endPoint: .bottom)
             VStack(alignment: .leading, spacing: 12) {
                 Text(title)
                     .font(.system(size: 34, weight: .bold))
@@ -2192,7 +2177,7 @@ struct BannerStudio: View {
             Image(look.imageName)
                 .resizable()
                 .scaledToFill()
-            LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
+            LinearGradient(colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.78)], startPoint: .center, endPoint: .bottom)
             Text(look.title)
                 .font(.headline.weight(.bold))
                 .foregroundStyle(.white)

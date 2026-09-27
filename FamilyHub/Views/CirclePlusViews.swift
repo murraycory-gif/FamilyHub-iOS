@@ -12,7 +12,6 @@ struct CirclePlusView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Circle", tail: "Plus")
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     schoolCard
@@ -27,6 +26,8 @@ struct CirclePlusView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("Circle+")
+        .navigationBarTitleDisplayMode(.large)
     }
 
     private var schoolCard: some View {
@@ -56,6 +57,8 @@ struct CirclePlusView: View {
     }
 
     private var placesCard: some View {
+        // Arrive/leave copy in this card needs rewording before HubFlags.circlePlus ships.
+        // It must not promise a background ping. The flag stays off until that copy is honest.
         HubPanel(symbol: "location.fill", title: "Places + geofence") {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Save School, Home, Practice. Circle pings when someone arrives or leaves.")

@@ -101,27 +101,58 @@ struct HubOrbitMark: View {
     }
 }
 
+/// Pipe and “Circle” use the secondary label, at full opacity, so they stay readable on light cards and on the dark setup screen.
+enum HubWordmarkStyle {
+    static let circleRole = "secondaryLabel"
+
+    static func circleHex(onDark: Bool, interface: ColorScheme) -> String {
+        if onDark || interface == .dark { return HubPalette.secondaryDark }
+        return HubPalette.secondaryLight
+    }
+}
+
 struct HubWordmark: View {
     var onDark: Bool = false
     var hubSize: CGFloat = 28
     var circleSize: CGFloat = 20
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("HUB")
-                .font(.system(size: hubSize, weight: .heavy))
-                .foregroundStyle(onDark ? AppTheme.inkOnFill : AppTheme.text)
-                .tracking(0.8)
-            Text("|")
-                .font(.system(size: hubSize * 0.72, weight: .semibold))
-                .foregroundStyle((onDark ? AppTheme.inkOnFill : AppTheme.space).opacity(0.45))
-            Text("Circle")
-                .font(.system(size: circleSize, weight: .regular))
-                .foregroundStyle(onDark ? AppTheme.inkOnFill.opacity(0.9) : AppTheme.space)
-                .tracking(1.6)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                hubWord
+                circleWords
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                hubWord
+                circleWords
+            }
         }
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Text styles so the wordmark grows with Dynamic Type instead of clipping.
+    private var hubWord: some View {
+        Text("HUB")
+            .font(hubSize >= 34 ? .largeTitle.weight(.heavy) : (hubSize >= 26 ? .title.weight(.heavy) : .title2.weight(.heavy)))
+            .foregroundStyle(onDark ? AppTheme.inkOnFill : AppTheme.text)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var circleWords: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("|")
+                .font(circleSize >= 24 ? .title2.weight(.semibold) : .title3.weight(.semibold))
+                .foregroundStyle(circleInk)
+            Text("Circle")
+                .font(circleSize >= 24 ? .title2 : .title3)
+                .foregroundStyle(circleInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// On a dark splash, force the dark-mode secondary ink. Otherwise follow the adaptive secondary label.
+    private var circleInk: Color {
+        onDark ? Color(hex: HubWordmarkStyle.circleHex(onDark: true, interface: .dark)) : AppTheme.textSecondary
     }
 }
 

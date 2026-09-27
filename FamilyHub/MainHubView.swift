@@ -3,7 +3,7 @@ import SwiftUI
 enum HubSection: String, CaseIterable, Identifiable, Hashable {
     case today, calendar, chores, lists, shopping, meals
     case profiles, device, invite, calendars, bills, allowance, weather, widgets, notify, credits
-    case settings, family, looks, plus, more
+    case settings, family, looks, layouts, privacy, plus, more
 
     var id: String { rawValue }
 
@@ -18,19 +18,20 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
     }
 
     /// iPhone tab bar stays at five. Everything else lives under More.
+    /// Circle, Calendar, Chores, Meals, and More. Shopping opens from Circle or More, so Chores is not an extra hop.
     static var phoneTabs: [HubSection] {
-        [.today, .calendar, .meals, .shopping, .more]
+        [.today, .calendar, .chores, .meals, .more]
     }
 
     static var moreItems: [HubSection] {
-        var items: [HubSection] = [.chores, .lists]
+        var items: [HubSection] = [.shopping, .lists]
         if HubFlags.circlePlus { items.append(.plus) }
         items.append(contentsOf: settingsItems)
         return items
     }
 
     static var settingsItems: [HubSection] {
-        [.profiles, .invite, .calendars, .widgets, .notify, .looks, .credits]
+        SettingsCatalog.groups.flatMap(\.rows).map(\.section)
     }
 
     var title: String {
@@ -43,8 +44,10 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .meals: return "Meals"
         case .plus: return "Circle+"
         case .settings: return "Settings"
-        case .family, .profiles: return "Profiles"
-        case .looks: return "Display"
+        case .family, .profiles: return "People"
+        case .looks: return "Appearance"
+        case .layouts: return "Layout ideas"
+        case .privacy: return "Privacy"
         case .device: return "This iPad"
         case .invite: return "Invite"
         case .calendars: return "Calendars"
@@ -69,7 +72,9 @@ enum HubSection: String, CaseIterable, Identifiable, Hashable {
         case .plus: return "sparkles"
         case .settings: return "gearshape.fill"
         case .family, .profiles: return "person.3.fill"
-        case .looks: return "square.grid.2x2.fill"
+        case .looks: return "circle.lefthalf.filled"
+        case .layouts: return "square.grid.2x2.fill"
+        case .privacy: return "hand.raised.fill"
         case .device: return "ipad"
         case .invite: return "person.badge.plus"
         case .calendars: return "calendar.badge.plus"
@@ -89,6 +94,85 @@ enum HubFlags {
     static let circlePlus = false
 }
 
+/// Settings is one list of short rows. Each row opens one screen. Nothing sits a level deeper than that.
+enum SettingsCatalog {
+    struct Row: Identifiable, Equatable {
+        var section: HubSection
+        var title: String
+        var subtitle: String
+        var symbol: String
+        var id: String { section.rawValue }
+    }
+
+    struct Group: Identifiable, Equatable {
+        var title: String
+        var rows: [Row]
+        var id: String { title }
+    }
+
+    static let groups: [Group] = [
+        Group(title: "Family", rows: [
+            Row(section: .profiles, title: "People", subtitle: "Names, photos, and who is holding this device", symbol: "person.3.fill"),
+            Row(section: .invite, title: "Invite", subtitle: "Share this Circle with the family", symbol: "person.badge.plus"),
+        ]),
+        Group(title: "Notifications", rows: [
+            Row(section: .notify, title: "Notifications", subtitle: "Reminders on this device", symbol: "bell.fill"),
+        ]),
+        Group(title: "Appearance", rows: [
+            Row(section: .looks, title: "Appearance", subtitle: "Light, dark, or match this device", symbol: "circle.lefthalf.filled"),
+        ]),
+        Group(title: "Account and privacy", rows: [
+            Row(section: .privacy, title: "Privacy", subtitle: "What stays in your iCloud", symbol: "hand.raised.fill"),
+        ]),
+        Group(title: "Help", rows: [
+            Row(section: .credits, title: "Help and credits", subtitle: "Licenses and where recipes come from", symbol: "questionmark.circle.fill"),
+        ]),
+        Group(title: "More", rows: [
+            Row(section: .calendars, title: "Calendars", subtitle: "Which calendars HUB reads", symbol: "calendar.badge.plus"),
+            Row(section: .widgets, title: "Home boxes", subtitle: "Weather, shopping, and the other tiles", symbol: "square.grid.2x2.fill"),
+            Row(section: .layouts, title: "Layout ideas", subtitle: "Other home layouts to try", symbol: "rectangle.grid.2x2"),
+            Row(section: .allowance, title: "Allowance", subtitle: "Kid balances", symbol: "banknote.fill"),
+        ]),
+    ]
+
+    static func row(for section: HubSection) -> Row? {
+        groups.flatMap(\.rows).first { $0.section == section }
+    }
+}
+
+/// Which screen a section opens. Settings and This iPad both land on Profiles, which is in the More menu.
+enum HubDetailScreen: Equatable {
+    case today, calendar, chores, lists, shopping, meals, plus, more
+    case profiles, looks, layouts, privacy, invite, calendars, widgets, notify, credits, allowance
+
+    var showsPrivacyPolicy: Bool { self == .profiles || self == .privacy }
+}
+
+extension HubSection {
+    var detailScreen: HubDetailScreen {
+        switch self {
+        case .today: return .today
+        case .calendar: return .calendar
+        case .chores: return .chores
+        case .allowance: return .allowance
+        case .lists: return .lists
+        case .shopping: return .shopping
+        case .meals: return .meals
+        case .plus: return .plus
+        case .more: return .more
+        case .settings, .family, .profiles, .device: return .profiles
+        case .looks: return .looks
+        case .layouts: return .layouts
+        case .privacy: return .privacy
+        case .invite: return .invite
+        case .calendars: return .calendars
+        case .bills, .weather, .widgets: return .widgets
+        case .notify: return .notify
+        case .credits: return .credits
+        }
+    }
+}
+
 final class HubRouter: ObservableObject {
     @Published var section: HubSection? = .today
     @Published var listKind: ListKind = .reminders
@@ -99,7 +183,7 @@ final class HubRouter: ObservableObject {
     @Published var calendarDay = Date()
     @Published var focusedEventID: UUID?
     @Published var mealsDay = Date()
-    @Published var chromeHex: String = "06101C"
+    @Published var chromeHex: String = HubPalette.darkBackground
 
     func open(_ section: HubSection, list: ListKind? = nil) {
         if let list { listKind = list }
@@ -147,6 +231,7 @@ struct MainHubView: View {
                     detail
                 }
                 .navigationSplitViewStyle(.balanced)
+                .environment(\.hubUsesSystemSidebar, true)
             } else {
                 TabView(selection: tabSelection) {
                     ForEach(HubSection.phoneTabs) { item in
@@ -157,6 +242,7 @@ struct MainHubView: View {
                         .tag(item)
                     }
                 }
+                .environment(\.hubUsesTabBar, true)
             }
         }
         .environmentObject(router)
@@ -193,29 +279,21 @@ struct MainHubView: View {
                     sidebarRow(item)
                 }
             }
-            Section("Settings") {
-                ForEach(HubSection.settingsItems) { item in
-                    sidebarRow(item)
+            ForEach(SettingsCatalog.groups) { group in
+                Section(group.title) {
+                    ForEach(group.rows) { row in
+                        sidebarRow(row.section, title: row.title)
+                    }
                 }
             }
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(AppTheme.bg)
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("Circle")
         .toolbarBackground(AppTheme.bg, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                HubNavLogo(onDark: false)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                HubIconButton(symbol: "sidebar.left", label: "Menu") {
-                    router.toggleSidebar()
-                }
-            }
-        }
         .safeAreaInset(edge: .top, spacing: 0) {
             Text(store.householdName.uppercased())
                 .font(.caption.weight(.semibold))
@@ -227,7 +305,7 @@ struct MainHubView: View {
         }
     }
 
-    private func sidebarRow(_ item: HubSection) -> some View {
+    private func sidebarRow(_ item: HubSection, title: String? = nil) -> some View {
         let selected = currentSection == item
         return Button {
             router.open(item)
@@ -243,7 +321,7 @@ struct MainHubView: View {
                         .foregroundStyle(AppTheme.blue)
                 }
                 .frame(width: 28, height: 28)
-                Text(item.title)
+                Text(title ?? item.title)
                     .font(.body.weight(selected ? .semibold : .regular))
                     .foregroundStyle(selected ? AppTheme.blue : AppTheme.text)
                     .lineLimit(1)
@@ -268,10 +346,10 @@ struct MainHubView: View {
 
     @ViewBuilder
     private func view(for section: HubSection) -> some View {
-        switch section {
+        switch section.detailScreen {
         case .today: TodayView().hubChrome()
         case .calendar: CalendarHubView().hubChrome(showBack: true)
-        case .allowance, .chores: ChoresView().hubChrome(showBack: true)
+        case .chores: ChoresView().hubChrome(showBack: true)
         case .lists: ListsView().hubChrome(showBack: true)
         case .shopping: ShoppingListView().hubChrome(showBack: true)
         case .meals: MealsView().hubChrome(showBack: true)
@@ -282,13 +360,16 @@ struct MainHubView: View {
                 MoreHubView()
             }
         case .more: MoreHubView()
-        case .settings, .family, .profiles, .device: ProfilesSettingsView().hubChrome(showBack: true)
-        case .looks: HubLooksView().hubChrome(showBack: true)
+        case .profiles: ProfilesSettingsView().hubChrome(showBack: true)
+        case .looks: AppearanceSettingsView().hubChrome(showBack: true)
+        case .layouts: HubLooksView().hubChrome(showBack: true)
+        case .privacy: PrivacySettingsPage().hubChrome(showBack: true)
         case .invite: InviteSettingsView().hubChrome(showBack: true)
         case .calendars: CalendarSourcesView().hubChrome(showBack: true)
-        case .bills, .weather, .widgets: HubWidgetPicker().hubChrome(showBack: true)
+        case .widgets: HubWidgetPicker().hubChrome(showBack: true)
         case .notify: NotifySettingsView().hubChrome(showBack: true)
         case .credits: CreditsSettingsView().hubChrome(showBack: true)
+        case .allowance: AllowanceSettingsPage().hubChrome(showBack: true)
         }
     }
 }
@@ -302,43 +383,34 @@ struct MoreHubView: View {
     }
 
     var body: some View {
-        if let pushed {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Button {
-                        router.section = .more
-                    } label: {
-                        Label("More", systemImage: "chevron.left")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(AppTheme.blue)
-                    }
-                    .buttonStyle(.plain)
-                    Spacer()
+        List {
+            Section("House") {
+                ForEach(HubSection.moreItems.filter { HubSection.settingsItems.contains($0) == false }) { item in
+                    moreRow(item)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
+            }
+            ForEach(SettingsCatalog.groups) { group in
+                Section(group.title) {
+                    ForEach(group.rows) { row in
+                        settingsRow(row)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("More")
+        .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(isPresented: Binding(
+            get: { pushed != nil },
+            set: { if $0 == false { router.section = .more } }
+        )) {
+            if let pushed {
                 destination(pushed)
+                    .navigationTitle(SettingsCatalog.row(for: pushed)?.title ?? pushed.title)
+                    .navigationBarTitleDisplayMode(.large)
             }
-            .background(AppTheme.bg.ignoresSafeArea())
-        } else {
-            VStack(alignment: .leading, spacing: 0) {
-                HubStickyHeader(lead: "More", tail: "")
-                List {
-                    Section("House") {
-                        ForEach(HubSection.moreItems.filter { HubSection.settingsItems.contains($0) == false }) { item in
-                            moreRow(item)
-                        }
-                    }
-                    Section("Settings") {
-                        ForEach(HubSection.settingsItems) { item in
-                            moreRow(item)
-                        }
-                    }
-                }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-            }
-            .background(AppTheme.bg.ignoresSafeArea())
         }
     }
 
@@ -351,19 +423,45 @@ struct MoreHubView: View {
         }
     }
 
+    private func settingsRow(_ row: SettingsCatalog.Row) -> some View {
+        Button {
+            router.open(row.section)
+        } label: {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.title)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(row.subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } icon: {
+                Image(systemName: row.symbol)
+                    .foregroundStyle(AppTheme.blue)
+            }
+        }
+    }
+
     @ViewBuilder
     private func destination(_ section: HubSection) -> some View {
-        switch section {
-        case .chores, .allowance: ChoresView()
+        switch section.detailScreen {
+        case .chores: ChoresView()
+        case .shopping: ShoppingListView()
         case .lists: ListsView()
         case .plus: CirclePlusView()
-        case .settings, .family, .profiles, .device: ProfilesSettingsView()
-        case .looks: HubLooksView()
+        case .profiles: ProfilesSettingsView()
+        case .looks: AppearanceSettingsView()
+        case .layouts: HubLooksView()
+        case .privacy: PrivacySettingsPage()
         case .invite: InviteSettingsView()
         case .calendars: CalendarSourcesView()
-        case .bills, .weather, .widgets: HubWidgetPicker()
+        case .widgets: HubWidgetPicker()
         case .notify: NotifySettingsView()
         case .credits: CreditsSettingsView()
+        case .allowance: AllowanceSettingsPage()
         default: EmptyView()
         }
     }

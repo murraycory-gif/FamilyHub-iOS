@@ -19,7 +19,7 @@ struct HubWidgetPickSheet: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
             ScrollView {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 148), spacing: 14)], spacing: 14) {
                     ForEach(HubWidgetKind.choosable) { kind in
                         Button {
                             onPick(kind)
@@ -31,8 +31,7 @@ struct HubWidgetPickSheet: View {
                                 Text(kind.title)
                                     .font(.title3.weight(.bold))
                                     .multilineTextAlignment(.center)
-                                    .minimumScaleFactor(0.8)
-                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                             .foregroundStyle(current == kind ? .white : AppTheme.text)
                             .frame(maxWidth: .infinity, minHeight: 132)
@@ -179,10 +178,7 @@ struct BillsWidget: View {
                 if bills.isEmpty == false {
                     Text("\(bills.count)")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.white, in: Capsule())
+                        .hubAdaptivePill(horizontal: 8, vertical: 4)
                 }
             }
             Group {
@@ -264,9 +260,8 @@ struct FlightWidget: View {
             HubTileBanner(symbol: "airplane", title: "Flights") {
                 Button(action: onAdd) {
                     Image(systemName: "plus")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .background(.white, in: Circle())
+                            .font(.caption.weight(.bold))
+                            .hubAdaptiveCircle(side: 28)
                 }
                 .buttonStyle(.plain)
             }
@@ -284,9 +279,10 @@ struct FlightWidget: View {
                             Text("No flights this day")
                                 .font(.headline.weight(.bold))
                                 .foregroundStyle(AppTheme.text)
-                            Text("HUB reads flights from the calendar. Tap to add one.")
+                            Text("Flights on the calendar show up here. Tap to add one.")
                                 .font(.subheadline)
                                 .foregroundStyle(AppTheme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
                             Text("Add flight")
                                 .font(.headline.weight(.bold))
                                 .foregroundStyle(.white)
@@ -640,9 +636,8 @@ struct PackageWidget: View {
             HubTileBanner(symbol: "shippingbox.fill", title: "Packages") {
                 Button(action: onAdd) {
                     Image(systemName: "plus")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .background(.white, in: Circle())
+                            .font(.caption.weight(.bold))
+                            .hubAdaptiveCircle(side: 28)
                 }
                 .buttonStyle(.plain)
             }
@@ -1068,10 +1063,7 @@ struct WhiteboardWidget: View {
                 HubTileBanner(symbol: "square.and.pencil", title: "Whiteboard") {
                     Text(store.whiteboardNote.isEmpty ? "Write" : "Edit")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.white, in: Capsule())
+                        .hubAdaptivePill(horizontal: 8, vertical: 4)
                 }
                 Text(store.whiteboardNote.isEmpty ? "Tap anywhere to leave a note." : store.whiteboardNote)
                     .font(.title3.weight(.semibold))

@@ -1,7 +1,51 @@
 import CoreLocation
 import Foundation
 import MapKit
+import os
 import WeatherKit
+
+struct WeatherReading: Equatable {
+    var temp: Int
+    var high: Int
+    var low: Int
+    var condition: String
+}
+
+enum WeatherReadout: Equatable {
+    case loading
+    case unavailable
+    case ready(WeatherReading)
+
+    /// A real reading of 0° stays `.ready`. Missing data and errors never invent 0°.
+    static func resolve(now: WeatherNow?, day: WeatherDay?, isLoading: Bool, failed: Bool) -> WeatherReadout {
+        if let now {
+            return .ready(WeatherReading(
+                temp: now.temp,
+                high: day?.high ?? now.temp,
+                low: day?.low ?? now.temp,
+                condition: now.condition
+            ))
+        }
+        if let day {
+            return .ready(WeatherReading(
+                temp: day.high,
+                high: day.high,
+                low: day.low,
+                condition: WeatherIcon.condition(for: day.code)
+            ))
+        }
+        if isLoading && !failed { return .loading }
+        return .unavailable
+    }
+}
+
+enum WeatherLog {
+    private static let log = Logger(subsystem: "com.corymurray.FamilyHub", category: "Weather")
+
+    static func forecastFailed(_ error: Error) {
+        log.error("WeatherKit forecast failed: \(error.localizedDescription, privacy: .public)")
+    }
+}
 
 @MainActor
 final class WeatherLoader: ObservableObject {
@@ -11,6 +55,8 @@ final class WeatherLoader: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var searchResults: [WeatherPlace] = []
+    /// Test seam. Production leaves this nil and calls WeatherKit.
+    var forecastLoader: ((WeatherPlace, HubUnits) async throws -> WeatherBundle)?
 
     private let locator = LocationFinder()
 
@@ -52,13 +98,21 @@ final class WeatherLoader: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            let bundle = try await WeatherAPI.forecast(for: place, units: units)
+            let bundle = try await fetchForecast(place: place, units: units)
             days = bundle.days
             hours = bundle.hours
             now = bundle.now
         } catch {
+            WeatherLog.forecastFailed(error)
             errorMessage = "Weather unavailable"
         }
+    }
+
+    private func fetchForecast(place: WeatherPlace, units: HubUnits) async throws -> WeatherBundle {
+        if let forecastLoader {
+            return try await forecastLoader(place, units)
+        }
+        return try await WeatherAPI.forecast(for: place, units: units)
     }
 
     func search(query: String) async {

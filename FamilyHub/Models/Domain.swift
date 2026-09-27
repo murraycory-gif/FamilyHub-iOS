@@ -89,6 +89,15 @@ enum AssignmentStatus: String, Codable, CaseIterable, Identifiable {
         case .paid: return "Paid"
         }
     }
+
+    /// Copy a kid actually sees on the big chore card.
+    var kidLabel: String {
+        switch self {
+        case .pending: return "To do"
+        case .done: return "Waiting for grown-up"
+        case .approved, .paid: return "Great job!"
+        }
+    }
 }
 
 // MARK: - Money
@@ -462,9 +471,44 @@ struct Chore: Identifiable, Codable, Hashable {
     var details: String
     var rewardCents: Int
     var cadence: ChoreCadence
+    /// SF Symbol name or a single emoji. Missing on older snapshots.
+    var icon: String
 
-    static func make(title: String, details: String = "", rewardCents: Int, cadence: ChoreCadence) -> Chore {
-        Chore(id: UUID(), title: title, details: details, rewardCents: rewardCents, cadence: cadence)
+    enum CodingKeys: String, CodingKey {
+        case id, title, details, rewardCents, cadence, icon
+    }
+
+    init(id: UUID, title: String, details: String, rewardCents: Int, cadence: ChoreCadence, icon: String = "sparkles") {
+        self.id = id
+        self.title = title
+        self.details = details
+        self.rewardCents = rewardCents
+        self.cadence = cadence
+        self.icon = icon
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        details = try c.decodeIfPresent(String.self, forKey: .details) ?? ""
+        rewardCents = try c.decodeIfPresent(Int.self, forKey: .rewardCents) ?? 0
+        cadence = try c.decodeIfPresent(ChoreCadence.self, forKey: .cadence) ?? .once
+        icon = try c.decodeIfPresent(String.self, forKey: .icon) ?? "sparkles"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encode(details, forKey: .details)
+        try c.encode(rewardCents, forKey: .rewardCents)
+        try c.encode(cadence, forKey: .cadence)
+        try c.encode(icon, forKey: .icon)
+    }
+
+    static func make(title: String, details: String = "", rewardCents: Int, cadence: ChoreCadence, icon: String = "sparkles") -> Chore {
+        Chore(id: UUID(), title: title, details: details, rewardCents: rewardCents, cadence: cadence, icon: icon)
     }
 }
 
@@ -476,6 +520,56 @@ struct ChoreAssignment: Identifiable, Codable, Hashable {
     var status: AssignmentStatus
     var completedAt: Date?
     var approvedAt: Date?
+    /// Set when a grown-up sends the chore back. Absent on older snapshots.
+    var returnReason: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, choreID, memberID, dueOn, status, completedAt, approvedAt, returnReason
+    }
+
+    init(
+        id: UUID,
+        choreID: UUID,
+        memberID: UUID,
+        dueOn: Date,
+        status: AssignmentStatus,
+        completedAt: Date? = nil,
+        approvedAt: Date? = nil,
+        returnReason: String? = nil
+    ) {
+        self.id = id
+        self.choreID = choreID
+        self.memberID = memberID
+        self.dueOn = dueOn
+        self.status = status
+        self.completedAt = completedAt
+        self.approvedAt = approvedAt
+        self.returnReason = returnReason
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        choreID = try c.decode(UUID.self, forKey: .choreID)
+        memberID = try c.decode(UUID.self, forKey: .memberID)
+        dueOn = try c.decode(Date.self, forKey: .dueOn)
+        status = try c.decodeIfPresent(AssignmentStatus.self, forKey: .status) ?? .pending
+        completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
+        approvedAt = try c.decodeIfPresent(Date.self, forKey: .approvedAt)
+        returnReason = try c.decodeIfPresent(String.self, forKey: .returnReason)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(choreID, forKey: .choreID)
+        try c.encode(memberID, forKey: .memberID)
+        try c.encode(dueOn, forKey: .dueOn)
+        try c.encode(status, forKey: .status)
+        try c.encodeIfPresent(completedAt, forKey: .completedAt)
+        try c.encodeIfPresent(approvedAt, forKey: .approvedAt)
+        try c.encodeIfPresent(returnReason, forKey: .returnReason)
+    }
 
     static func make(choreID: UUID, memberID: UUID, dueOn: Date) -> ChoreAssignment {
         ChoreAssignment(
@@ -483,9 +577,7 @@ struct ChoreAssignment: Identifiable, Codable, Hashable {
             choreID: choreID,
             memberID: memberID,
             dueOn: Calendar.current.startOfDay(for: dueOn),
-            status: .pending,
-            completedAt: nil,
-            approvedAt: nil
+            status: .pending
         )
     }
 }
@@ -1806,6 +1898,7 @@ enum ChoreEngine {
         var next = assignment
         next.status = .done
         next.completedAt = date
+        next.returnReason = nil
         return next
     }
 
@@ -1814,6 +1907,19 @@ enum ChoreEngine {
         var next = assignment
         next.status = .pending
         next.completedAt = nil
+        next.returnReason = nil
+        return next
+    }
+
+    /// Grown-up says not yet. No allowance credit. Optional short reason goes back to the kid.
+    static func sendBack(_ assignment: ChoreAssignment, reason: String) -> ChoreAssignment {
+        guard assignment.status == .done else { return assignment }
+        var next = assignment
+        next.status = .pending
+        next.completedAt = nil
+        next.approvedAt = nil
+        let trimmed = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        next.returnReason = trimmed.isEmpty ? nil : String(trimmed.prefix(80))
         return next
     }
 
@@ -1826,6 +1932,7 @@ enum ChoreEngine {
         var next = assignment
         next.status = .approved
         next.approvedAt = date
+        next.returnReason = nil
         let entry = LedgerEntry.make(
             memberID: assignment.memberID,
             amountCents: chore.rewardCents,

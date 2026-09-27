@@ -12,12 +12,11 @@ struct FamilyView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Circle", tail: "Profiles")
-                .coachSpot("famHeader")
             ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     householdCard
+                        .coachSpot("famHeader")
                     members
                         .coachSpot("famPeople")
                 }
@@ -33,7 +32,8 @@ struct FamilyView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("")
+        .navigationTitle("Profiles")
+        .navigationBarTitleDisplayMode(.large)
         .hubTour("family", steps: HubTours.family) { id in
             tourFocus = id
         }

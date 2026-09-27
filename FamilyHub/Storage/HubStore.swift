@@ -55,6 +55,7 @@ final class HubStore: ObservableObject {
     /// False after this device joins someone else's share. Erase then only leaves that share.
     /// Restored from device-role.json so a relaunch does not treat a participant as the owner.
     var ownsPrivateZone = true
+    @Published var circlePhase: CircleLaunch.Phase = .pending
     private var familyPhotoURL: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("family-photo.jpg") }
     private var memberPhotoFolder: URL { snapshotURL.deletingLastPathComponent().appendingPathComponent("member-photos", isDirectory: true) }
 
@@ -186,19 +187,6 @@ final class HubStore: ObservableObject {
             placeLatitude: latitude,
             placeLongitude: longitude
         )
-        Task {
-            _ = await PlaceImages.photo(
-                name: name,
-                address: address,
-                coordinate: {
-                    if let latitude, let longitude, latitude != 0 || longitude != 0 {
-                        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-                    }
-                    return nil
-                }(),
-                website: URL(string: url)
-            )
-        }
     }
 
     private func upsertDinner(
@@ -547,9 +535,18 @@ final class HubStore: ObservableObject {
     }
 
     func refreshJoinCode() {
+        let now = Date().timeIntervalSince1970
+        var times = (UserDefaults.standard.array(forKey: Self.issueTimesKey) as? [Double] ?? [])
+            .filter { now - $0 < 3600 }
+        if times.count >= HubJoinCode.maxIssuesPerHour {
+            errorMessage = "Too many new codes this hour. Try again later."
+            return
+        }
+        times.append(now)
+        UserDefaults.standard.set(times, forKey: Self.issueTimesKey)
         let previous = joinCode
         rememberIssued(previous)
-        joinCode = Self.makeJoinCode()
+        joinCode = HubJoinCode.make()
         rememberIssued(joinCode)
         persist()
         let retired = previous
@@ -585,7 +582,7 @@ final class HubStore: ObservableObject {
         var failed: [String] = []
         for code in codes {
             let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-            guard clean.count == 6 else { continue }
+            guard HubJoinCode.isDeletable(clean) else { continue }
             var removed = false
             for attempt in 0..<max(1, attempts) {
                 do {
@@ -608,8 +605,8 @@ final class HubStore: ObservableObject {
     }
 
     private func rememberIssued(_ code: String) {
-        let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-        guard clean.count == 6 else { return }
+        let clean = HubJoinCode.normalized(code)
+        guard HubJoinCode.isAcceptable(clean) else { return }
         if !issuedJoinCodes.contains(clean) { issuedJoinCodes.append(clean) }
     }
 
@@ -622,8 +619,7 @@ final class HubStore: ObservableObject {
     }
 
     static func makeJoinCode() -> String {
-        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
-        return String((0..<6).compactMap { _ in alphabet.randomElement() })
+        HubJoinCode.make()
     }
 
     func addQuickMember(name: String, role: MemberRole, asOwner: Bool = false) -> FamilyMember {
@@ -1008,6 +1004,14 @@ final class HubStore: ObservableObject {
     func reopenAssignment(_ id: UUID) {
         guard let idx = assignments.firstIndex(where: { $0.id == id }) else { return }
         assignments[idx] = ChoreEngine.reopen(assignments[idx])
+        ChoreReviewCenter.withdraw(id)
+        persist()
+    }
+
+    func sendBackAssignment(_ id: UUID, reason: String) {
+        guard let idx = assignments.firstIndex(where: { $0.id == id }) else { return }
+        assignments[idx] = ChoreEngine.sendBack(assignments[idx], reason: reason)
+        ChoreReviewCenter.withdraw(id)
         persist()
     }
 
@@ -1018,6 +1022,7 @@ final class HubStore: ObservableObject {
               let result = ChoreEngine.approve(assignments[idx], chore: chore)
         else { return false }
         assignments[idx] = result.0
+        ChoreReviewCenter.withdraw(id)
         ledger.insert(result.1, at: 0)
         if let memberIdx = members.firstIndex(where: { $0.id == result.1.memberID }) {
             members[memberIdx].allowanceBalanceCents = ChoreEngine.applyLedger(
@@ -1111,9 +1116,20 @@ final class HubStore: ObservableObject {
         persist()
     }
 
-    func addChoreProof(assignmentID: UUID, note: String) {
-        choreProofs.insert(ChoreProof(id: UUID(), assignmentID: assignmentID, note: note, createdAt: Date()), at: 0)
+    func addChoreProof(assignmentID: UUID, note: String, photoJPEG: Data? = nil) {
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let photoName = photoJPEG.flatMap { ChoreProofStore.save($0) }
+        let text = trimmed.isEmpty ? (photoName == nil ? "" : "Photo") : trimmed
+        guard text.isEmpty == false || photoName != nil else { return }
+        choreProofs.insert(
+            ChoreProof(id: UUID(), assignmentID: assignmentID, note: text, createdAt: Date(), photoName: photoName),
+            at: 0
+        )
         persist()
+    }
+
+    func latestProof(for assignmentID: UUID) -> ChoreProof? {
+        choreProofs.first { $0.assignmentID == assignmentID }
     }
 
     func addQuickEvent(from text: String, memberID: UUID? = nil) -> CalendarEvent? {
@@ -1166,6 +1182,7 @@ final class HubStore: ObservableObject {
             }
             try? fileManager.copyItem(at: snapshotURL, to: backup)
             try? fileManager.setAttributes([.modificationDate: Date()], ofItemAtPath: backup.path)
+            HubFilePrivacy.excludeFromBackup(backup)
             pruneCorruptCopies(keeping: 3, protecting: backup.lastPathComponent)
             loadFailed = true
             loadFailureDetail = "Saved data could not be read. A copy is \(backup.lastPathComponent). The original file was left alone."
@@ -1193,7 +1210,11 @@ final class HubStore: ObservableObject {
         flights = snapshot.flights ?? []
         packages = snapshot.packages ?? []
         ownerID = snapshot.ownerID ?? snapshot.members.first(where: { $0.role == .parent })?.id
-        joinCode = (snapshot.joinCode?.isEmpty == false) ? (snapshot.joinCode ?? Self.makeJoinCode()) : Self.makeJoinCode()
+        if let existing = snapshot.joinCode, HubJoinCode.isAcceptable(existing) {
+            joinCode = HubJoinCode.normalized(existing)
+        } else {
+            joinCode = HubJoinCode.make()
+        }
         issuedJoinCodes = snapshot.issuedJoinCodes ?? []
         rememberIssued(joinCode)
         signedInMemberID = snapshot.signedInMemberID ?? ownerID
@@ -1220,8 +1241,9 @@ final class HubStore: ObservableObject {
         rememberAccount()
     }
 
-    private func writeSnapshot() {
-        guard !loadFailed else { return }
+    @discardableResult
+    private func writeSnapshot() -> Bool {
+        guard !loadFailed else { return false }
         let snapshot = HubSnapshot(
             householdName: householdName,
             members: members,
@@ -1266,12 +1288,18 @@ final class HubStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(snapshot)
             try data.write(to: snapshotURL, options: [.atomic])
+            // Live hub.json stays in backup so a device restore still has the household.
+            // device-role.json stays too, so a participant is not restored as the owner.
+            // Only hub-*.json, corrupt-hub-*.json, and the places cache are excluded.
+            HubFilePrivacy.protectUntilFirstUnlock(snapshotURL)
             writeTimestampedBackup(data)
             rememberAccount()
             scheduleCloudPublish(data)
             publishWidgets()
+            return true
         } catch {
             errorMessage = "Could not save: \(error.localizedDescription)"
+            return false
         }
     }
 
@@ -1286,10 +1314,12 @@ final class HubStore: ObservableObject {
         }
     }
 
-    private func persistNow() {
+    @discardableResult
+    private func persistNow() -> Bool {
         persistTask?.cancel()
-        writeSnapshot()
+        let saved = writeSnapshot()
         if roleLoaded && writingRole { saveDeviceRole() }
+        return saved
     }
 
     private func publishWidgets() {
@@ -1337,15 +1367,21 @@ final class HubStore: ObservableObject {
 
     private func scheduleCloudPublish(_ data: Data) {
         guard !Self.runningUnitTests else { return }
-        guard signedInMemberID != nil, signedInMemberID == ownerID else { return }
+        guard setupCompleted else { return }
+        let shareFromParticipant = !ownsPrivateZone
         cloudPublishTask?.cancel()
         cloudPublishTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1.2))
             guard !Task.isCancelled else { return }
+            let outbound = await MainActor.run { self?.payloadPinnedToOwner(data) ?? data }
             do {
-                try await HouseholdCloud.publish(data: data)
-                if let note = await self?.retirePublicRecordsOnce() {
-                    await MainActor.run { self?.errorMessage = note }
+                if shareFromParticipant {
+                    try await HouseholdCloud.publishShared(data: outbound)
+                } else {
+                    try await HouseholdCloud.publish(data: outbound)
+                    if let note = await self?.retirePublicRecordsOnce() {
+                        await MainActor.run { self?.errorMessage = note }
+                    }
                 }
             } catch {
                 await MainActor.run { self?.errorMessage = error.localizedDescription }
@@ -1353,9 +1389,59 @@ final class HubStore: ObservableObject {
         }
     }
 
-    private static let publicCleanupKey = "familyhub.publicHubCleanup.v1"
+    /// Subscribes this database for household changes, then pulls. Silent if the push capability is missing.
+    func ensureChoreSubscription() async {
+        guard !Self.runningUnitTests else { return }
+        guard setupCompleted else { return }
+        await HouseholdCloud.ensureDatabaseSubscription(shared: !ownsPrivateZone)
+    }
 
-    /// After the private-zone save succeeds, delete old public hub-<code> records one time.
+    /// Pulls the shared household and posts a local “finished” notice for completions this device did not already have.
+    func pullHousehold() async {
+        guard !Self.runningUnitTests else { return }
+        guard setupCompleted else { return }
+        do {
+            let fetched = try await HouseholdCloud.fetchShared()
+            let local = currentHouseholdData() ?? Data()
+            if payloadPinnedToOwner(local) == payloadPinnedToOwner(fetched.data) { return }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let snapshot = try decoder.decode(HubSnapshot.self, from: fetched.data)
+            let before = assignments
+            let viewerIsChild = signedInMember()?.role == .child
+            let keptSignIn = signedInMemberID
+            apply(snapshot)
+            signedInMemberID = keptSignIn
+            let drafts = ChoreReview.incomingDone(
+                before: before,
+                after: assignments,
+                members: members,
+                chores: chores,
+                viewerIsChild: viewerIsChild
+            )
+            await ChoreReviewCenter.post(drafts)
+            persistNow()
+        } catch {
+            // Stay on the local copy when iCloud is quiet.
+        }
+    }
+
+    /// The shared record keeps the owner's signed-in id so a kid's phone does not replace it.
+    private func payloadPinnedToOwner(_ data: Data) -> Data {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard var snapshot = try? decoder.decode(HubSnapshot.self, from: data) else { return data }
+        snapshot.signedInMemberID = ownerID
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return (try? encoder.encode(snapshot)) ?? data
+    }
+
+    static let publicCleanupKey = "familyhub.publicHubCleanup.v1"
+
+    /// After the private-zone save succeeds, delete old public hub-<code> records one time,
+    /// then replace a 6-character code. That rotation does not count toward the hourly cap.
     @discardableResult
     func retirePublicRecordsOnce() async -> String? {
         guard !UserDefaults.standard.bool(forKey: Self.publicCleanupKey) else { return nil }
@@ -1365,8 +1451,27 @@ final class HubStore: ObservableObject {
             errorMessage = message
             return message
         }
+        guard rotateLegacyJoinCode() else {
+            return errorMessage ?? "Could not save the new join code. This will try again."
+        }
         UserDefaults.standard.set(true, forKey: Self.publicCleanupKey)
         return nil
+    }
+
+    /// Returns false when a 6-character code still needs replacing and the new code did not save.
+    private func rotateLegacyJoinCode() -> Bool {
+        let current = HubJoinCode.normalized(joinCode)
+        guard current.count == HubJoinCode.legacyLength else { return true }
+        let previous = joinCode
+        rememberIssued(current)
+        joinCode = HubJoinCode.make()
+        rememberIssued(joinCode)
+        guard persistNow() else {
+            issuedJoinCodes.removeAll { $0 == joinCode }
+            joinCode = previous
+            return false
+        }
+        return true
     }
 
     func currentHouseholdData() -> Data? {
@@ -1430,28 +1535,82 @@ final class HubStore: ObservableObject {
     }
 
     static let accountKey = "familyhub.account.join"
+    static let issueTimesKey = "familyhub.join.issueTimes"
+    #if DEBUG
     static var runningUnitTests: Bool {
         let env = ProcessInfo.processInfo.environment
         return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
     }
+    #else
+    static var runningUnitTests: Bool { false }
+    #endif
 
     func restoreAccountIfNeeded() async {
+        await discoverExistingCircle()
+    }
+
+    /// Looks in this Apple ID’s private database and accepted shares before offering Create or Join.
+    /// A join code in iCloud Key-Value Storage is not required.
+    func discoverExistingCircle() async {
         guard !Self.runningUnitTests else { return }
         guard !loadFailed else { return }
-        if setupCompleted || !members.isEmpty {
+        if CircleLaunch.hasLocalCircle(setupCompleted: setupCompleted, memberCount: members.count) {
+            circlePhase = .found
             rememberAccount()
+            await republishOwnedCircle()
             return
         }
-        let saved = NSUbiquitousKeyValueStore.default.string(forKey: Self.accountKey)
-            ?? UserDefaults.standard.string(forKey: Self.accountKey)
-        guard let saved, saved.count == 6 else { return }
+        circlePhase = .pending
+        let account: CircleLaunch.Account
         do {
-            try await joinSharedHousehold()
-            setupCompleted = true
-            persist()
+            account = try await HouseholdCloud.currentAccount()
         } catch {
-            // Stay on setup if the cloud house is not published yet.
+            circlePhase = .failed
+            return
         }
+        var remote: CircleLaunch.Remote?
+        if account == .available {
+            do {
+                let fetched = try await HouseholdCloud.fetchShared()
+                try adoptRemoteCircle(fetched.data, ownedHere: fetched.ownedHere)
+                remote = .found
+            } catch let error as HouseholdCloudError where error == .missingHouse {
+                remote = .missing
+            } catch {
+                if HouseholdCloud.isNoAccount(error) {
+                    circlePhase = .noICloud
+                    return
+                }
+                remote = .failed
+            }
+        }
+        circlePhase = CircleLaunch.phase(hasLocal: CircleLaunch.hasLocalCircle(setupCompleted: setupCompleted, memberCount: members.count), account: account, remote: remote)
+    }
+
+    /// The device that already has the family writes it to this build’s iCloud environment.
+    private func republishOwnedCircle() async {
+        guard ownsPrivateZone, let data = currentHouseholdData() else { return }
+        try? await HouseholdCloud.publish(data: data)
+    }
+
+    private func adoptRemoteCircle(_ data: Data, ownedHere: Bool) throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let snapshot = try decoder.decode(HubSnapshot.self, from: data)
+        guard CircleLaunch.snapshotHasCircle(setupCompleted: snapshot.setupCompleted, memberCount: snapshot.members.count) else {
+            throw HouseholdCloudError.missingHouse
+        }
+        apply(snapshot)
+        if ownedHere {
+            signedInMemberID = snapshot.signedInMemberID ?? ownerID
+        } else {
+            signedInMemberID = nil
+        }
+        ownsPrivateZone = ownedHere
+        setupCompleted = true
+        saveDeviceRole()
+        persistNow()
+        rememberAccount()
     }
 
     /// Owner deletes the private-zone record and CKShare. A participant only leaves the share.
@@ -1532,6 +1691,7 @@ final class HubStore: ObservableObject {
         let folder = snapshotURL.deletingLastPathComponent()
         let backup = folder.appendingPathComponent("hub-\(stamp).json")
         try? data.write(to: backup, options: [.atomic])
+        HubFilePrivacy.excludeFromBackup(backup)
         pruneBackups(keeping: 5)
     }
 
@@ -1554,6 +1714,9 @@ final class HubStore: ObservableObject {
     private func saveDeviceRole() {
         guard let data = try? JSONEncoder().encode(DeviceRole(ownsPrivateZone: ownsPrivateZone)) else { return }
         try? data.write(to: roleURL, options: [.atomic])
+        // Kept in backup, unlike hub-*.json copies: a restore must not turn a participant into the owner.
+        // Protected until first unlock, same as hub.json, so launch can read it.
+        HubFilePrivacy.protectUntilFirstUnlock(roleURL)
     }
 
     private func backupFiles(in folder: URL) -> [URL] {

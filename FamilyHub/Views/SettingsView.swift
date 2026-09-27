@@ -8,18 +8,16 @@ struct SettingsPageShell<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HubStickyHeader(lead: "Circle", tail: tail)
-            ScrollView {
-                HubPanel(symbol: symbol, title: title) {
-                    content
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 24)
+        ScrollView {
+            HubPanel(symbol: symbol, title: title) {
+                content
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("")
+        .navigationTitle(tail)
+        .navigationBarTitleDisplayMode(.large)
     }
 }
 
@@ -68,11 +66,11 @@ struct ProfilesSettingsView: View {
     @State private var pendingDelete: FamilyMember?
     @State private var showAddProfile = false
     @State private var editing: FamilyMember?
+    @State private var showPrivacy = false
 
     var body: some View {
-        SettingsPageShell(tail: "Profiles", symbol: "person.3.fill", title: "Circle Profiles") {
+        SettingsPageShell(tail: "People", symbol: "person.3.fill", title: "People") {
             VStack(alignment: .leading, spacing: 16) {
-                AppearancePicker()
                 Text("Who is using this device")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(AppTheme.text)
@@ -170,9 +168,19 @@ struct ProfilesSettingsView: View {
                     .background(AppTheme.blueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                Button { showPrivacy = true } label: {
+                    Label("Privacy policy", systemImage: "hand.raised.fill")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .buttonStyle(.plain)
+                Text(HubPrivacy.summary)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
         .hubTour("settings", steps: HubTours.settings.filter { $0.id == "setProfiles" })
+        .sheet(isPresented: $showPrivacy) { PrivacyPolicyView() }
         .sheet(isPresented: $showAddProfile) { EditMemberSheet(member: nil) }
         .sheet(item: $editing) { member in EditMemberSheet(member: member) }
         .hubConfirm(
@@ -188,6 +196,99 @@ struct ProfilesSettingsView: View {
         ) {
             if let member = pendingDelete { store.deleteMember(member.id) }
             pendingDelete = nil
+        }
+    }
+}
+
+enum HubPrivacy {
+    static let summary = "Household data stays in your private iCloud. HUB does not sell it or send it to a server we run."
+    static let hostedURL = URL(string: "https://hubcircle.pages.dev/privacy.html")!
+}
+
+struct AppearanceSettingsView: View {
+    var body: some View {
+        ScrollView {
+            AppearancePicker()
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppTheme.card)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusL, style: .continuous))
+                .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+                .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("Appearance")
+        .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+struct PrivacySettingsPage: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(HubPrivacy.summary)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                privacyCopy
+            }
+            .padding(20)
+        }
+        .background(AppTheme.bg.ignoresSafeArea())
+        .navigationTitle("Privacy")
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    private var privacyCopy: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("HUB stores the household on this device and in your private iCloud. The developer does not receive names, photos, calendars, or location.")
+            Text("While HUB is open, location is used only to show local weather and to search MapKit for nearby restaurants. HUB does not track location in the background.")
+            Text("Place photos come only from Apple Look Around. Recipes and their images are bundled with the app or served from our own host.")
+            Text("Family photos and recipe scans stay on this device. Calendar events are read on this device to fill the family board.")
+            Text("Invite codes are random. Older 6-character codes are replaced automatically after the first private sync. Sharing a HUB uses Apple’s share sheet.")
+            Link("Full privacy policy", destination: HubPrivacy.hostedURL)
+                .font(.headline.weight(.bold))
+                .tint(AppTheme.blue)
+                .foregroundStyle(AppTheme.blue)
+        }
+        .font(.body.weight(.medium))
+        .foregroundStyle(AppTheme.text)
+    }
+}
+
+struct PrivacyPolicyView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Privacy policy")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(AppTheme.text)
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("HUB stores the household on this device and in your private iCloud. The developer does not receive names, photos, calendars, or location.")
+                        Text("While HUB is open, location is used only to show local weather and to search MapKit for nearby restaurants. HUB does not track location in the background.")
+                        Text("Place photos come only from Apple Look Around. Recipes and their images are bundled with the app or served from our own host.")
+                        Text("Family photos and recipe scans stay on this device. Calendar events are read on this device to fill the family board.")
+                        Text("Invite codes are random. Older 6-character codes are replaced automatically after the first private sync. Sharing a HUB uses Apple’s share sheet.")
+                    }
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(AppTheme.text)
+                    Link("Full privacy policy", destination: HubPrivacy.hostedURL)
+                        .font(.headline.weight(.bold))
+                        .tint(AppTheme.blue)
+                        .foregroundStyle(AppTheme.blue)
+                }
+                .padding(20)
+            }
+            .background(AppTheme.bg.ignoresSafeArea())
+            .navigationTitle("Privacy policy")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }

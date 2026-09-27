@@ -19,20 +19,17 @@ struct CalendarHubView: View {
         GeometryReader { geo in
             ZStack {
                 VStack(alignment: .leading, spacing: 0) {
-                    HubStickyHeader(lead: "Family", tail: "Calendar") {
-                        Button { showWho = true } label: {
-                            HubFilterBanner(symbol: "person.3.fill", title: whoTitle)
-                        }
-                        .buttonStyle(.plain)
-                        Button { showAdd = true } label: {
-                            HubFilterBanner(symbol: "plus", title: "Add", chevron: false)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .coachSpot("calHeader")
                     ScrollViewReader { proxy in
                         ScrollView {
                             VStack(alignment: .leading, spacing: 16) {
+                                Button { showWho = true } label: {
+                                    Label(whoTitle, systemImage: "person.3.fill")
+                                        .font(.body.weight(.semibold))
+                                        .foregroundStyle(AppTheme.text)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.plain)
+                                .coachSpot("calHeader")
                                 monthHeader
                                 colorLegend
                                 weekdayHeader
@@ -60,7 +57,14 @@ struct CalendarHubView: View {
             }
         }
         .background(AppTheme.bg.ignoresSafeArea())
-        .navigationTitle("")
+        .navigationTitle("Calendar")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Add") { showAdd = true }
+                    .font(.headline.weight(.bold))
+            }
+        }
         .hubTour("calendar", steps: HubTours.calendar) { id in
             tourFocus = id
         }
@@ -83,21 +87,6 @@ struct CalendarHubView: View {
         if let id = router.focusedEventID,
            let event = store.events.first(where: { $0.id == id }) {
             detail = event
-        }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            HubPageTitle(lead: "Family", tail: "Calendar")
-            Spacer(minLength: 12)
-            Button { showWho = true } label: {
-                HubFilterBanner(symbol: "person.3.fill", title: whoTitle)
-            }
-            .buttonStyle(.plain)
-            Button { showAdd = true } label: {
-                HubFilterBanner(symbol: "plus", title: "Add", chevron: false)
-            }
-            .buttonStyle(.plain)
         }
     }
 
@@ -176,14 +165,14 @@ struct CalendarHubView: View {
                         .font(.body.weight(.bold))
                         .foregroundStyle(AppTheme.blue)
                         .frame(width: 28, height: 28)
-                        .background(.white, in: Circle())
+                        .background(AppTheme.blueSoft, in: Circle())
                 }
                 Button { shiftMonth(1) } label: {
                     Image(systemName: "chevron.right")
                         .font(.body.weight(.bold))
                         .foregroundStyle(AppTheme.blue)
                         .frame(width: 28, height: 28)
-                        .background(.white, in: Circle())
+                        .background(AppTheme.blueSoft, in: Circle())
                 }
             }
         }
@@ -199,6 +188,7 @@ struct CalendarHubView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func legendChip(_ name: String, _ color: Color) -> some View {
@@ -223,12 +213,11 @@ struct CalendarHubView: View {
 
     private var weekdayHeader: some View {
         LazyVGrid(columns: columns, spacing: 0) {
-            ForEach(Array(Calendar.current.weekdaySymbols.enumerated()), id: \.offset) { _, day in
+            ForEach(Array(Calendar.current.shortWeekdaySymbols.enumerated()), id: \.offset) { _, day in
                 Text(day)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AppTheme.text)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
             }
@@ -447,7 +436,7 @@ struct EventDetailSheet: View {
                                         let item = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)))
                                         item.name = event.title
                                         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
-                                    } else if let maps = URL(string: "http://maps.apple.com/?q=\(event.location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? event.location)") {
+                                    } else if let maps = URL(string: "https://maps.apple.com/?q=\(event.location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? event.location)") {
                                         openURL(maps)
                                     }
                                 }

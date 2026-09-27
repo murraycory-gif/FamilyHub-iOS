@@ -27,15 +27,48 @@ enum HouseholdCloud {
     static let recordType = "HubHousehold"
     static let zoneName = "FamilyHub"
     static let recordName = "household"
+    /// Silent database subscription on the owner's private zone.
+    static let privateChangeSubscriptionID = "hub.private.changes"
+    /// Silent database subscription for participants reading the shared zone.
+    static let sharedChangeSubscriptionID = "hub.shared.changes"
 
     static var container: CKContainer { CKContainer(identifier: containerID) }
 
+    /// Debug and Xcode installs use the CloudKit Development environment.
+    /// TestFlight and the App Store use Production. Records do not cross between them.
+    static func currentAccount() async throws -> CircleLaunch.Account {
+        try refuseCloudUnderTest()
+        let status: CKAccountStatus
+        do {
+            status = try await container.accountStatus()
+        } catch {
+            if isNoAccount(error) { return .noAccount }
+            throw error
+        }
+        switch status {
+        case .available: return .available
+        case .noAccount: return .noAccount
+        case .restricted: return .restricted
+        case .couldNotDetermine: return .couldNotDetermine
+        case .temporarilyUnavailable: return .temporarilyUnavailable
+        @unknown default: return .couldNotDetermine
+        }
+    }
+
+    static func isNoAccount(_ error: Error) -> Bool {
+        if let cloud = error as? HouseholdCloudError, cloud == .iCloud { return true }
+        guard let ck = error as? CKError else { return false }
+        return ck.code == .notAuthenticated
+    }
+
     /// Unsigned test hosts trap inside CKContainer.init. Refuse before any database is touched.
     static func refuseCloudUnderTest() throws {
+        #if DEBUG
         let env = ProcessInfo.processInfo.environment
         if env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil {
             throw HouseholdCloudError.iCloud
         }
+        #endif
     }
 
     private static var privateDB: CKDatabase { container.privateCloudDatabase }
@@ -78,6 +111,44 @@ enum HouseholdCloud {
             return stored
         }
         return share
+    }
+
+    /// Writes the household into the shared zone. Participants use this so a kid's "done" reaches the owner's devices.
+    static func publishShared(data: Data) async throws {
+        try refuseCloudUnderTest()
+        let zones = try await sharedDB.allRecordZones()
+        guard let zone = zones.first(where: { $0.zoneID.zoneName == zoneName }) else {
+            throw HouseholdCloudError.missingHouse
+        }
+        let id = CKRecord.ID(recordName: recordName, zoneID: zone.zoneID)
+        guard let record = try? await sharedDB.record(for: id) else {
+            throw HouseholdCloudError.missingHouse
+        }
+        record["payload"] = data as CKRecordValue
+        record["updatedAt"] = Date() as CKRecordValue
+        _ = try await sharedDB.save(record)
+    }
+
+    /// CKDatabaseSubscription wakes other devices when the household record changes.
+    /// Delivery needs the Push Notifications capability and the CloudKit container in the Apple Developer portal.
+    /// Without those, saves fail quietly and the app falls back to a local notification the next time it syncs.
+    static func ensureDatabaseSubscription(shared: Bool) async {
+        do {
+            try refuseCloudUnderTest()
+        } catch {
+            return
+        }
+        let database = shared ? sharedDB : privateDB
+        let subscriptionID = shared ? sharedChangeSubscriptionID : privateChangeSubscriptionID
+        let subscription = CKDatabaseSubscription(subscriptionID: subscriptionID)
+        let info = CKSubscription.NotificationInfo()
+        info.shouldSendContentAvailable = true
+        subscription.notificationInfo = info
+        do {
+            _ = try await database.save(subscription)
+        } catch {
+            // Missing aps-environment, or the container is not allowed to subscribe yet.
+        }
     }
 
     /// Owner's private copy, then a zone shared with this iCloud user.
@@ -154,7 +225,7 @@ enum HouseholdCloud {
     static func delete(code: String) async throws {
         try refuseCloudUnderTest()
         let clean = code.replacingOccurrences(of: " ", with: "").uppercased()
-        guard clean.count == 6 else { return }
+        guard HubJoinCode.isDeletable(clean) else { return }
         let id = CKRecord.ID(recordName: "hub-\(clean)")
         do {
             try await publicDB.deleteRecord(withID: id)
@@ -179,13 +250,67 @@ final class HouseholdCloudClient: HouseholdRemote {
 }
 
 enum HubLaunchScreen: Equatable {
-    case splash, corrupt, setup, home
+    case splash, finding, noICloud, corrupt, setup, home
 
     static func choose(splash: Bool, loadFailed: Bool, needsSetup: Bool) -> HubLaunchScreen {
         if splash { return .splash }
         if loadFailed { return .corrupt }
         if needsSetup { return .setup }
         return .home
+    }
+
+    /// Launch after the local file is read. A Circle already on this iCloud account skips Create and Join.
+    static func restored(splash: Bool, loadFailed: Bool, hasLocalCircle: Bool, phase: CircleLaunch.Phase) -> HubLaunchScreen {
+        if splash { return .splash }
+        if loadFailed { return .corrupt }
+        if hasLocalCircle { return .home }
+        switch phase {
+        case .pending, .failed: return .finding
+        case .found: return .home
+        case .empty: return .setup
+        case .noICloud: return .noICloud
+        }
+    }
+}
+
+/// Decides whether this Apple ID already has a Circle before onboarding is offered.
+enum CircleLaunch {
+    enum Account: Equatable {
+        case available, noAccount, restricted, couldNotDetermine, temporarilyUnavailable
+    }
+
+    enum Remote: Equatable {
+        case found, missing, failed
+    }
+
+    enum Phase: Equatable {
+        case pending, found, empty, noICloud, failed
+    }
+
+    static func hasLocalCircle(setupCompleted: Bool, memberCount: Int) -> Bool {
+        setupCompleted || memberCount > 0
+    }
+
+    static func snapshotHasCircle(setupCompleted: Bool?, memberCount: Int) -> Bool {
+        if setupCompleted == true { return true }
+        return memberCount > 0
+    }
+
+    static func phase(hasLocal: Bool, account: Account, remote: Remote?) -> Phase {
+        if hasLocal { return .found }
+        switch account {
+        case .noAccount, .restricted:
+            return .noICloud
+        case .couldNotDetermine, .temporarilyUnavailable:
+            return .failed
+        case .available:
+            switch remote {
+            case .none: return .pending
+            case .found: return .found
+            case .missing: return .empty
+            case .failed: return .failed
+            }
+        }
     }
 }
 
