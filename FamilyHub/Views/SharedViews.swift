@@ -6,10 +6,30 @@ private struct HubAccentKey: EnvironmentKey {
     static let defaultValue: Color = AppTheme.space
 }
 
+private struct HubBannerTrailingReserveKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+private struct HubSystemSidebarKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
     var hubAccent: Color {
         get { self[HubAccentKey.self] }
         set { self[HubAccentKey.self] = newValue }
+    }
+
+    /// Empty space at the end of a tile banner so an overlaid control does not cover the title.
+    var hubBannerTrailingReserve: CGFloat {
+        get { self[HubBannerTrailingReserveKey.self] }
+        set { self[HubBannerTrailingReserveKey.self] = newValue }
+    }
+
+    /// True inside NavigationSplitView, which already shows the system sidebar toggle.
+    var hubUsesSystemSidebar: Bool {
+        get { self[HubSystemSidebarKey.self] }
+        set { self[HubSystemSidebarKey.self] = newValue }
     }
 }
 
@@ -226,7 +246,12 @@ struct HubNavLogo: View {
 struct HubChromeModifier: ViewModifier {
     @EnvironmentObject private var router: HubRouter
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.hubUsesSystemSidebar) private var usesSystemSidebar
     var showBack: Bool
+
+    /// iPad and Mac use NavigationSplitView, which already puts one sidebar toggle in the unified toolbar.
+    /// A second menu button stacks under it. Compact width has no split view, so the menu button is the only control.
+    private var showsCustomMenu: Bool { usesSystemSidebar == false && sizeClass != .regular }
 
     func body(content: Content) -> some View {
         content
@@ -235,16 +260,19 @@ struct HubChromeModifier: ViewModifier {
             .toolbarBackground(Color(hex: router.chromeHex), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar(removing: .sidebarToggle)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    HStack(spacing: 8) {
-                        HubIconButton(symbol: "line.3.horizontal", label: "Menu") {
-                            router.openMenu(regular: sizeClass == .regular)
-                        }
-                        if showBack {
-                            HubIconButton(symbol: "chevron.left", label: "Back to HUB") {
-                                router.open(.today)
+                if showsCustomMenu || showBack {
+                    ToolbarItem(placement: .topBarLeading) {
+                        HStack(spacing: 8) {
+                            if showsCustomMenu {
+                                HubIconButton(symbol: "line.3.horizontal", label: "Menu") {
+                                    router.openMenu(regular: false)
+                                }
+                            }
+                            if showBack {
+                                HubIconButton(symbol: "chevron.left", label: "Back to HUB") {
+                                    router.open(.today)
+                                }
                             }
                         }
                     }
@@ -263,49 +291,6 @@ extension View {
 
     func backToHub(visible: Bool = true) -> some View {
         hubChrome(showBack: visible)
-    }
-}
-
-struct HideSystemSidebarToggle: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let view = Sentinel()
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        (uiView as? Sentinel)?.hideSoon()
-    }
-
-    final class Sentinel: UIView {
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            hideSoon()
-        }
-
-        func hideSoon() {
-            hideNow()
-            DispatchQueue.main.async { self.hideNow() }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self.hideNow() }
-        }
-
-        private func hideNow() {
-            guard let root = window?.rootViewController else { return }
-            hide(in: root)
-        }
-
-        private func hide(in controller: UIViewController) {
-            if let split = controller as? UISplitViewController {
-                split.displayModeButtonVisibility = .never
-            }
-            for child in controller.children {
-                hide(in: child)
-            }
-            if let presented = controller.presentedViewController {
-                hide(in: presented)
-            }
-        }
     }
 }
 
@@ -837,6 +822,7 @@ struct HubTileBanner<Trailing: View>: View {
     let symbol: String
     let title: String
     @Environment(\.hubAccent) private var accent
+    @Environment(\.hubBannerTrailingReserve) private var trailingReserve
     @ViewBuilder var trailing: Trailing
 
     init(symbol: String, title: String, lead: String = "HUB", @ViewBuilder trailing: () -> Trailing) {
@@ -862,8 +848,13 @@ struct HubTileBanner<Trailing: View>: View {
                 .font(.headline.weight(.regular))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
             trailing
+            if trailingReserve > 0 {
+                Color.clear
+                    .frame(width: trailingReserve, height: 1)
+                    .accessibilityHidden(true)
+            }
         }
         .foregroundStyle(AppTheme.inkOnFill)
         .padding(.horizontal, 14)
@@ -935,9 +926,9 @@ struct HubLift: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(accent, lineWidth: selected ? 2 : 1.5)
+                    .stroke(selected ? AppTheme.blue : AppTheme.cardBorder, lineWidth: selected ? 2 : 1)
             )
-            .shadow(color: Color.black.opacity(selected ? 0.10 : 0.07), radius: selected ? 16 : 14, y: selected ? 6 : 5)
+            .shadow(color: accent.opacity(selected ? 0.16 : 0.08), radius: selected ? 16 : 14, y: selected ? 6 : 5)
     }
 }
 

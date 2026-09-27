@@ -75,6 +75,7 @@
 		A917 /* RecipePackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B917 /* RecipePackTests.swift */; };
 		A918 /* RiskReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B918 /* RiskReviewTests.swift */; };
 		A919 /* AppStoreGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B919 /* AppStoreGateTests.swift */; };
+		A920 /* CircleContrastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B920 /* CircleContrastTests.swift */; };
 		A930 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B930 /* PrivacyInfo.xcprivacy */; };
 		A931 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B931 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -169,6 +170,7 @@
 		B917 /* RecipePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipePackTests.swift; sourceTree = "<group>"; };
 		B918 /* RiskReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskReviewTests.swift; sourceTree = "<group>"; };
 		B919 /* AppStoreGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreGateTests.swift; sourceTree = "<group>"; };
+		B920 /* CircleContrastTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleContrastTests.swift; sourceTree = "<group>"; };
 		B930 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B931 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -331,6 +333,7 @@
 				B917 /* RecipePackTests.swift */,
 				B918 /* RiskReviewTests.swift */,
 				B919 /* AppStoreGateTests.swift */,
+				B920 /* CircleContrastTests.swift */,
 			);
 			path = FamilyHubTests;
 			sourceTree = "<group>";
@@ -547,6 +550,7 @@
 				A917 /* RecipePackTests.swift in Sources */,
 				A918 /* RiskReviewTests.swift in Sources */,
 				A919 /* AppStoreGateTests.swift in Sources */,
+				A920 /* CircleContrastTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

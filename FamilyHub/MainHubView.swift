@@ -177,6 +177,7 @@ struct MainHubView: View {
                     detail
                 }
                 .navigationSplitViewStyle(.balanced)
+                .environment(\.hubUsesSystemSidebar, true)
             } else {
                 TabView(selection: tabSelection) {
                     ForEach(HubSection.phoneTabs) { item in
@@ -239,11 +240,6 @@ struct MainHubView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 HubNavLogo(onDark: false)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                HubIconButton(symbol: "sidebar.left", label: "Menu") {
-                    router.toggleSidebar()
-                }
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {

@@ -1,6 +1,35 @@
 import SwiftUI
 import UIKit
 
+/// Hex values verified for WCAG AA 4.5:1 of label text on Hub surfaces.
+enum HubPalette {
+    static let darkBackground = "0B1220"
+    static let darkCard = "152036"
+    static let darkTable = "10192B"
+    static let lightBackground = "F3F5F8"
+    static let lightCard = "FFFFFF"
+    static let labelDark = "F2F5FA"
+    static let labelLight = "141A29"
+    static let secondaryDark = "C5D0E0"
+    static let secondaryLight = "3E475C"
+    static let tertiaryDark = "B4C0D2"
+    static let tertiaryLight = "5C6578"
+    static let borderLight = "C5D4E4"
+    static let borderDark = "3A4F6E"
+    static let chipChoreInkLight = "991B1B"
+    static let chipChoreInkDark = "FECACA"
+    static let chipChoreFillLight = "FEE2E2"
+    static let chipChoreFillDark = "4A2024"
+    static let chipReminderInkLight = "92400E"
+    static let chipReminderInkDark = "FDE68A"
+    static let chipReminderFillLight = "FEF3C7"
+    static let chipReminderFillDark = "4A3A14"
+    static let chipTodoInkLight = "065F46"
+    static let chipTodoInkDark = "A7F3D0"
+    static let chipTodoFillLight = "D1FAE5"
+    static let chipTodoFillDark = "0F3D32"
+}
+
 /// EnviroMap paper in light, navy glass in dark. Brand blue stays Heartbeat 003DA5.
 enum AppTheme {
     static let blue = Color(hex: "2B7AE8")
@@ -17,17 +46,20 @@ enum AppTheme {
     static let forestSoft = blueSoft
     static let clay = blueDeep
 
-    static let bg = adaptive(light: "F3F5F8", dark: "0B1220")
-    static let elevated = adaptive(light: "FFFFFF", dark: "152036")
-    static let card = adaptive(light: "FFFFFF", dark: "152036")
-    static let tableFill = adaptive(light: "F7F8FB", dark: "10192B")
-    static let cardBorder = adaptive(light: "C5D4E4", dark: "1C2A40")
+    static let bg = adaptive(light: HubPalette.lightBackground, dark: HubPalette.darkBackground)
+    static let elevated = adaptive(light: HubPalette.lightCard, dark: HubPalette.darkCard)
+    static let card = adaptive(light: HubPalette.lightCard, dark: HubPalette.darkCard)
+    static let tableFill = adaptive(light: "F7F8FB", dark: HubPalette.darkTable)
+    static let cardBorder = adaptive(light: HubPalette.borderLight, dark: HubPalette.borderDark)
 
     /// Light ink for type and marks that sit on blue or the dark splash.
-    static let inkOnFill = Color(hex: "F2F5FA")
-    static let text = adaptive(light: "141A29", dark: "F2F5FA")
-    static let textSecondary = adaptive(light: "616B80", dark: "A8B4C8")
-    static let textTertiary = adaptive(light: "8C93A3", dark: "7D8AA0")
+    static let inkOnFill = Color(hex: HubPalette.labelDark)
+    /// Primary label (`UIColor.label`).
+    static let text = Color(uiColor: .label)
+    /// Secondary label that clears WCAG AA 4.5:1 on Hub surfaces.
+    /// System `secondaryLabel` is 60% white/black and misses 4.5:1 on light backgrounds.
+    static let textSecondary = adaptive(light: HubPalette.secondaryLight, dark: HubPalette.secondaryDark)
+    static let textTertiary = adaptive(light: HubPalette.tertiaryLight, dark: HubPalette.tertiaryDark)
 
     static let chore = Color(hex: "DC2626")
     static let choreSoft = adaptive(light: "FEE2E2", dark: "3F1515")
@@ -35,6 +67,13 @@ enum AppTheme {
     static let reminderSoft = adaptive(light: "FEF3C7", dark: "3F2E10")
     static let todo = Color(hex: "059669")
     static let todoSoft = adaptive(light: "D1FAE5", dark: "0F2F24")
+
+    static let chipChoreInk = adaptive(light: HubPalette.chipChoreInkLight, dark: HubPalette.chipChoreInkDark)
+    static let chipChoreFill = adaptive(light: HubPalette.chipChoreFillLight, dark: HubPalette.chipChoreFillDark)
+    static let chipReminderInk = adaptive(light: HubPalette.chipReminderInkLight, dark: HubPalette.chipReminderInkDark)
+    static let chipReminderFill = adaptive(light: HubPalette.chipReminderFillLight, dark: HubPalette.chipReminderFillDark)
+    static let chipTodoInk = adaptive(light: HubPalette.chipTodoInkLight, dark: HubPalette.chipTodoInkDark)
+    static let chipTodoFill = adaptive(light: HubPalette.chipTodoFillLight, dark: HubPalette.chipTodoFillDark)
 
     static let radiusL: CGFloat = 20
     static let radiusM: CGFloat = 14
@@ -135,5 +174,42 @@ struct HubPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.988 : 1)
             .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
+    }
+}
+
+/// Frosted pill. Material and the primary label adapt to light and dark, so the fill is never solid white.
+struct HubAdaptivePill: ViewModifier {
+    var horizontal: CGFloat = 12
+    var vertical: CGFloat = 6
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(Color.primary)
+            .padding(.horizontal, horizontal)
+            .padding(.vertical, vertical)
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().stroke(Color.primary.opacity(0.22), lineWidth: 1))
+    }
+}
+
+struct HubAdaptiveCircle: ViewModifier {
+    var side: CGFloat = 28
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(Color.primary)
+            .frame(width: side, height: side)
+            .background(.regularMaterial, in: Circle())
+            .overlay(Circle().stroke(Color.primary.opacity(0.22), lineWidth: 1))
+    }
+}
+
+extension View {
+    func hubAdaptivePill(horizontal: CGFloat = 12, vertical: CGFloat = 6) -> some View {
+        modifier(HubAdaptivePill(horizontal: horizontal, vertical: vertical))
+    }
+
+    func hubAdaptiveCircle(side: CGFloat = 28) -> some View {
+        modifier(HubAdaptiveCircle(side: side))
     }
 }

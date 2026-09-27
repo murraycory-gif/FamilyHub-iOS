@@ -8,6 +8,48 @@ enum HubProfile: Hashable {
     case member(UUID)
 }
 
+enum HubTextRole: String, Equatable {
+    case label
+    case secondaryLabel
+}
+
+enum HubGreeting: Equatable {
+    static let lead = "Good"
+
+    static func tail(hour: Int) -> String {
+        if hour < 12 { return "Morning" }
+        if hour < 17 { return "Afternoon" }
+        return "Evening"
+    }
+
+    /// Both words paint with the primary label (`AppTheme.text` / `UIColor.label`).
+    static let textRole = HubTextRole.label
+}
+
+enum AgendaBanner {
+    static func lead(isToday: Bool, dayTitle: String) -> String {
+        isToday ? "Today" : dayTitle
+    }
+
+    /// Household or member name. Blank names are omitted. Does not append "family".
+    static func scope(_ name: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+enum DinnerEmptyCopy {
+    static let addButton = "Add dinner"
+    static let title = "Nothing planned"
+    static let hint = "Tap to plan dinner"
+}
+
+enum StatusChipAccessibility {
+    static func label(count: Int, title: String) -> String {
+        "\(count) \(title)"
+    }
+}
+
 struct TodayView: View {
     @EnvironmentObject private var store: HubStore
     @EnvironmentObject private var router: HubRouter
@@ -351,49 +393,50 @@ struct TodayView: View {
         offerAddUnder: Bool = false,
         offerExpand: Bool = false
     ) -> some View {
-        widgetTile(kind, day: day, live: Calendar.current.isDate(day, inSameDayAs: selectedDay))
+        let tile = widgetTile(kind, day: day, live: Calendar.current.isDate(day, inSameDayAs: selectedDay))
+            .environment(\.hubBannerTrailingReserve, 78)
             .overlay(alignment: .topTrailing) {
                 Button { pickSlot = index } label: {
                     Text("Change")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.white, in: Capsule())
+                        .hubAdaptivePill(horizontal: 10, vertical: 6)
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 8)
                 .padding(.trailing, 10)
             }
-            .overlay(alignment: .bottom) {
-                if offerAddUnder {
-                    Button {
-                        store.addWidgetUnderRight()
-                    } label: {
-                        Label("Add one under", systemImage: "plus")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(.white, in: Capsule())
+        if offerExpand || (offerAddUnder && kind != .dinner) {
+            tile.safeAreaInset(edge: .bottom, spacing: 0) {
+                HStack {
+                    Spacer(minLength: 0)
+                    if offerAddUnder {
+                        Button {
+                            store.addWidgetUnderRight()
+                        } label: {
+                            Label("Add a box", systemImage: "plus")
+                                .font(.caption.weight(.bold))
+                                .hubAdaptivePill()
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button {
+                            store.makeRightWidgetBigger()
+                        } label: {
+                            Label("Make bigger", systemImage: "arrow.up.left.and.arrow.down.right")
+                                .font(.caption.weight(.bold))
+                                .hubAdaptivePill()
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.bottom, 10)
-                } else if offerExpand {
-                    Button {
-                        store.makeRightWidgetBigger()
-                    } label: {
-                        Label("Make bigger", systemImage: "arrow.up.left.and.arrow.down.right")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(.white, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.bottom, 10)
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .background(AppTheme.card)
             }
+        } else {
+            tile
+        }
     }
 
     @ViewBuilder
@@ -427,13 +470,9 @@ struct TodayView: View {
         }
     }
 
-    private var greetingLead: String { "Good" }
-
-    private var greetingTail: String {
+    private var greetingModel: (lead: String, tail: String) {
         let hour = Calendar.current.component(.hour, from: Date())
-        if hour < 12 { return "Morning" }
-        if hour < 17 { return "Afternoon" }
-        return "Evening"
+        return (HubGreeting.lead, HubGreeting.tail(hour: hour))
     }
 
     private func filterPanel(width: CGFloat, height: CGFloat) -> some View {
@@ -448,10 +487,7 @@ struct TodayView: View {
                 } label: {
                     Text("Done")
                         .font(.headline.weight(.bold))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.white, in: Capsule())
+                        .hubAdaptivePill(horizontal: 12, vertical: 6)
                 }
                 .buttonStyle(.plain)
             }
@@ -531,15 +567,17 @@ struct TodayView: View {
     }
 
     private var greeting: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(greetingLead)
-                .foregroundStyle(AppTheme.text)
-            Text(greetingTail)
-                .foregroundStyle(accent)
+        let model = greetingModel
+        let ink = HubGreeting.textRole == .label ? AppTheme.text : AppTheme.textSecondary
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(model.lead)
+            Text(model.tail)
         }
+        .foregroundStyle(ink)
         .font(.system(size: sizeClass == .compact ? 26 : 34, weight: .bold))
         .lineLimit(1)
         .minimumScaleFactor(0.7)
+        .accessibilityElement(children: .combine)
     }
 
     private var dateButton: some View { dateButton(compact: false) }
@@ -635,10 +673,12 @@ struct TodayView: View {
         }
     }
 
-    private var profileTitle: String {
+    private var agendaScopeName: String? {
         switch profile {
-        case .family: return "\(store.householdName) family"
-        case .member(let id): return store.member(id: id)?.name ?? "Family"
+        case .family:
+            return AgendaBanner.scope(store.householdName)
+        case .member(let id):
+            return AgendaBanner.scope(store.member(id: id)?.name ?? "")
         }
     }
 
@@ -812,12 +852,14 @@ struct TodayView: View {
             HubTileBanner(
                 symbol: "calendar",
                 title: "Agenda",
-                lead: Calendar.current.isDateInToday(day) ? "What's On Today's" : "What's On"
+                lead: AgendaBanner.lead(isToday: Calendar.current.isDateInToday(day), dayTitle: headline(for: day))
             ) {
-                Text(profileTitle)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+                if let agendaScopeName {
+                    Text(agendaScopeName)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(AppTheme.inkOnFill)
+                        .lineLimit(1)
+                }
             }
             .contentShape(Rectangle())
             VStack(alignment: .leading, spacing: 10) {
@@ -827,7 +869,7 @@ struct TodayView: View {
                     Spacer()
                     Text("\(items.count)")
                         .font(.subheadline.weight(.bold).monospacedDigit())
-                        .foregroundStyle(AppTheme.textTertiary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
                 if items.isEmpty {
                     Text(emptyDayCopy)
@@ -870,12 +912,16 @@ struct TodayView: View {
             hours: weather.hoursForTile(on: day, count: 5),
             isToday: Calendar.current.isDateInToday(day),
             isLoading: weather.isLoading,
+            errorMessage: weather.errorMessage,
             live: live && Calendar.current.isDate(day, inSameDayAs: selectedDay),
             onOpen: {
                 outlookDay = day
                 showWeatherOutlook = true
             },
-            onChangePlace: { showWeatherPlace = true }
+            onChangePlace: { showWeatherPlace = true },
+            onRetry: {
+                Task { await weather.load(place: store.weatherPlace ?? .chicago, units: store.units) }
+            }
         )
     }
 
@@ -887,10 +933,7 @@ struct TodayView: View {
                     if open.isEmpty == false {
                         Text("\(open.count)")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.white, in: Capsule())
+                            .hubAdaptivePill(horizontal: 8, vertical: 4)
                     }
                     Button {
                         shoppingDraft = ""
@@ -898,8 +941,7 @@ struct TodayView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(accent)
-                            .background(.white, in: Circle())
+                            .hubAdaptiveCircle(side: 28)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Add to shopping list")
@@ -914,10 +956,10 @@ struct TodayView: View {
                             Spacer(minLength: 0)
                             Text("Nothing to get")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.textSecondary)
+                                .foregroundStyle(AppTheme.text)
                             Text("Tap to open the list")
-                                .font(.caption)
-                                .foregroundStyle(AppTheme.textTertiary)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1015,50 +1057,95 @@ struct TodayView: View {
                     } label: {
                         Image(systemName: "trash.fill")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(7)
-                            .background(.white.opacity(0.22), in: Circle())
+                            .foregroundStyle(AppTheme.inkOnFill)
+                            .frame(width: 28, height: 28)
+                            .background(AppTheme.inkOnFill.opacity(0.16), in: Circle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Delete dinner")
                 }
             }
-            Button { openDinner() } label: {
-                ZStack(alignment: .bottom) {
-                    dinnerPhoto(plan: plan, recipe: recipe, title: title)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(dinnerEyebrow(plan))
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.9))
-                        Text(title ?? "Nothing planned")
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                        if let side = store.dinnerSide(on: day) {
-                            Text("with \(side.name)")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.white.opacity(0.95))
-                                .lineLimit(1)
+            if plan == nil {
+                dinnerEmpty(plan: plan, recipe: recipe)
+            } else {
+                Button { openDinner() } label: {
+                    ZStack(alignment: .bottom) {
+                        dinnerPhoto(plan: plan, recipe: recipe, title: title)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        LinearGradient(
+                            colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.88)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(dinnerEyebrow(plan))
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(AppTheme.inkOnFill)
+                            Text(title ?? DinnerEmptyCopy.title)
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(AppTheme.inkOnFill)
+                                .lineLimit(2)
+                            if let side = store.dinnerSide(on: day) {
+                                Text("with \(side.name)")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(AppTheme.inkOnFill)
+                                    .lineLimit(1)
+                            }
+                            Text(dinnerHint(plan, recipe: recipe))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.inkOnFill)
+                                .lineLimit(2)
                         }
-                        Text(dinnerHint(plan, recipe: recipe))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.85))
-                            .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .background(AppTheme.card)
         .hubLift(accent: accent)
+    }
+
+    private func dinnerEmpty(plan: DinnerPlan?, recipe: Recipe?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button { openDinner() } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(dinnerEyebrow(plan))
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .lineLimit(1)
+                    Text(DinnerEmptyCopy.title)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.text)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                    Text(dinnerHint(plan, recipe: recipe))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 8)
+            Button { openDinner() } label: {
+                Label(DinnerEmptyCopy.addButton, systemImage: "plus")
+                    .font(.caption.weight(.bold))
+                    .hubAdaptivePill()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(DinnerEmptyCopy.addButton)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(AppTheme.tableFill)
     }
 
     @ViewBuilder
@@ -1309,7 +1396,7 @@ struct TodayView: View {
         if recipe != nil { return "Tap for ingredients and steps" }
         if plan?.placeName != nil { return "Tap for address and directions" }
         if plan != nil { return "Tap to see the plan" }
-        return "Tap to plan dinner"
+        return DinnerEmptyCopy.hint
     }
 
     private var callouts: some View {
@@ -1388,10 +1475,7 @@ struct TodayView: View {
                         }
                     }
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(accent)
-                    .padding(.horizontal, compact ? 8 : 10)
-                    .padding(.vertical, 6)
-                    .background(.white, in: Capsule())
+                    .hubAdaptivePill(horizontal: compact ? 8 : 10, vertical: 6)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Add Hub Member")
@@ -1680,27 +1764,19 @@ private struct AmazonPersonCard<Content: View>: View {
                         } else {
                             Image(systemName: fallback ?? "person.fill")
                                 .font(.system(size: 44, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.5))
+                                .symbolRenderingMode(.monochrome)
+                                .foregroundStyle(AppTheme.inkOnFill)
                         }
                     }
                 }
                 .clipped()
-                .overlay(alignment: .top) {
-                    LinearGradient(
-                        colors: [.white.opacity(0.28), .clear],
-                        startPoint: .top,
-                        endPoint: .center
-                    )
-                    .frame(height: 36)
-                    .allowsHitTesting(false)
-                }
                 .overlay(alignment: .bottom) {
                     LinearGradient(
-                        colors: [.clear, .black.opacity(0.55), .black.opacity(0.88)],
+                        colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.9)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: 88)
+                    .frame(height: max(72, photoHeight * 0.62))
                     .allowsHitTesting(false)
                 }
                 .overlay(alignment: .bottomLeading) {
@@ -1708,28 +1784,31 @@ private struct AmazonPersonCard<Content: View>: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(name.isEmpty ? "Profile" : name)
                                 .font(.title2.weight(.bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(AppTheme.inkOnFill)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.55)
-                                .shadow(color: .black.opacity(0.7), radius: 8, y: 1)
+                                .shadow(color: AppTheme.space.opacity(0.7), radius: 8, y: 1)
                             Text(eventCount == 1 ? "1 EVENT" : "\(eventCount) EVENTS")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.white)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(AppTheme.inkOnFill)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(ring, in: Capsule())
-                                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+                                .background(AppTheme.inkOnFill.opacity(0.2), in: Capsule())
+                                .overlay(Capsule().stroke(AppTheme.inkOnFill.opacity(0.45), lineWidth: 1))
+                                .accessibilityLabel(eventCount == 1 ? "1 event" : "\(eventCount) events")
                         }
                         Spacer(minLength: 0)
                         Button(action: onCamera) {
                             Image(systemName: "camera.fill")
                                 .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.white)
+                                .symbolRenderingMode(.monochrome)
+                                .foregroundStyle(AppTheme.inkOnFill)
                                 .frame(width: 32, height: 32)
-                                .background(.black.opacity(0.45), in: Circle())
-                                .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1))
+                                .background(AppTheme.space.opacity(0.55), in: Circle())
+                                .overlay(Circle().stroke(AppTheme.inkOnFill.opacity(0.4), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Change photo")
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
@@ -1787,7 +1866,7 @@ private func posterBanner<Trailing: View>(
             }
         }
         .overlay(alignment: .bottom) {
-            LinearGradient(colors: [.clear, .black.opacity(0.88)], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.88)], startPoint: .top, endPoint: .bottom)
                 .frame(height: 100)
                 .overlay(alignment: .bottomLeading) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -1825,11 +1904,11 @@ private struct DayStatusRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            box(AppTheme.chore, AppTheme.choreSoft, "checkmark.circle.fill", chores, "Chores", onChores)
+            box(AppTheme.chipChoreInk, AppTheme.chipChoreFill, "checkmark.circle.fill", chores, "Chores", onChores)
             if let bills, let onBills {
-                box(AppTheme.reminder, AppTheme.reminderSoft, "dollarsign.circle.fill", bills, "Bills Due", onBills)
+                box(AppTheme.chipReminderInk, AppTheme.chipReminderFill, "dollarsign.circle.fill", bills, "Bills Due", onBills)
             }
-            box(AppTheme.todo, AppTheme.todoSoft, "square.and.pencil", todos, "To-dos", onTodos)
+            box(AppTheme.chipTodoInk, AppTheme.chipTodoFill, "square.and.pencil", todos, "To-dos", onTodos)
         }
     }
 
@@ -1838,6 +1917,7 @@ private struct DayStatusRow: View {
             HStack(spacing: 5) {
                 Image(systemName: symbol)
                     .font(.system(size: 12, weight: .bold))
+                    .symbolRenderingMode(.monochrome)
                 Text("\(count)")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .monospacedDigit()
@@ -1852,11 +1932,12 @@ private struct DayStatusRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(color.opacity(0.18), lineWidth: 1)
+                    .stroke(color.opacity(0.45), lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(HubPressStyle())
+        .accessibilityLabel(StatusChipAccessibility.label(count: count, title: title))
     }
 }
 
@@ -1942,7 +2023,7 @@ private struct EventScroll: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Up next")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.textTertiary)
+                    .foregroundStyle(AppTheme.textSecondary)
                     .textCase(.uppercase)
                 if rows.isEmpty {
                     Text("Free this day")
@@ -2120,7 +2201,7 @@ struct BannerStudio: View {
                     LinearGradient(colors: [AppTheme.navy, AppTheme.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
                 }
             }
-            LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
+            LinearGradient(colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.82)], startPoint: .center, endPoint: .bottom)
             VStack(alignment: .leading, spacing: 12) {
                 Text(title)
                     .font(.system(size: 34, weight: .bold))
@@ -2192,7 +2273,7 @@ struct BannerStudio: View {
             Image(look.imageName)
                 .resizable()
                 .scaledToFill()
-            LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
+            LinearGradient(colors: [AppTheme.space.opacity(0), AppTheme.space.opacity(0.78)], startPoint: .center, endPoint: .bottom)
             Text(look.title)
                 .font(.headline.weight(.bold))
                 .foregroundStyle(.white)

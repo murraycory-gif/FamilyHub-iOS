@@ -179,10 +179,7 @@ struct BillsWidget: View {
                 if bills.isEmpty == false {
                     Text("\(bills.count)")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.white, in: Capsule())
+                        .hubAdaptivePill(horizontal: 8, vertical: 4)
                 }
             }
             Group {
@@ -264,9 +261,8 @@ struct FlightWidget: View {
             HubTileBanner(symbol: "airplane", title: "Flights") {
                 Button(action: onAdd) {
                     Image(systemName: "plus")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .background(.white, in: Circle())
+                            .font(.caption.weight(.bold))
+                            .hubAdaptiveCircle(side: 28)
                 }
                 .buttonStyle(.plain)
             }
@@ -640,9 +636,8 @@ struct PackageWidget: View {
             HubTileBanner(symbol: "shippingbox.fill", title: "Packages") {
                 Button(action: onAdd) {
                     Image(systemName: "plus")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .background(.white, in: Circle())
+                            .font(.caption.weight(.bold))
+                            .hubAdaptiveCircle(side: 28)
                 }
                 .buttonStyle(.plain)
             }
@@ -1068,10 +1063,7 @@ struct WhiteboardWidget: View {
                 HubTileBanner(symbol: "square.and.pencil", title: "Whiteboard") {
                     Text(store.whiteboardNote.isEmpty ? "Write" : "Edit")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.white, in: Capsule())
+                        .hubAdaptivePill(horizontal: 8, vertical: 4)
                 }
                 Text(store.whiteboardNote.isEmpty ? "Tap anywhere to leave a note." : store.whiteboardNote)
                     .font(.title3.weight(.semibold))
